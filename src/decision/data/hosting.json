@@ -1,0 +1,59 @@
+[
+  {
+    "id": "cloudflare",
+    "name": "Cloudflare Workers",
+    "category": "hosting",
+    "scores": {
+      "performance": 0.95,
+      "cost": 0.9,
+      "ease_of_use": 0.85,
+      "scalability": 0.95,
+      "global_coverage": 0.99,
+      "cold_start": 0.95
+    },
+    "metadata": {
+      "type": "edge",
+      "free_tier": true,
+      "monthly_cost_usd": 0,
+      "cold_start_ms": 1
+    }
+  },
+  {
+    "id": "vercel",
+    "name": "Vercel",
+    "category": "hosting",
+    "scores": {
+      "performance": 0.9,
+      "cost": 0.7,
+      "ease_of_use": 0.95,
+      "scalability": 0.9,
+      "global_coverage": 0.9,
+      "cold_start": 0.85
+    },
+    "metadata": {
+      "type": "edge",
+      "free_tier": true,
+      "monthly_cost_usd": 0,
+      "cold_start_ms": 5
+    }
+  },
+  {
+    "id": "railway",
+    "name": "Railway",
+    "category": "hosting",
+    "scores": {
+      "performance": 0.8,
+      "cost": 0.75,
+      "ease_of_use": 0.9,
+      "scalability": 0.8,
+      "global_coverage": 0.5,
+      "cold_start": 0.6
+    },
+    "metadata": {
+      "type": "container",
+      "free_tier": true,
+      "monthly_cost_usd": 5,
+      "cold_start_ms": 100
+    }
+  }
+]

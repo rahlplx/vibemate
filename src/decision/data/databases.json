@@ -1,0 +1,56 @@
+[
+  {
+    "id": "sqlite",
+    "name": "SQLite",
+    "category": "database",
+    "scores": {
+      "performance": 0.95,
+      "cost": 1.0,
+      "scalability": 0.3,
+      "ease_of_use": 0.9,
+      "maintenance": 0.95,
+      "ecosystem": 0.7
+    },
+    "metadata": {
+      "runtime": "embedded",
+      "license": "Public Domain",
+      "monthly_cost_usd": 0
+    }
+  },
+  {
+    "id": "postgresql",
+    "name": "PostgreSQL",
+    "category": "database",
+    "scores": {
+      "performance": 0.85,
+      "cost": 0.7,
+      "scalability": 0.9,
+      "ease_of_use": 0.7,
+      "maintenance": 0.6,
+      "ecosystem": 0.95
+    },
+    "metadata": {
+      "runtime": "server",
+      "license": "PostgreSQL License",
+      "monthly_cost_usd": 15
+    }
+  },
+  {
+    "id": "turso",
+    "name": "Turso/libSQL",
+    "category": "database",
+    "scores": {
+      "performance": 0.9,
+      "cost": 0.8,
+      "scalability": 0.85,
+      "ease_of_use": 0.8,
+      "maintenance": 0.8,
+      "ecosystem": 0.6
+    },
+    "metadata": {
+      "runtime": "edge",
+      "license": "MIT",
+      "monthly_cost_usd": 5
+    }
+  }
+]

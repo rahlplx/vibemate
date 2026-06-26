@@ -1,0 +1,59 @@
+[
+  {
+    "id": "bun",
+    "name": "Bun",
+    "category": "runtime",
+    "scores": {
+      "performance": 0.95,
+      "cost": 1.0,
+      "developer_experience": 0.9,
+      "ecosystem": 0.7,
+      "cold_start": 0.98,
+      "memory_efficiency": 0.85
+    },
+    "metadata": {
+      "language": "TypeScript/JavaScript",
+      "version": "1.2",
+      "http_requests_per_sec": 142000,
+      "cold_start_ms": 4
+    }
+  },
+  {
+    "id": "node",
+    "name": "Node.js",
+    "category": "runtime",
+    "scores": {
+      "performance": 0.7,
+      "cost": 0.9,
+      "developer_experience": 0.85,
+      "ecosystem": 1.0,
+      "cold_start": 0.6,
+      "memory_efficiency": 0.7
+    },
+    "metadata": {
+      "language": "JavaScript",
+      "version": "22",
+      "http_requests_per_sec": 68000,
+      "cold_start_ms": 50
+    }
+  },
+  {
+    "id": "deno",
+    "name": "Deno",
+    "category": "runtime",
+    "scores": {
+      "performance": 0.8,
+      "cost": 0.9,
+      "developer_experience": 0.85,
+      "ecosystem": 0.6,
+      "cold_start": 0.8,
+      "memory_efficiency": 0.8
+    },
+    "metadata": {
+      "language": "TypeScript",
+      "version": "2",
+      "http_requests_per_sec": 95000,
+      "cold_start_ms": 15
+    }
+  }
+]

@@ -1,0 +1,26 @@
+{
+  "name": "vibemate",
+  "version": "1.0.0",
+  "description": "Vibemate unified AI coding agent plugin",
+  "skills": [
+    {
+      "name": "tdd-workflow",
+      "path": ".claude/skills/tdd-workflow.md",
+      "description": "Vibemate skill: tdd-workflow"
+    },
+    {
+      "name": "security-audit",
+      "path": ".claude/skills/security-audit.md",
+      "description": "Vibemate skill: security-audit"
+    },
+    {
+      "name": "performance-optimization",
+      "path": ".claude/skills/performance-optimization.md",
+      "description": "Vibemate skill: performance-optimization"
+    }
+  ],
+  "context": {
+    "okfBundle": ".agents/okf-bundle",
+    "telemetry": ".vibe/telemetry"
+  }
+}

@@ -1,0 +1,97 @@
+[
+  {
+    "id": "astro",
+    "name": "Astro",
+    "category": "framework",
+    "scores": {
+      "performance": 0.98,
+      "developer_experience": 0.9,
+      "ecosystem": 0.75,
+      "seo": 1.0,
+      "bundle_size": 0.99,
+      "learning_curve": 0.8
+    },
+    "metadata": {
+      "type": "static",
+      "js_bundle_kb": 0,
+      "default_output": "static",
+      "framework_support": ["react", "vue", "svelte", "solid"]
+    }
+  },
+  {
+    "id": "next",
+    "name": "Next.js",
+    "category": "framework",
+    "scores": {
+      "performance": 0.8,
+      "developer_experience": 0.85,
+      "ecosystem": 0.95,
+      "seo": 0.9,
+      "bundle_size": 0.6,
+      "learning_curve": 0.7
+    },
+    "metadata": {
+      "type": "hybrid",
+      "js_bundle_kb": 85,
+      "default_output": "ssr",
+      "framework_support": ["react"]
+    }
+  },
+  {
+    "id": "nuxt",
+    "name": "Nuxt",
+    "category": "framework",
+    "scores": {
+      "performance": 0.8,
+      "developer_experience": 0.85,
+      "ecosystem": 0.8,
+      "seo": 0.9,
+      "bundle_size": 0.65,
+      "learning_curve": 0.75
+    },
+    "metadata": {
+      "type": "hybrid",
+      "js_bundle_kb": 75,
+      "default_output": "ssr",
+      "framework_support": ["vue"]
+    }
+  },
+  {
+    "id": "svelte",
+    "name": "Svelte",
+    "category": "framework",
+    "scores": {
+      "performance": 0.95,
+      "developer_experience": 0.9,
+      "ecosystem": 0.6,
+      "seo": 0.85,
+      "bundle_size": 0.95,
+      "learning_curve": 0.8
+    },
+    "metadata": {
+      "type": "compiler",
+      "js_bundle_kb": 3,
+      "default_output": "static",
+      "framework_support": []
+    }
+  },
+  {
+    "id": "vue",
+    "name": "Vue",
+    "category": "framework",
+    "scores": {
+      "performance": 0.85,
+      "developer_experience": 0.9,
+      "ecosystem": 0.8,
+      "seo": 0.8,
+      "bundle_size": 0.75,
+      "learning_curve": 0.9
+    },
+    "metadata": {
+      "type": "runtime",
+      "js_bundle_kb": 35,
+      "default_output": "spa",
+      "framework_support": []
+    }
+  }
+]
