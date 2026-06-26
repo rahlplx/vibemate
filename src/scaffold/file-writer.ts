@@ -1,11 +1,20 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
+function assertSafePath(baseDir: string, filePath: string): void {
+  const resolvedBase = path.resolve(baseDir);
+  const fullPath = path.resolve(baseDir, filePath);
+  if (!fullPath.startsWith(resolvedBase + path.sep) && fullPath !== resolvedBase) {
+    throw new Error(`Path traversal detected: ${filePath}`);
+  }
+}
+
 export function writeFile(
   baseDir: string,
   filePath: string,
   content: string
 ): void {
+  assertSafePath(baseDir, filePath);
   const fullPath = path.join(baseDir, filePath);
   const dir = path.dirname(fullPath);
   fs.mkdirSync(dir, { recursive: true });
@@ -22,11 +31,13 @@ export function writeFiles(
 }
 
 export function fileExists(baseDir: string, filePath: string): boolean {
+  assertSafePath(baseDir, filePath);
   const fullPath = path.join(baseDir, filePath);
   return fs.existsSync(fullPath);
 }
 
 export function readFile(baseDir: string, filePath: string): string | null {
+  assertSafePath(baseDir, filePath);
   const fullPath = path.join(baseDir, filePath);
   if (!fs.existsSync(fullPath)) return null;
   return fs.readFileSync(fullPath, 'utf-8');

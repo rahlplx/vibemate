@@ -7,6 +7,7 @@ export type ErrorCode =
   | 'SCAFFOLD_TEMPLATE_INVALID'
   | 'SCAFFOLD_FILE_WRITE_FAILED'
   | 'SCAFFOLD_VALIDATION_FAILED'
+  | 'SCAFFOLD_PATH_TRAVERSAL'
   | 'DECISION_INVALID_WEIGHTS'
   | 'DECISION_MATRIX_EMPTY'
   | 'DECISION_LLM_UNAVAILABLE'
@@ -16,9 +17,14 @@ export type ErrorCode =
   | 'EXECUTION_GATE_DENIED'
   | 'EXECUTION_COMPLEXITY_EXCEEDED'
   | 'EXECUTION_CIRCUIT_BREAKER'
+  | 'SCALING_WORKER_CRASHED'
+  | 'SCALING_ACQUIRE_TIMEOUT'
+  | 'SCALING_POOL_EXHAUSTED'
+  | 'GOVERNANCE_USER_NOT_FOUND'
+  | 'GOVERNANCE_ROLE_NOT_FOUND'
+  | 'GOVERNANCE_POLICY_DENIED'
   | 'BROWSER_DAEMON_UNAVAILABLE'
-  | 'LLM_PROVIDER_UNAVAILABLE'
-  | string;
+  | 'LLM_PROVIDER_UNAVAILABLE';
 
 export interface VibemateErrorOptions extends ErrorOptions {
   context?: Record<string, unknown>;
@@ -68,5 +74,19 @@ export class ExecutionError extends VibemateError {
   constructor(code: string, message: string, options?: VibemateErrorOptions) {
     super(`EXECUTION_${code}`, message, options);
     this.name = 'ExecutionError';
+  }
+}
+
+export class ScalingError extends VibemateError {
+  constructor(code: string, message: string, options?: VibemateErrorOptions) {
+    super(`SCALING_${code}`, message, options);
+    this.name = 'ScalingError';
+  }
+}
+
+export class GovernanceError extends VibemateError {
+  constructor(code: string, message: string, options?: VibemateErrorOptions) {
+    super(`GOVERNANCE_${code}`, message, options);
+    this.name = 'GovernanceError';
   }
 }

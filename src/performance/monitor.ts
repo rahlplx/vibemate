@@ -85,14 +85,19 @@ export class PerformanceMonitor {
     }
 
     const sorted = [...values].sort((a, b) => a - b);
+    const percentile = (arr: number[], p: number): number => {
+      if (arr.length === 0) return 0;
+      const index = Math.ceil(arr.length * p) - 1;
+      return arr[Math.max(0, index)];
+    };
     return {
       count: sorted.length,
       min: sorted[0],
       max: sorted[sorted.length - 1],
       avg: sorted.reduce((a, b) => a + b, 0) / sorted.length,
-      p50: sorted[Math.floor(sorted.length * 0.5)],
-      p95: sorted[Math.floor(sorted.length * 0.95)],
-      p99: sorted[Math.floor(sorted.length * 0.99)],
+      p50: percentile(sorted, 0.5),
+      p95: percentile(sorted, 0.95),
+      p99: percentile(sorted, 0.99),
     };
   }
 
@@ -133,6 +138,9 @@ export class PerformanceMonitor {
     };
 
     this.alerts.push(alert);
+    if (this.alerts.length > 1000) {
+      this.alerts = this.alerts.slice(-1000);
+    }
   }
 
   getAlerts(filters?: {
@@ -174,10 +182,12 @@ export class PerformanceMonitor {
   clearOldMetrics(): void {
     const cutoff = Date.now() - this.config.retentionPeriod;
     for (const [name, values] of this.metrics.entries()) {
-      this.metrics.set(
-        name,
-        values.filter(m => m.timestamp.getTime() >= cutoff)
-      );
+      const filtered = values.filter(m => m.timestamp.getTime() >= cutoff);
+      if (filtered.length === 0) {
+        this.metrics.delete(name);
+      } else {
+        this.metrics.set(name, filtered);
+      }
     }
   }
 }

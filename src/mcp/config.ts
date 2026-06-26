@@ -188,17 +188,13 @@ export class MCPConfigGenerator {
 
     for (const [name, server] of Object.entries(config.mcpServers)) {
       try {
-        // Check if command exists (cross-platform)
-        const { execSync } = await import('child_process');
+        const { execFileSync } = await import('child_process');
         const cmd = server.command === 'npx' ? 'npx' : server.command;
-        // Use 'where' on Windows, 'which' on Unix
-        let checkCmd: string;
         if (process.platform === 'win32') {
-          checkCmd = 'where ' + cmd;
+          execFileSync('where', [cmd], { stdio: 'ignore' });
         } else {
-          checkCmd = 'which ' + cmd;
+          execFileSync('which', [cmd], { stdio: 'ignore' });
         }
-        execSync(checkCmd, { stdio: 'ignore' });
         results[name] = { healthy: true };
       } catch {
         results[name] = { healthy: false, error: 'Command not found: ' + server.command };

@@ -26,6 +26,7 @@ export function createDiscoveryEngine(dbPath: string): DiscoveryEngine {
 
   const trees = new Map<string, QuestionTree>();
   const answersBySession = new Map<string, TreeAnswer[]>();
+  const sessionTypes = new Map<string, string>();
 
   function getTree(type: string): QuestionTree {
     let tree = trees.get(type);
@@ -55,6 +56,7 @@ export function createDiscoveryEngine(dbPath: string): DiscoveryEngine {
 
       const tree = getTree(type);
       answersBySession.set(session.id, []);
+      sessionTypes.set(session.id, type);
 
       const next = getNextQuestion(tree, []);
       if (!next) {
@@ -91,7 +93,8 @@ export function createDiscoveryEngine(dbPath: string): DiscoveryEngine {
         }))
       );
 
-      const tree = getTree('saas');
+      const sessionType = sessionTypes.get(sessionId) ?? 'saas';
+      const tree = getTree(sessionType);
       const next = getNextQuestion(tree, answers);
 
       if (!next) {
@@ -123,20 +126,28 @@ export function createDiscoveryEngine(dbPath: string): DiscoveryEngine {
       const session = store.getSession(sessionId);
       if (!session) return 0;
 
-      const tree = getTree('saas');
+      const sessionType = sessionTypes.get(sessionId) ?? 'saas';
+      const tree = getTree(sessionType);
       const totalQuestions = tree.questionMap.size;
       return totalQuestions > 0 ? (answers.length / totalQuestions) * 100 : 0;
     },
 
     getAmbiguity(sessionId) {
       const answers = answersBySession.get(sessionId) ?? [];
+      const sessionType = sessionTypes.get(sessionId) ?? 'saas';
+      const tree = getTree(sessionType);
       return calculateAmbiguityScore(
-        answers.map((a) => ({
-          questionId: a.questionId,
-          value: a.value,
-          confidence: 0.8,
-          isText: false,
-        }))
+        answers.map((a) => {
+          const question = tree.questionMap.get(a.questionId);
+          const isText = question?.type === 'text';
+          const confidence = isText ? 0.5 : 0.9;
+          return {
+            questionId: a.questionId,
+            value: a.value,
+            confidence,
+            isText,
+          };
+        })
       );
     },
 

@@ -153,18 +153,26 @@ async function runAutoPipeline(description: string, options: AutoOptions): Promi
     state.completed.push(state.phase);
     state.artifacts[state.phase] = result.artifact || '';
 
+    // Track phase result for circuit breaker
+    if (result.allChecksPassed === false) {
+      circuitBreaker.consecutiveFailures++;
+    } else {
+      circuitBreaker.consecutiveFailures = 0;
+    }
+
+    const completedPhase = state.phase;
+
     // Advance to next phase
     const transition = PHASE_TRANSITIONS[state.phase];
     if (transition.next) {
-      // Check if we should skip this phase
       if (transition.condition === 'has_ui' && !state.hasUI) {
         console.log(`⏭️  Skipping ${transition.next} (no UI)`);
-        state.phase = transition.next;
+        const skipTransition = PHASE_TRANSITIONS[transition.next];
+        state.phase = skipTransition?.next ?? transition.next;
       } else if (transition.condition === 'has_more_tasks' && !result.hasMoreTasks) {
         state.phase = transition.next;
       } else if (transition.condition === 'all_checks_passed' && !result.allChecksPassed) {
         console.log('🔄 Harness checks failed, looping...');
-        // Stay in harness phase
       } else {
         state.phase = transition.next;
       }
@@ -176,7 +184,7 @@ async function runAutoPipeline(description: string, options: AutoOptions): Promi
     await writeFile(statePath, JSON.stringify(state, null, 2));
 
     // Write handoff document
-    await writeHandoff(root, state, state.phase);
+    await writeHandoff(root, state, completedPhase);
 
     // Increment dispatch count
     circuitBreaker.dispatchCount++;
@@ -420,13 +428,14 @@ function printCircuitBreakerSummary(cb: CircuitBreaker): void {
   console.log(`   Total cost: $${cb.totalCost.toFixed(2)}/$${cb.maxBudget.toFixed(2)}`);
 }
 
-async function writeHandoff(root: string, state: AutoState, nextPhase: AutoPhase): Promise<void> {
+async function writeHandoff(root: string, state: AutoState, completedPhase: AutoPhase): Promise<void> {
+  const nextPhase = state.phase;
   const handoff = `# Handoff Document
 
 ## Current State
-- Phase: ${state.phase}
-- Completed: ${state.completed.join(', ')}
-- Next: ${nextPhase}
+- Completed Phase: ${completedPhase}
+- Current Phase: ${nextPhase}
+- All Completed: ${state.completed.join(', ')}
 
 ## Artifacts
 ${Object.entries(state.artifacts).map(([phase, artifact]) => `- ${phase}: ${artifact}`).join('\n')}

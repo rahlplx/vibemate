@@ -77,11 +77,15 @@ describe('Session operations', () => {
   it('updates session answers', () => {
     store.createProject({ id: 'p1', name: 'App', type: 'saas' });
     store.createSession({ id: 's1', projectId: 'p1', phase: 'discovery' });
+    const timestamp = new Date().toISOString();
     store.updateSessionAnswers('s1', [
-      { questionId: 'q1', value: 'SaaS', timestamp: new Date().toISOString() },
+      { questionId: 'q1', value: 'SaaS', timestamp },
     ]);
     const session = store.getSession('s1');
-    expect(session!.answers).toBe('[{"questionId":"q1","value":"SaaS"}]');
+    const parsed = JSON.parse(session!.answers);
+    expect(parsed[0].questionId).toBe('q1');
+    expect(parsed[0].value).toBe('SaaS');
+    expect(parsed[0].timestamp).toBe(timestamp);
   });
 
   it('lists sessions for a project', () => {

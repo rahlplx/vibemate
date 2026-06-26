@@ -16,9 +16,10 @@ export function calculateComplexity(input: ComplexityInput): number {
   score += input.hasTests ? 2 : 0;
   score += input.hasUI ? 2 : 0;
 
-  if (input.description.includes('refactor')) score += 2;
-  if (input.description.includes('auth')) score += 1;
-  if (input.description.includes('migrate')) score += 3;
+  const desc = input.description.toLowerCase();
+  if (desc.includes('refactor')) score += 2;
+  if (desc.includes('auth')) score += 1;
+  if (desc.includes('migrate')) score += 3;
 
   return Math.round(Math.min(20, Math.max(0, score)));
 }

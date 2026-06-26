@@ -1,6 +1,3 @@
-import { createConnection, closeConnection } from '../state/connection.js';
-import { runMigrations } from '../state/migrations.js';
-import { createStore } from '../state/store.js';
 import { createMatrix, addOption, addCriteria, type ComparisonMatrix } from './matrix.js';
 import { rankOptions, type RankedOption } from './scorer.js';
 import databases from './data/databases.json';
@@ -71,11 +68,7 @@ export interface DecisionEngine {
   close(): void;
 }
 
-export function createDecisionEngine(dbPath: string): DecisionEngine {
-  const conn = createConnection(dbPath);
-  runMigrations(conn);
-  createStore(conn);
-
+export function createDecisionEngine(_dbPath: string): DecisionEngine {
   return {
     getOptions(category) {
       return BENCHMARK_DATA[category] ?? [];
@@ -121,8 +114,6 @@ export function createDecisionEngine(dbPath: string): DecisionEngine {
       };
     },
 
-    close() {
-      closeConnection(conn);
-    },
+    close() {},
   };
 }

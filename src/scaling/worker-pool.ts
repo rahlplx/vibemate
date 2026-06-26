@@ -88,57 +88,52 @@ export class WorkerPool {
   private handleWorkerError(worker: WorkerInfo, err: Error): void {
     worker.busy = false;
     console.error(`Worker ${worker.id} error:`, err);
+    this.processQueue();
   }
 
   private handleWorkerExit(worker: WorkerInfo): void {
     this.workers.delete(worker.id);
-    // Replace with new worker if below minimum
-    if (this.workers.size < this.config.minWorkers) {
-      // async createWorker() - simplified for now
-    }
   }
 
   async execute<T, R>(scriptPath: string, data: T): Promise<R> {
-    return new Promise(async (resolve, reject) => {
-      const id = `task-${this.taskIdCounter++}`;
+    const id = `task-${this.taskIdCounter++}`;
 
+    let worker = Array.from(this.workers.values()).find(w => !w.busy);
+
+    if (!worker && this.workers.size < this.config.maxWorkers) {
+      worker = await this.createWorker(scriptPath);
+    }
+
+    if (!worker) {
+      return new Promise<R>((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          const idx = this.taskQueue.findIndex(t => t.id === id);
+          if (idx !== -1) this.taskQueue.splice(idx, 1);
+          reject(new Error(`Task ${id} timeout`));
+        }, this.config.taskTimeoutMs);
+        this.taskQueue.push({ id, data, resolve, reject, timeout });
+      });
+    }
+
+    worker.busy = true;
+    worker.lastActive = Date.now();
+
+    return new Promise<R>((resolve, reject) => {
       const timeout = setTimeout(() => {
+        worker!.worker.removeListener('message', messageHandler);
+        worker!.busy = false;
         reject(new Error(`Task ${id} timeout`));
       }, this.config.taskTimeoutMs);
 
-      // Find available worker
-      const worker = Array.from(this.workers.values()).find(w => !w.busy);
+      const messageHandler = (result: R) => {
+        worker!.worker.removeListener('message', messageHandler);
+        clearTimeout(timeout);
+        worker!.busy = false;
+        resolve(result);
+      };
 
-      if (worker) {
-        worker.busy = true;
-        worker.lastActive = Date.now();
-
-        const messageHandler = (result: R) => {
-          worker!.worker.removeListener('message', messageHandler);
-          clearTimeout(timeout);
-          resolve(result);
-        };
-
-        worker.worker.once('message', messageHandler);
-        worker.worker.postMessage(data);
-      } else if (this.workers.size < this.config.maxWorkers) {
-        // Create new worker
-        const newWorker = await this.createWorker(scriptPath);
-        newWorker.busy = true;
-        newWorker.lastActive = Date.now();
-
-        const messageHandler = (result: R) => {
-          newWorker.worker.removeListener('message', messageHandler);
-          clearTimeout(timeout);
-          resolve(result);
-        };
-
-        newWorker.worker.once('message', messageHandler);
-        newWorker.worker.postMessage(data);
-      } else {
-        // Queue the task
-        this.taskQueue.push({ id, data, resolve, reject, timeout });
-      }
+      worker!.worker.once('message', messageHandler);
+      worker!.worker.postMessage(data);
     });
   }
 
@@ -152,9 +147,10 @@ export class WorkerPool {
     worker.busy = true;
     worker.lastActive = Date.now();
 
-    const messageHandler = (result: any) => {
+    const messageHandler = (result: unknown) => {
       worker!.worker.removeListener('message', messageHandler);
       clearTimeout(task.timeout);
+      worker!.busy = false;
       task.resolve(result);
     };
 

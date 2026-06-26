@@ -49,7 +49,8 @@ export function createDispatcher(dbPath: string): Dispatcher {
       const inProgress = store.listTasksByStatus(sessionId, 'in_progress');
       const completed = store.listTasksByStatus(sessionId, 'completed');
       const failed = store.listTasksByStatus(sessionId, 'failed');
-      return [...pending, ...inProgress, ...completed, ...failed];
+      const skipped = store.listTasksByStatus(sessionId, 'skipped');
+      return [...pending, ...inProgress, ...completed, ...failed, ...skipped];
     },
 
     completeTask(id, output) {

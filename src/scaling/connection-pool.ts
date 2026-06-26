@@ -26,6 +26,7 @@ export class ConnectionPool<T> {
     reject: (err: Error) => void;
     timeout: ReturnType<typeof setTimeout>;
   }> = [];
+  private creating = false;
   private stats: PoolStats = {
     total: 0,
     active: 0,
@@ -72,14 +73,21 @@ export class ConnectionPool<T> {
       return conn;
     }
 
-    // Create new connection if under limit
-    if (this.stats.total < this.config.max) {
-      const conn = await this.factory();
-      this.active.add(conn);
-      this.stats.total++;
-      this.stats.created++;
-      this.updateStats();
-      return conn;
+    // Create new connection if under limit (with mutex)
+    if (this.stats.total < this.config.max && !this.creating) {
+      this.creating = true;
+      try {
+        if (this.stats.total < this.config.max) {
+          const conn = await this.factory();
+          this.active.add(conn);
+          this.stats.total++;
+          this.stats.created++;
+          this.updateStats();
+          return conn;
+        }
+      } finally {
+        this.creating = false;
+      }
     }
 
     // Wait for a connection to become available
@@ -117,21 +125,24 @@ export class ConnectionPool<T> {
   }
 
   async destroy(): Promise<void> {
-    // Destroy all available connections
     for (const conn of this.available) {
       await this.destroyer(conn);
       this.stats.destroyed++;
     }
     this.available = [];
 
-    // Wait for active connections to be released
+    for (const conn of this.active) {
+      await this.destroyer(conn);
+      this.stats.destroyed++;
+    }
+    this.active.clear();
+
     for (const waiter of this.waiting) {
       clearTimeout(waiter.timeout);
       waiter.reject(new Error('Pool destroyed'));
     }
     this.waiting = [];
 
-    // Update total count
     this.stats.total = 0;
     this.updateStats();
   }

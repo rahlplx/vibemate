@@ -87,11 +87,23 @@ export class GovernanceEngine {
     return this.users.get(id);
   }
 
+  removeUser(id: string): boolean {
+    return this.users.delete(id);
+  }
+
+  removeRole(name: string): boolean {
+    return this.roles.delete(name);
+  }
+
   hasPermission(userId: string, permission: Permission, resource: string): boolean {
     const user = this.users.get(userId);
-    if (!user) return false;
+    if (!user) {
+      this.logAudit(userId, permission, resource, false, 'USER_NOT_FOUND');
+      return false;
+    }
 
-    // Check policies first
+    user.lastActive = new Date();
+
     const context: PolicyContext = {
       user,
       action: permission,
@@ -106,7 +118,6 @@ export class GovernanceEngine {
       }
     }
 
-    // Check role permissions
     for (const roleName of user.roles) {
       const role = this.roles.get(roleName);
       if (role && role.permissions.includes(permission)) {
@@ -123,15 +134,19 @@ export class GovernanceEngine {
     this.policies.push(policy);
   }
 
-  private logAudit(userId: string, action: string, resource: string, success: boolean): void {
-    this.auditLog.push({
-      id: `audit-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+  private logAudit(userId: string, action: string, resource: string, success: boolean, reason?: string): void {
+    const entry: AuditEntry = {
+      id: `audit-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
       userId,
       action,
       resource,
       timestamp: new Date(),
       success,
-    });
+    };
+    if (reason) {
+      entry.details = { reason };
+    }
+    this.auditLog.push(entry);
   }
 
   getAuditLog(filters?: {
@@ -166,11 +181,12 @@ export class GovernanceEngine {
     failed: number;
     uniqueUsers: number;
   } {
+    const entries = [...this.auditLog];
     return {
-      totalEntries: this.auditLog.length,
-      successful: this.auditLog.filter(e => e.success).length,
-      failed: this.auditLog.filter(e => !e.success).length,
-      uniqueUsers: new Set(this.auditLog.map(e => e.userId)).size,
+      totalEntries: entries.length,
+      successful: entries.filter(e => e.success).length,
+      failed: entries.filter(e => !e.success).length,
+      uniqueUsers: new Set(entries.map(e => e.userId)).size,
     };
   }
 }

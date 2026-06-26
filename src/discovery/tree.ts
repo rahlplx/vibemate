@@ -47,6 +47,22 @@ function buildBranches(
   const question = questions[startIndex];
   if (!question) return [];
 
+  if (question.followUp && question.options) {
+    const children: TreeNode[] = [];
+    for (const option of question.options) {
+      const childNodes = buildBranches(questions, startIndex + 1, [...path, { questionId: question.id, value: option.value }]);
+      if (childNodes.length > 0) {
+        children.push({
+          id: `node-${startIndex}-${option.value}`,
+          questionId: question.id,
+          condition: { questionId: question.id, value: option.value },
+          children: childNodes,
+        });
+      }
+    }
+    if (children.length > 0) return children;
+  }
+
   const node: TreeNode = {
     id: `node-${startIndex}`,
     questionId: question.id,

@@ -167,7 +167,7 @@ export function createStore(conn: DatabaseConnection): StateStore {
 
     updateSessionAnswers(id, answers) {
       db.prepare('UPDATE sessions SET answers = ? WHERE id = ?').run(
-        JSON.stringify(answers.map((a) => ({ questionId: a.questionId, value: a.value }))),
+        JSON.stringify(answers.map((a) => ({ questionId: a.questionId, value: a.value, timestamp: a.timestamp }))),
         id
       );
     },

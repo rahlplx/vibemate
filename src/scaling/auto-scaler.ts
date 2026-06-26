@@ -63,7 +63,11 @@ export class AutoScaler {
   updateMetrics(id: string, metrics: Partial<WorkerMetrics>): void {
     const worker = this.workers.get(id);
     if (worker) {
-      Object.assign(worker, metrics, { lastActive: Date.now() });
+      if (metrics.cpu !== undefined) worker.cpu = metrics.cpu;
+      if (metrics.memory !== undefined) worker.memory = metrics.memory;
+      if (metrics.tasks !== undefined) worker.tasks = metrics.tasks;
+      if (metrics.uptime !== undefined) worker.uptime = metrics.uptime;
+      worker.lastActive = Date.now();
     }
   }
 
@@ -119,6 +123,9 @@ export class AutoScaler {
     };
 
     this.scalingHistory.push(decision);
+    if (this.scalingHistory.length > 100) {
+      this.scalingHistory = this.scalingHistory.slice(-100);
+    }
     if (action !== 'maintain') {
       this.lastScaleTime = Date.now();
     }

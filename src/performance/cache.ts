@@ -70,9 +70,12 @@ export class LRUCache<T> {
   }
 
   set(key: string, value: T, ttl?: number): void {
-    // Evict if at capacity
     if (this.cache.size >= this.config.maxSize && !this.cache.has(key)) {
       this.evict();
+    }
+
+    if (this.cache.has(key)) {
+      this.cache.delete(key);
     }
 
     const expiresAt = Date.now() + (ttl || this.config.defaultTTL);
@@ -100,12 +103,14 @@ export class LRUCache<T> {
     const entry = this.cache.get(key);
     if (!entry) return false;
 
-    // Check TTL
     if (Date.now() > entry.expiresAt) {
       this.cache.delete(key);
+      this.stats.size = this.cache.size;
       return false;
     }
 
+    entry.lastAccess = Date.now();
+    entry.hits++;
     return true;
   }
 
@@ -146,8 +151,21 @@ export class LRUCache<T> {
     return this.cache.size;
   }
 
+  prune(): void {
+    const now = Date.now();
+    for (const [key, entry] of this.cache.entries()) {
+      if (now > entry.expiresAt) {
+        this.cache.delete(key);
+      }
+    }
+    this.stats.size = this.cache.size;
+  }
+
   keys(): string[] {
-    return Array.from(this.cache.keys());
+    const now = Date.now();
+    return Array.from(this.cache.entries())
+      .filter(([_, entry]) => now <= entry.expiresAt)
+      .map(([key]) => key);
   }
 
   values(): T[] {
