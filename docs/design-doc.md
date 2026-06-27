@@ -1,8 +1,8 @@
-# /vibe:plan — Next Iteration Design Document
+# /vibe:plan — Multi-Perspective Review + Gap Coverage Plan
 
 **Date:** 2026-06-27
 **Phase:** plan → break → build
-**Current State:** 900 tests, 0 failures, 1436 simulation passes, 12/12 gaps closed
+**Current State:** 1039 tests, 0 failures, 94.97% coverage, typecheck clean
 
 ---
 
@@ -42,7 +42,6 @@ A fully autonomous self-improving AI platform that:
 │   Engine    │    │   Dreaming   │    │   Dreaming  │
 └─────────────┘    └──────────────┘    └──────┬──────┘
                                               ▲
-                                              │
                                        ┌──────┴──────┐
                                        │    Light    │
                                        │   Dreaming  │

@@ -1,5 +1,5 @@
 import { execSync } from "child_process"
-import { readFileSync } from "fs"
+import { readFileSync, readdirSync } from "fs"
 import { join, basename } from "path"
 import type { InstrumentResult, TraceEntry, LogEntry, RawMetrics } from "./types"
 
@@ -18,7 +18,7 @@ function countLOC(dir: string): { total: number; maxFile: number; count: number;
 
   function walk(d: string) {
     try {
-      const entries = require("fs").readdirSync(d, { withFileTypes: true })
+      const entries = readdirSync(d, { withFileTypes: true })
       for (const entry of entries) {
         if (entry.name === "node_modules" || entry.name === ".git" || entry.name === "dist") continue
         const full = join(d, entry.name)
@@ -46,7 +46,7 @@ function countTests(dir: string): { pass: number; fail: number; skip: number; to
 
   function walk(d: string) {
     try {
-      const entries = require("fs").readdirSync(d, { withFileTypes: true })
+      const entries = readdirSync(d, { withFileTypes: true })
       for (const entry of entries) {
         if (entry.name === "node_modules" || entry.name === ".git") continue
         const full = join(d, entry.name)
@@ -85,7 +85,7 @@ function countExports(dir: string): number {
 
   function walk(d: string) {
     try {
-      const entries = require("fs").readdirSync(d, { withFileTypes: true })
+      const entries = readdirSync(d, { withFileTypes: true })
       for (const entry of entries) {
         if (entry.name === "node_modules" || entry.name === ".git") continue
         const full = join(d, entry.name)
@@ -114,7 +114,7 @@ function countImports(dir: string): number {
 
   function walk(d: string) {
     try {
-      const entries = require("fs").readdirSync(d, { withFileTypes: true })
+      const entries = readdirSync(d, { withFileTypes: true })
       for (const entry of entries) {
         if (entry.name === "node_modules" || entry.name === ".git") continue
         const full = join(d, entry.name)
@@ -156,7 +156,7 @@ function detectCircularDeps(dir: string): string[] {
 
   function walk(d: string) {
     try {
-      const entries = require("fs").readdirSync(d, { withFileTypes: true })
+      const entries = readdirSync(d, { withFileTypes: true })
       for (const entry of entries) {
         if (entry.name === "node_modules" || entry.name === ".git") continue
         const full = join(d, entry.name)

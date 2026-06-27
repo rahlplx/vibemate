@@ -1,4 +1,4 @@
-import { readFileSync, existsSync, readdirSync } from "fs"
+import { readFileSync, existsSync, readdirSync, statSync } from "fs"
 import { join, relative } from "path"
 import type { ExtractedData, DetectedPattern, StyleProfile } from "./types"
 
@@ -267,7 +267,7 @@ function analyzeTestOrganization(dir: string): TestOrganization {
         if (isTestFile(full)) {
           result.totalTestFiles++
           try {
-            const stat = require("fs").statSync(full)
+            const stat = statSync(full)
             totalTestSize += stat.size
           } catch (error) {
             console.error(`[Extract] Failed to stat test file ${full}: ${error instanceof Error ? error.message : 'Unknown error'}`);
