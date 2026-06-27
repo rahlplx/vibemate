@@ -419,8 +419,9 @@ async function runBuild(root: string): Promise<{ hasMoreTasks: boolean }> {
     });
     log.push(`TypeCheck: PASS\n${tscOutput}`);
     console.log('   ✅ Type check passed');
-  } catch (e: any) {
-    log.push(`TypeCheck: FAIL\n${e.stderr || e.stdout || e.message}`);
+  } catch (e: unknown) {
+    const error = e as { stderr?: string; stdout?: string; message?: string };
+    log.push(`TypeCheck: FAIL\n${error.stderr || error.stdout || error.message || 'Unknown error'}`);
     console.log('   ❌ Type check failed');
   }
 
@@ -434,8 +435,9 @@ async function runBuild(root: string): Promise<{ hasMoreTasks: boolean }> {
     });
     log.push(`\nTests: PASS\n${testOutput}`);
     console.log('   ✅ Tests passed');
-  } catch (e: any) {
-    log.push(`\nTests: FAIL\n${e.stderr || e.stdout || e.message}`);
+  } catch (e: unknown) {
+    const error = e as { stderr?: string; stdout?: string; message?: string };
+    log.push(`\nTests: FAIL\n${error.stderr || error.stdout || error.message || 'Unknown error'}`);
     console.log('   ❌ Tests failed');
   }
 

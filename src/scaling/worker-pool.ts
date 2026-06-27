@@ -29,7 +29,7 @@ export interface WorkerTask<T, R> {
 export class WorkerPool {
   private config: WorkerConfig;
   private workers: Map<string, WorkerInfo> = new Map();
-  private taskQueue: WorkerTask<any, any>[] = [];
+  private taskQueue: WorkerTask<unknown, unknown>[] = [];
   private taskIdCounter = 0;
 
   constructor(config?: Partial<WorkerConfig>) {
@@ -76,12 +76,11 @@ export class WorkerPool {
     return info;
   }
 
-  private handleWorkerMessage(worker: WorkerInfo, _result: any): void {
+  private handleWorkerMessage(worker: WorkerInfo, _result: unknown): void {
     worker.busy = false;
     worker.tasksCompleted++;
     worker.lastActive = Date.now();
 
-    // Process next task from queue
     this.processQueue();
   }
 

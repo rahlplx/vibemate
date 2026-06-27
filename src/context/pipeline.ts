@@ -192,8 +192,8 @@ export class ContextPipeline {
       const cacheFile = join(this.cacheDir, 'context-cache.json');
       const cacheObj = Object.fromEntries(this.cache);
       await writeFile(cacheFile, JSON.stringify(cacheObj, null, 2));
-    } catch {
-      // Cache persistence is best-effort
+    } catch (error) {
+      console.error(`[ContextPipeline] Cache persistence failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
@@ -204,8 +204,8 @@ export class ContextPipeline {
       const content = await readFile(cacheFile, 'utf-8');
       const cacheObj = JSON.parse(content);
       this.cache = new Map(Object.entries(cacheObj));
-    } catch {
-      // Start with empty cache
+    } catch (error) {
+      console.error(`[ContextPipeline] Cache load failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 

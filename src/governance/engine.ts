@@ -209,8 +209,8 @@ export class GovernanceEngine {
           timestamp: new Date(e.timestamp)
         }));
       }
-    } catch {
-      // No existing data, start fresh
+    } catch (error) {
+      console.error(`[GovernanceEngine] Load failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 

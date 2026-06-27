@@ -16,7 +16,32 @@ import * as path from 'path';
 import * as fs from 'fs';
 
 const app = new Hono();
+
 app.use('*', cors());
+
+const rateLimitStore = new Map<string, { count: number; resetTime: number }>();
+
+function rateLimiter(windowMs: number = 15 * 60 * 1000, max: number = 100) {
+  return async (c: { req: { header: (name: string) => string | undefined }; json: (data: unknown, status?: number) => Response }, next: () => Promise<void>) => {
+    const ip = c.req.header('x-forwarded-for') || c.req.header('x-real-ip') || 'unknown';
+    const now = Date.now();
+    const record = rateLimitStore.get(ip);
+
+    if (!record || now > record.resetTime) {
+      rateLimitStore.set(ip, { count: 1, resetTime: now + windowMs });
+      return next();
+    }
+
+    if (record.count >= max) {
+      return c.json({ error: 'Too many requests, please try again later.' }, 429);
+    }
+
+    record.count++;
+    return next();
+  };
+}
+
+app.use('*', rateLimiter());
 
 const ROOT = process.cwd();
 const DB_PATH = path.join(ROOT, '.vibe', 'state.db');

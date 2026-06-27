@@ -30,9 +30,8 @@ async function showStatus(options: StatusOptions): Promise<void> {
 
   const root = process.cwd();
 
-  // Check if Vibemate is initialized
   const statePath = join(root, '.vibe', 'state.json');
-  let state: any = null;
+  let state: { project?: string; phase?: string; mode?: string; agent?: string; telemetry?: boolean } | null = null;
   
   try {
     const content = await readFile(statePath, 'utf-8');

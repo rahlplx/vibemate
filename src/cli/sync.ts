@@ -126,7 +126,7 @@ async function detectAgent(root: string): Promise<AgentType> {
 
 async function loadBundle(root: string) {
   const bundleRoot = join(root, '.agents', 'okf-bundle');
-  const concepts: any[] = [];
+  const concepts: Array<{ path: string; frontmatter: Record<string, string>; body: string }> = [];
 
   try {
     const files = await readdir(bundleRoot, { recursive: true });
@@ -135,7 +135,7 @@ async function loadBundle(root: string) {
         const content = await readFile(join(bundleRoot, file as string), 'utf-8');
         const frontmatterMatch = content.match(/^---\n([\s\S]*?)\n---/);
         if (frontmatterMatch) {
-          const frontmatter: any = {};
+          const frontmatter: Record<string, string> = {};
           const lines = frontmatterMatch[1].split('\n');
           for (const line of lines) {
             const [key, ...valueParts] = line.split(':');

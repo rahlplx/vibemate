@@ -230,7 +230,8 @@ export class TelemetryCollector {
       }
       
       return metrics;
-    } catch {
+    } catch (error) {
+      console.error(`[TelemetryCollector] Load history failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
       return [];
     }
   }

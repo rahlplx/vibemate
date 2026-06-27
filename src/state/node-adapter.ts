@@ -14,11 +14,9 @@
 import type { SQLiteAdapter, PreparedStatement } from './adapter.js';
 
 class NodePreparedStatement<T> implements PreparedStatement<T> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private stmt: any;
+  private stmt: ReturnType<InstanceType<typeof import('better-sqlite3')>['prepare']>;
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  constructor(stmt: any) {
+  constructor(stmt: ReturnType<InstanceType<typeof import('better-sqlite3')>['prepare']>) {
     this.stmt = stmt;
   }
 
@@ -40,8 +38,7 @@ class NodePreparedStatement<T> implements PreparedStatement<T> {
 }
 
 export class NodeSQLiteAdapter implements SQLiteAdapter {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private db: any;
+  private db: InstanceType<typeof import('better-sqlite3')>;
 
   constructor(path: string) {
     // Dynamic import to avoid breaking Bun environments
