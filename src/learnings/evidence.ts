@@ -1,12 +1,6 @@
 import {
-  createMemoryEntry,
-  computeMemoryStrength,
-  shouldReview,
-  updateMemory,
   calculateTemporalDecay,
-  MemoryEntry,
   ShortTermRecallEntry,
-  calculatePromotionScore,
 } from "../learnings/dreaming"
 
 export interface WorkflowEvidence {

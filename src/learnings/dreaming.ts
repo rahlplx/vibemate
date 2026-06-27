@@ -272,7 +272,7 @@ export function runRemDreaming(
     .map(t => t.tag)
 
   const candidateTruths = entries
-    .filter(e => !e.promotedAt)
+    .filter(e => !("promotedAt" in e && e.promotedAt))
     .map(e => ({
       key: e.key,
       snippet: e.snippet || "(no snippet)",
