@@ -25,7 +25,6 @@ program
   .command('install')
   .description('Install Vibemate MCP server into your AI coding tool')
   .option('-p, --platform <platform>', 'Target platform (claude, cursor, codex, kilocode, opencode)')
-  .option('-k, --api-key <key>', 'Anthropic API key')
   .option('--dry-run', 'Show what would be installed without making changes')
   .action(async (options) => {
     try {
@@ -40,7 +39,6 @@ program
       
       const result = await install({
         platform: platform || 'claude',
-        apiKey: options.apiKey,
         dryRun: options.dryRun
       });
       
@@ -64,14 +62,13 @@ program
   .command('spec')
   .description('Generate a product specification from a plain English idea')
   .argument('<idea>', 'Product idea description')
-  .option('-k, --api-key <key>', 'Anthropic API key')
   .option('--stack <framework>', 'Target framework (nextjs, express, fastapi, laravel)')
   .action(async (idea, options) => {
     try {
-      const apiKey = options.apiKey || process.env.ANTHROPIC_API_KEY;
+      const apiKey = process.env.ANTHROPIC_API_KEY;
       
       if (!apiKey) {
-        console.error('API key required. Use --api-key or set ANTHROPIC_API_KEY environment variable.');
+        console.error('Error: Set the ANTHROPIC_API_KEY environment variable before running.');
         process.exit(1);
       }
       
