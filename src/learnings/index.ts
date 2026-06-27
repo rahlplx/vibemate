@@ -16,6 +16,18 @@ export {
   applyConfidenceDecay,
   runCognitiveAssessment,
   DEFAULT_COGNITIVE_CONFIG,
+  createMemoryEntry,
+  computeMemoryStrength,
+  getForgettingCurveCycle,
+  shouldReview,
+  updateMemory,
+  patternsVoter,
+  securityVoter,
+  asyncVoter,
+  multiDetectorEnsemble,
+  prioritizeByDifficulty,
+  escalateComplexity,
+  difficultyAdaptiveLoop,
 } from "./cognitive"
 export type {
   CognitiveConfig,
@@ -27,6 +39,9 @@ export type {
   DifficultyItem,
   Reflection,
   CognitiveAssessment,
+  MemoryEntry,
+  ReviewRecord,
+  DifficultyPlan,
 } from "./cognitive"
 export type {
   RepoConfig,
