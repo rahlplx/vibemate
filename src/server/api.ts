@@ -19,7 +19,14 @@ const app = new Hono();
 
 app.use('*', cors());
 
+const RATE_LIMIT_MAX_ENTRIES = 10_000;
 const rateLimitStore = new Map<string, { count: number; resetTime: number }>();
+
+function evictExpiredRateLimitEntries(now: number): void {
+  for (const [ip, record] of rateLimitStore.entries()) {
+    if (now > record.resetTime) rateLimitStore.delete(ip);
+  }
+}
 
 function rateLimiter(windowMs: number = 15 * 60 * 1000, max: number = 100) {
   return async (c: { req: { header: (name: string) => string | undefined }; json: (data: unknown, status?: number) => Response }, next: () => Promise<void>) => {
@@ -28,6 +35,9 @@ function rateLimiter(windowMs: number = 15 * 60 * 1000, max: number = 100) {
     const record = rateLimitStore.get(ip);
 
     if (!record || now > record.resetTime) {
+      if (rateLimitStore.size >= RATE_LIMIT_MAX_ENTRIES) {
+        evictExpiredRateLimitEntries(now);
+      }
       rateLimitStore.set(ip, { count: 1, resetTime: now + windowMs });
       return next();
     }

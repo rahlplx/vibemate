@@ -31,15 +31,15 @@ export class RepoMap {
   }
 
   async build(): Promise<void> {
-    const currentMtime = await this.getLatestMtime();
+    const files = await this.findFiles(this.root);
+    const currentMtime = await this.getMtimeFromFiles(files);
     if (currentMtime === this.lastMtime && this.symbols.size > 0) {
-      return; // No changes, skip rebuild
+      return;
     }
 
     this.symbols.clear();
     this.adjacency.clear();
 
-    const files = await this.findFiles(this.root);
     for (const file of files) {
       await this.parseFile(file);
     }
@@ -49,9 +49,8 @@ export class RepoMap {
     this.buildTime = Date.now();
   }
 
-  private async getLatestMtime(): Promise<number> {
+  private async getMtimeFromFiles(files: string[]): Promise<number> {
     let latest = 0;
-    const files = await this.findFiles(this.root);
     for (const file of files) {
       const s = await stat(file);
       if (s.mtimeMs > latest) latest = s.mtimeMs;

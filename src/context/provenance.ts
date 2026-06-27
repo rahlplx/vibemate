@@ -12,6 +12,8 @@ interface QuarantinedPiece {
   sanitizedContent: string;
   isQuarantined: boolean;
   reason: string;
+  provenance: TaggedPiece['provenance'];
+  source: string;
 }
 
 // Trust scores for different provenance types
@@ -93,7 +95,9 @@ export class ProvenanceEngine {
       content: piece.content,
       sanitizedContent: sanitized,
       isQuarantined,
-      reason
+      reason,
+      provenance: piece.provenance,
+      source: piece.source,
     };
   }
 

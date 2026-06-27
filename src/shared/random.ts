@@ -1,4 +1,4 @@
-import { randomUUID } from 'crypto';
+import { createHash } from 'crypto';
 
 export interface SeededRandom {
   next(): number;
@@ -35,6 +35,13 @@ export function createSeededRandom(seed?: string): SeededRandom {
   };
 }
 
-export function generateDeterministicId(_input: string): string {
-  return randomUUID();
+export function generateDeterministicId(input: string): string {
+  const hash = createHash('sha256').update(input).digest('hex');
+  return [
+    hash.slice(0, 8),
+    hash.slice(8, 12),
+    '4' + hash.slice(13, 16),
+    (parseInt(hash[16], 16) & 0x3 | 0x8).toString(16) + hash.slice(17, 20),
+    hash.slice(20, 32),
+  ].join('-');
 }

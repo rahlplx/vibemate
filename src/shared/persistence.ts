@@ -112,7 +112,7 @@ const MIGRATIONS: Migration[] = [
 export class PersistenceManager {
   private adapter: SQLiteAdapter | null = null;
   private config: PersistenceConfig;
-  private initialized = false;
+  private initPromise: Promise<void> | null = null;
 
   constructor(config: PersistenceConfig) {
     this.config = {
@@ -134,11 +134,14 @@ export class PersistenceManager {
   }
 
   async initialize(): Promise<void> {
-    if (this.initialized) return;
+    if (this.initPromise) return this.initPromise;
+    this.initPromise = this._doInitialize();
+    return this.initPromise;
+  }
 
+  private async _doInitialize(): Promise<void> {
     const adapter = await this.getAdapter();
-    
-    // Create migrations table
+
     adapter.exec(`
       CREATE TABLE IF NOT EXISTS migrations (
         version INTEGER PRIMARY KEY,
@@ -147,11 +150,9 @@ export class PersistenceManager {
       )
     `);
 
-    // Get applied migrations
     const applied = adapter.query<{ version: number }>('SELECT version FROM migrations');
     const appliedVersions = new Set(applied.map((r) => r.version));
 
-    // Apply pending migrations
     for (const migration of MIGRATIONS) {
       if (!appliedVersions.has(migration.version)) {
         adapter.exec(migration.up);
@@ -160,15 +161,14 @@ export class PersistenceManager {
         ).run(migration.version, migration.name, new Date().toISOString());
       }
     }
-
-    this.initialized = true;
   }
 
   async close(): Promise<void> {
+    if (this.initPromise) await this.initPromise;
     if (this.adapter) {
       this.adapter.close();
       this.adapter = null;
-      this.initialized = false;
+      this.initPromise = null;
     }
   }
 
