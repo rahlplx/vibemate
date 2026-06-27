@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'bun:test';
 import { StackDetector } from '../stack-detector.js';
-import { mkdir, writeFile, rm, readdir } from 'fs/promises';
+import { mkdir, writeFile, rm } from 'fs/promises';
 import { join } from 'path';
 import { tmpdir } from 'os';
 
