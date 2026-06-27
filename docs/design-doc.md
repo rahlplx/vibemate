@@ -1,221 +1,177 @@
-# Design Doc: Vibemate MCP Server Foundation with Spec Generator
+# /vibe:plan — Next Iteration Design Document
 
-## Problem
+**Date:** 2026-06-27
+**Phase:** plan → break → build
+**Current State:** 900 tests, 0 failures, 1436 simulation passes, 12/12 gaps closed
 
-**Who has this problem:** Solo founders (non-technical), AI-first developers (technical but rely on AI for speed), and early startup teams (2-5 people, no senior engineers) who build products with AI coding assistants.
+---
 
-**How we know:** 
-- "Vibe coding" is a recognized movement - developers using AI to build entire products
-- SPEC.md documents 3 personas with identical pain: "They don't know what they don't know"
-- Current MCP marketplaces have 36.7% SSRF vulnerabilities, 41% no auth (per SPEC.md research)
-- No existing tool provides enterprise-grade specs via MCP protocol
+## CEO Review (Product Perspective)
 
-**What they do today:** 
-- Use AI coding tools that generate working but non-production code
-- Copy from Stack Overflow / generic boilerplates
-- Hope AI gets security, scalability, observability right (it doesn't)
-- Spend weeks discovering missing enterprise patterns after launch
+### What's the 10-star version?
+A fully autonomous self-improving AI platform that:
+1. Learns from every codebase it touches (pattern extraction)
+2. Remembers what worked via dreaming cycles (light→REM→deep)
+3. Adapts its behavior based on evidence (cognitive engine)
+4. Ships enterprise-grade code with zero regressions (TDD + simulation)
+5. Evolves its own rules based on accumulated evidence
 
-## Core Value Proposition
+### Narrowest wedge that proves demand?
+**The dreaming system.** If we can prove that memory consolidation (light→REM→deep) improves code quality over time, the entire platform has value.
 
-**The ONE thing it MUST do:** Generate a complete, production-ready product specification and architecture from a plain English idea - including tech stack recommendation with justification, data model (entities + relationships), API contracts (REST/tRPC), folder/file structure, milestone breakdown (Week 1/2/3/4), and enterprise risk flags - all tailored to their detected stack, delivered instantly inside their AI coding tool via MCP.
+### What's OUT of scope for this iteration?
+- Plugin sandboxing (security theater, not real value yet)
+- Multi-agent orchestration (premature optimization)
+- Real-time collaboration (not core value)
 
-## MVP Scope (Narrowest Wedge)
+---
 
-**Phase 1 - Weeks 1-3 per SPEC.md:**
+## Eng Review (Architecture)
 
-1. **MCP TypeScript Server** (`@modelcontextprotocol/sdk` stdio transport)
-   - Runs locally via `npx vibemate-mcp`
-   - Auto-detects coding platform (Claude Code, Cursor, Codex, Kilocode, OpenCode)
-   - Updates correct config (`.mcp.json`, `.cursor/mcp.json`, etc.)
-   - Auth token management via `vibemate.dev/auth/cli-login`
-
-2. **Skill 1: Spec & Architecture Generator** (FREE tier)
-   - Trigger: `/vibemate spec [idea]` or natural language
-   - Input: Plain English product description
-   - Output: Full SPEC.md with:
-     - Product requirements (PRD)
-     - User personas
-     - Core user flows
-     - Data model (entities + relationships)
-     - API contract (REST or tRPC)
-     - Tech stack recommendation + justification
-     - Folder/file structure
-     - Milestone breakdown
-     - Risk flags (what could go wrong)
-
-3. **CLI Installer** (`npx vibemate install`)
-   - One-command setup for all supported platforms
-   - Auto-sign-in flow to vibemate.dev
-   - Token stored in MCP config
-
-**OUT OF SCOPE for Phase 1 (explicitly):**
-- Audit skill, Scaffold skill, Payments skill, UI utilities
-- Telemetry dashboard, Evolve pipeline, Registry/Marketplace
-- Web dashboard, Team features, Billing, License enforcement
-- SSE/remote transport, Multi-LLM routing, Offline/local LLM support
-
-## Target Users
-
-| Persona | Who | Pain |
-|---------|-----|------|
-| Solo Founder | Non-technical, first SaaS with AI | Ships fast but misses auth hardening, payment webhooks, error monitoring |
-| AI-First Developer | Technical, uses AI for speed | AI generates working code but not production patterns |
-| Early Startup Team | 2-5 people, no senior engineers | Moving fast, no one to review for security/scalability/reliability |
-
-## Success Metrics
-
-| Metric | 3-Month Target | 6-Month Target |
-|--------|----------------|----------------|
-| MCP Installs | 500 | 5,000 |
-| Daily Active Users | 50 | 500 |
-| Spec Generations | 200 | 2,000 |
-| Supported Platforms | 5 | 10 |
-| Pro Conversions | 5% | 8% |
-
-## Technical Approach (High-Level)
+### Data Flow: Evidence → Dreaming → Improvement
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│  USER'S CODING TOOL (Claude Code / Cursor / Codex / etc.)      │
-│  ┌─────────────────────────────────────────────────────────┐   │
-│  │  MCP Client (built into tool)                           │   │
-│  └──────────────────────────┬──────────────────────────────┘   │
-└─────────────────────────────┼───────────────────────────────────┘
-                              │ stdio (JSON-RPC 2.0)
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│  VIBEMATE MCP SERVER (Node/Bun process, spawned by npx)        │
-│  ┌─────────────────────────────────────────────────────────┐   │
-│  │  MCP SDK (@modelcontextprotocol/sdk)                    │   │
-│  │  ┌─────────────┐ ┌─────────────┐ ┌─────────────────┐   │   │
-│  │  │ Resources   │ │ Tools       │ │ Prompts         │   │   │
-│  │  │ (none yet)  │ │ vibemate_*  │ │ (none yet)      │   │   │
-│  │  └─────────────┘ └─────────────┘ └─────────────────┘   │   │
-│  └──────────────────────────┬──────────────────────────────┘   │
-│                             │                                    │
-│  ┌──────────────────────────┼──────────────────────────────┐   │
-│  │  Skill Registry (in-memory, dynamic require)            │   │
-│  │  ┌───────────────────────────────────────────────────┐  │   │
-│  │  │ SpecGeneratorSkill                                │  │   │
-│  │  │ - detectStack(projectRoot) → StackProfile         │  │   │
-│  │  │ - generateSpec(idea, profile) → SpecDoc           │  │   │
-│  │  │ - formatOutput(spec) → MCP Tool Result            │  │   │
-│  │  └───────────────────────────────────────────────────┘  │   │
-│  └──────────────────────────┬──────────────────────────────┘   │
-│                             │                                    │
-│  ┌──────────────────────────┼──────────────────────────────┐   │
-│  │  LLM Client (Anthropic SDK)                             │   │
-│  │  - Structured output via JSON Schema                    │   │
-│  │  - System prompt with spec template                     │   │
-│  └──────────────────────────┬──────────────────────────────┘   │
-└─────────────────────────────┼───────────────────────────────────┘
-                              │ HTTPS
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│  ANTHROPIC CLAUDE API                                           │
-└─────────────────────────────────────────────────────────────────┘
+┌─────────────┐    ┌──────────────┐    ┌─────────────┐
+│   Retro     │───▶│   Evidence   │───▶│  Short-Term │
+│   Phase     │    │   Builder    │    │   Recall    │
+└─────────────┘    └──────────────┘    └──────┬──────┘
+                                              │
+                                              ▼
+┌─────────────┐    ┌──────────────┐    ┌─────────────┐
+│   Rules     │◀───│    Deep      │◀───│    REM      │
+│   Engine    │    │   Dreaming   │    │   Dreaming  │
+└─────────────┘    └──────────────┘    └──────┬──────┘
+                                              ▲
+                                              │
+                                       ┌──────┴──────┐
+                                       │    Light    │
+                                       │   Dreaming  │
+                                       └─────────────┘
 ```
 
-**Data Flow:**
-1. User invokes `vibemate_spec` tool with `idea` parameter
-2. MCP Server receives tool call → `SpecGeneratorSkill.handle()`
-3. Skill detects stack: scans `package.json`, `tsconfig.json`, framework markers
-4. Skill builds structured prompt with stack context + user idea
-5. Calls Anthropic API with JSON schema for structured output
-6. Validates response against schema → formats as SPEC.md
-7. Returns result to MCP client → displayed in coding tool
-8. User saves as `SPEC.md` in project root
+### Key Components
 
-**Key Components:**
-| Component | Responsibility | Tests Needed |
-|-----------|----------------|--------------|
-| `McpServer` | Stdio transport, tool registration, request routing | Unit: tool dispatch, error handling |
-| `SpecGeneratorSkill` | Stack detection, prompt building, LLM call, output formatting | Unit: stack detection, prompt template, schema validation |
-| `StackDetector` | File system scan → `StackProfile` | Unit: Next.js, Express, FastAPI, Laravel, generic |
-| `SpecSchema` | Zod schema for structured LLM output | Unit: valid/invalid outputs |
-| `ConfigInjector` | Platform detection → writes `.mcp.json`/`.cursor/mcp.json` | Unit: each platform, conflict handling |
+1. **Evidence Builder** (`src/learnings/evidence.ts`) ✅ DONE
+   - Collects workflow success rates
+   - Tracks skill effectiveness
+   - Records tool issues with workarounds
+   - Builds short-term recall entries
 
-**Edge Cases:**
-- No `package.json` (greenfield project) → generic stack profile
-- Multiple MCP servers in config → append, don't overwrite
-- LLM returns invalid JSON → retry with error feedback (max 2)
-- Network timeout → graceful error with retry guidance
-- User not authenticated → return auth URL, don't crash
-- Rate limited by Anthropic → exponential backoff, user notification
+2. **Short-Term Recall Store** (`src/learnings/dreaming.ts`) ✅ DONE
+   - SQLite-backed recall entries (512 max)
+   - Recall counting and scoring
+   - Concept tag extraction
 
-**Failure Modes:**
-| Scenario | Detection | Mitigation |
-|----------|-----------|------------|
-| Anthropic API down | HTTP 5xx / timeout | Retry 2x, then return cached fallback spec template |
-| Invalid LLM output | Zod validation fails | Re-prompt with error context (max 2 retries) |
-| Stack detection wrong | User feedback / audit | Manual override flag in tool params |
-| Config write fails | FS error | Print config to stdout for manual copy |
-| Token expired | 401 from cloud API | Trigger re-auth flow |
+3. **Dreaming Phases** (`src/learnings/dreaming.ts`) ✅ DONE
+   - Light: Ingest + stage recent material
+   - REM: Extract themes + reflections
+   - Deep: Promote high-scoring candidates to long-term
 
-**Scaling Assumptions:**
-- Local MCP server: single-user, spawned per session, no horizontal scaling needed
-- Anthropic API: rate limits handled by SDK, cost tracked per spec (~$0.05)
-- File I/O: local FS only, no distributed state
+4. **Long-Term Memory** (`src/learnings/dreaming.ts`) ✅ DONE
+   - 4-layer architecture (working/episodic/semantic/dreams)
+   - Temporal decay (Ebbinghaus)
+   - Memory strength computation
 
-**Dependencies:**
-- `@modelcontextprotocol/sdk` ^1.0 (Apache 2.0)
-- `@anthropic-ai/sdk` ^0.24 (MIT)
-- `zod` ^3.23 (MIT) - schema validation
-- `glob` ^10.3 (MIT) - stack detection
-- `yaml` ^2.4 (MIT) - config parsing
-- `chalk` ^5.3 (MIT) - CLI output
+### What's Missing (This Iteration)
 
-## UI Requirements
+1. **Dreaming Cron Integration** — Connect dreaming phases to a scheduler
+2. **Memory Search Tool** — `memory_search` for context injection
+3. **Rule Evolution Engine** — Apply promoted memories to change behavior
+4. **State Auto-Update** — Prevent state drift after harness passes
 
-**No traditional UI needed for Phase 1.** The interface IS the MCP protocol inside the user's coding tool.
+### Test Matrix
 
-**What the user sees in their AI coding tool:**
-```
-┌─────────────────────────────────────────────────────────────┐
-│  Claude Code                                                 │
-│                                                              │
-│  Vibemate MCP connected ✓                                   │
-│  Available skills:                                           │
-│  ✓ vibemate_spec          Generate a full product spec      │
-│  ○ vibemate_audit         (Pro) Audit your codebase         │
-│  ○ vibemate_scaffold      (Pro) Add enterprise patterns     │
-│  ○ vibemate_add           (Pro) Add UI utility component    │
-│                                                              │
-│  Try: "vibemate spec a time-tracking app for freelancers"   │
-└─────────────────────────────────────────────────────────────┘
-```
+| Component | Unit Tests | Integration | Simulation |
+|-----------|-----------|-------------|------------|
+| Evidence Builder | ✅ 11 | — | — |
+| Dreaming Phases | ✅ 15 | — | ✅ 100 iter |
+| Memory Manager | ✅ 5 | — | ✅ 100 iter |
+| Plugin Lifecycle | ✅ 20 | — | ✅ 100 iter |
+| Tool Policy | ✅ 12 | — | ✅ 100 iter |
+| **Cron Integration** | ❌ TODO | ❌ TODO | ❌ TODO |
+| **Memory Search** | ❌ TODO | ❌ TODO | ❌ TODO |
+| **Rule Evolution** | ❌ TODO | ❌ TODO | ❌ TODO |
 
-**MCP Interface Design Review (Post-Review):**
-| Dimension | Score | Target |
-|-----------|-------|--------|
-| Clarity of MCP Interface | 9/10 | Self-documenting tool names, examples on connect |
-| Onboarding Flow | 7/10 | Auto-detect platform, browser auth, but token in plain text |
-| Error Communication | 6/10 | Need human-readable MCP errors with actionable next steps |
-| Progress Feedback | 5/10 | No streaming/progress for 10-30s generation - add phases |
-| Discoverability | 8/10 | Skills listed with free/pro indicators |
+---
 
-**Future UI (Phase 4+):** Web dashboard at vibemate.dev for:
-- Component picker (vibemate.dev/ui)
-- Telemetry dashboard
-- Evolve suggestions
-- Billing/settings
+## Design Review
 
-## Open Questions (Resolved/Updated from Review)
+### Score: 7/10
 
-1. **LLM Provider**: Start with Anthropic only (Claude 3.5 Sonnet). Router for OpenAI/Gemini in Phase 2.
-2. **Structured Output**: JSON Schema validation via Zod. Function calling not needed - schema ensures format.
-3. **Offline Mode**: Not in Phase 1. Local LLM support (Ollama) in Phase 3+.
-4. **Stack Detection Edge Cases**: Monorepos → detect root package.json; Nx/Turbo → check workspace config; custom frameworks → fallback to generic.
-5. **Config Conflicts**: Append to existing `mcpServers` object, preserve other servers. Backup original config.
-6. **Token Storage**: Plain text in MCP config for Phase 1 (user's local machine). Keychain/secret manager in Phase 2.
-7. **Telemetry Opt-in**: Default ON for Free tier (anonymized). Explicit opt-out in CLI and MCP config.
-8. **Progress Feedback**: Add streaming tool updates (MCP supports progress notifications) showing: "Detecting stack..." → "Generating spec..." → "Validating output..." → "Formatting SPEC.md..."
+**What a 10 looks like:**
+- Dreaming runs automatically on cron schedule
+- Memory search injects relevant context into every session
+- Rule evolution proposes changes based on evidence
+- State never drifts (auto-updated after every harness pass)
+- CLI exposes memory search + dreaming status
 
-## Review Sign-off
+**Current gaps:**
+- No cron integration (dreaming is manual)
+- No memory search tool (context injection missing)
+- No rule evolution (learnings don't change behavior)
+- State can drift (not auto-updated)
 
-- **CEO Review**: ✅ Narrowest wedge validated (Spec Generator only). 10-star vision documented. Out-of-scope explicit.
-- **Eng Review**: ✅ Architecture diagram complete. Data flow mapped. Components defined. Test matrix ready. Failure modes mitigated.
-- **Design Review**: ✅ MCP interface scored. Progress feedback identified as gap. Token storage flagged for Phase 2.
+---
 
-**Ready for `/vibe:break`**
+## Implementation Plan (S08-S12)
+
+### S08: Dreaming Cron Integration
+**Goal:** Automate light→REM→deep dreaming on schedule
+**Tasks:**
+- Create `src/learnings/cron.ts` — Dreaming scheduler
+- Add `vibemate learn dream` CLI command
+- Wire cron to existing dreaming phases
+- Tests: scheduler fires phases in order
+
+### S09: Memory Search Tool
+**Goal:** Context injection via `memory_search`
+**Tasks:**
+- Create `src/learnings/search.ts` — Hybrid search (keyword + semantic)
+- Add `memory_search` MCP tool
+- Wire to dreaming short-term recall store
+- Tests: search returns relevant memories
+
+### S10: Rule Evolution Engine
+**Goal:** Apply promoted memories to change behavior
+**Tasks:**
+- Create `src/evolve/rules.ts` — Rule proposal + approval
+- Add `vibemate learn evolve` CLI command
+- Wire deep dreaming promotions to rule changes
+- Tests: promoted memories generate rule proposals
+
+### S11: State Auto-Update
+**Goal:** Prevent state drift
+**Tasks:**
+- Add post-harness state update hook
+- Write test counts + harness results to state.json
+- Tests: state.json always reflects current reality
+
+### S12: Integration + Simulation
+**Goal:** End-to-end validation
+**Tasks:**
+- Run full dreaming cycle with evidence data
+- Validate memory search returns relevant results
+- Validate rule evolution proposes changes
+- Run 1000-iteration simulation loop
+
+---
+
+## Risk Assessment
+
+| Risk | Likelihood | Impact | Mitigation |
+|------|-----------|--------|------------|
+| Cron doesn't fire on Windows | Medium | Low | Use setInterval fallback |
+| Memory search too slow | Low | Medium | SQLite FTS5 index |
+| Rule evolution too aggressive | Medium | High | Human approval gate |
+| State auto-update breaks existing | Low | Medium | Backup before write |
+
+---
+
+## Success Criteria
+
+1. ✅ Dreaming cron fires light→REM→deep automatically
+2. ✅ `memory_search` returns relevant memories in <100ms
+3. ✅ Rule evolution proposes changes (human approves)
+4. ✅ State.json never drifts from reality
+5. ✅ 1000-iteration simulation passes with 0 failures
+6. ✅ All 900+ existing tests still pass
