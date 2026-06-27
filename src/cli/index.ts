@@ -258,4 +258,106 @@ fix
     }
   });
 
+const learn = program.command('learn').description('Learnings pipeline — clone, audit, extract patterns from external repos');
+
+learn
+  .command('run')
+  .description('Run full learnings pipeline on a repository')
+  .argument('<url>', 'Git repository URL')
+  .option('-b, --branch <branch>', 'Branch to analyze')
+  .option('-o, --output <dir>', 'Output directory for reports', './learnings')
+  .option('--timeout <ms>', 'Timeout in ms', '300000')
+  .action(async (url, options) => {
+    try {
+      const { createPipeline } = await import('../learnings/index.js');
+      const { mkdirSync } = await import('fs');
+      const { join } = await import('path');
+
+      const outputDir = join(process.cwd(), options.output);
+      if (!mkdirSync) {
+        const fs = await import('fs');
+        fs.mkdirSync(outputDir, { recursive: true });
+      }
+
+      const pipeline = createPipeline({
+        onStep: (step) => {
+          const icons: Record<string, string> = {
+            clone: '📦', instrument: '🔍', extract: '📊', audit: '🔎',
+            value: '💎', patterns: '🧩', meta: '🧠', rl: '🎯', generate: '📋', complete: '✅',
+          };
+          console.log(`${icons[step] || '▸'} ${step}...`);
+        },
+      });
+
+      console.log(`\n🚀 Starting learnings pipeline for: ${url}\n`);
+
+      const state = await pipeline.run(
+        {
+          url,
+          depth: 1,
+          branch: options.branch,
+          timeout: parseInt(options.timeout),
+        },
+        outputDir,
+      );
+
+      const reportPath = pipeline.saveReport(state, outputDir);
+
+      console.log(`\n📊 Results:`);
+      console.log(`   Findings: ${state.audit.length}`);
+      console.log(`   Meta learnings: ${state.meta.length}`);
+      console.log(`   RL signals: ${state.rl.length}`);
+      if (state.plan) {
+        console.log(`   Spec plan: ${state.plan.slices.length} slices, ${state.plan.estimatedEffort}h`);
+      }
+      if (state.errors.length > 0) {
+        console.log(`   Errors: ${state.errors.length}`);
+      }
+      console.log(`\n📄 Report: ${reportPath}`);
+    } catch (error) {
+      console.error('Learnings pipeline failed:', error instanceof Error ? error.message : error);
+      process.exit(1);
+    }
+  });
+
+learn
+  .command('audit')
+  .description('Quick audit of a local project')
+  .option('-d, --dir <path>', 'Project directory', '.')
+  .action(async (options) => {
+    try {
+      const { extractData, audit, assessValue, findPatterns, generateMetaLearnings } = await import('../learnings/index.js');
+      const { resolve } = await import('path');
+
+      const dir = resolve(options.dir);
+      console.log(`\n🔍 Auditing: ${dir}\n`);
+
+      const data = extractData(dir);
+      const findings = audit(data);
+      const value = assessValue(data, findings);
+      const patterns = findPatterns(data);
+      const meta = generateMetaLearnings(data, findings, value);
+
+      console.log(`📊 Score: ${value.overallScore}/100`);
+      console.log(`🔎 Findings: ${findings.length}`);
+      console.log(`🧩 Patterns: ${patterns.length}`);
+      console.log(`🧠 Meta learnings: ${meta.length}`);
+
+      if (findings.length > 0) {
+        console.log(`\nTop findings:`);
+        for (const f of findings.slice(0, 5)) {
+          console.log(`  [${f.severity.toUpperCase()}] ${f.title}`);
+        }
+      }
+
+      console.log(`\nDimensions:`);
+      for (const [dim, score] of Object.entries(value.dimensions)) {
+        console.log(`  ${dim}: ${score}/10`);
+      }
+    } catch (error) {
+      console.error('Audit failed:', error instanceof Error ? error.message : error);
+      process.exit(1);
+    }
+  });
+
 program.parse();
