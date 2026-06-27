@@ -132,7 +132,7 @@ describe('AuthMiddleware', () => {
 });
 
 describe('OAuthClient', () => {
-  it('generates auth URL', () => {
+  it('generates auth URL', async () => {
     const client = createOAuthClient({
       clientId: 'test-client',
       redirectUri: 'http://localhost:3000/callback',
@@ -141,13 +141,13 @@ describe('OAuthClient', () => {
       scopes: ['read', 'write'],
     });
 
-    const url = client.generateAuthUrl();
+    const url = await client.generateAuthUrl();
     expect(url).toContain('client_id=test-client');
     expect(url).toContain('response_type=code');
     expect(url).toContain('scope=read+write');
   });
 
-  it('validates state once', () => {
+  it('validates state once', async () => {
     const client = createOAuthClient({
       clientId: 'test',
       redirectUri: 'http://localhost/callback',
@@ -156,7 +156,7 @@ describe('OAuthClient', () => {
       scopes: [],
     });
 
-    client.generateAuthUrl();
+    await client.generateAuthUrl();
     // State is generated internally, we can't access it directly
     // but we can verify that validateState returns false for wrong state
     expect(client.validateState('wrong-state')).toBe(false);

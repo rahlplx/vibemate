@@ -31,7 +31,7 @@ async function showStatus(options: StatusOptions): Promise<void> {
   const root = process.cwd();
 
   const statePath = join(root, '.vibe', 'state.json');
-  let state: { project?: string; phase?: string; mode?: string; agent?: string; telemetry?: boolean } | null = null;
+  let state: { project?: string; phase?: string; mode?: string; agent?: string; telemetry?: boolean; completed?: string[]; artifacts?: Record<string, string> } | null = null;
   
   try {
     const content = await readFile(statePath, 'utf-8');
@@ -43,10 +43,12 @@ async function showStatus(options: StatusOptions): Promise<void> {
     return;
   }
 
-  console.log(`Project: ${state.project}`);
-  console.log(`Phase: ${colors.cyan(state.phase)}`);
-  console.log(`Mode: ${state.mode}`);
-  console.log(`Agent: ${state.agent}`);
+  if (!state) return;
+
+  console.log(`Project: ${state.project ?? 'N/A'}`);
+  console.log(`Phase: ${colors.cyan(state.phase ?? 'N/A')}`);
+  console.log(`Mode: ${state.mode ?? 'N/A'}`);
+  console.log(`Agent: ${state.agent ?? 'N/A'}`);
   console.log(`Telemetry: ${state.telemetry ? '✅ Enabled' : '❌ Disabled'}`);
 
   // Show completed phases

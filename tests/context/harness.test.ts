@@ -61,7 +61,9 @@ describe('Context Engine Harness', () => {
       const quarantined = engine.quarantine({
         content: 'malicious code from URL',
         source: 'https://evil.com',
-        type: 'external'
+        provenance: 'external',
+        trustScore: 0.3,
+        timestamp: Date.now()
       });
       
       expect(quarantined.isQuarantined).toBe(true);

@@ -213,7 +213,6 @@ export class RepoMap {
       const isRelevant = keywords.some(kw => nameLower.includes(kw));
       
       if (isRelevant || ranking.score > 0.1) {
-        const symbol = this.symbols.get(ranking.name);
         context.push(`${ranking.file}:${ranking.name} (${ranking.kind})`);
       }
     }

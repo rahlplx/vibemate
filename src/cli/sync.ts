@@ -3,7 +3,7 @@ import { Command } from 'commander';
 import { HarnessCompiler } from '../compiler/index.js';
 import { readFile, readdir } from 'fs/promises';
 import { join } from 'path';
-import { AgentType } from '../types.js';
+import { AgentType, OKFFrontmatter } from '../types.js';
 
 interface SyncOptions {
   agent?: AgentType;
@@ -135,7 +135,7 @@ async function detectAgent(root: string): Promise<AgentType> {
 
 async function loadBundle(root: string) {
   const bundleRoot = join(root, '.agents', 'okf-bundle');
-  const concepts: Array<{ path: string; frontmatter: Record<string, string>; body: string }> = [];
+  const concepts: Array<{ path: string; frontmatter: OKFFrontmatter; body: string }> = [];
 
   try {
     const files = await readdir(bundleRoot, { recursive: true });
@@ -154,7 +154,7 @@ async function loadBundle(root: string) {
           }
           concepts.push({
             path: file,
-            frontmatter,
+            frontmatter: frontmatter as OKFFrontmatter,
             body: content.substring(frontmatterMatch[0].length).trim()
           });
         }

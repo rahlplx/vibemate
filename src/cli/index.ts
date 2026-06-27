@@ -132,7 +132,7 @@ auth
       }
 
       const oauth = createOAuthClient(VIBEMATE_OAUTH);
-      const url = oauth.generateAuthUrl();
+      const url = await oauth.generateAuthUrl();
       console.log('Opening browser for Vibemate authentication...');
       console.log(`If browser does not open, visit:\n${url}\n`);
 
@@ -143,7 +143,7 @@ auth
             ? `open "${url}"`
             : `xdg-open "${url}"`;
         const { execSync } = await import('child_process');
-        execSync(cmd, { shell: true } as { shell: boolean });
+        execSync(cmd, { shell: process.platform === 'win32' ? 'powershell.exe' : '/bin/sh' });
       } catch (error) {
         console.error(`[CLI] Failed to open browser: ${error instanceof Error ? error.message : 'Unknown error'}`);
         console.log('Could not open browser. Visit the URL above manually.');

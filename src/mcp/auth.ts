@@ -27,6 +27,7 @@ export interface OAuthConfig {
   authorizeUrl: string;
   tokenUrl: string;
   scopes: string[];
+  usePKCE?: boolean;
 }
 
 export interface LocalServer {
@@ -35,7 +36,7 @@ export interface LocalServer {
 }
 
 export interface OAuthClient {
-  generateAuthUrl(): string;
+  generateAuthUrl(): Promise<string>;
   validateState(state: string): boolean;
   exchangeCode(code: string): Promise<AuthToken>;
   startLocalServer(port: number): Promise<LocalServer>;
@@ -43,6 +44,7 @@ export interface OAuthClient {
 
 export function createOAuthClient(config: OAuthConfig): OAuthClient {
   let currentState: string | undefined;
+  let currentCodeVerifier: string | undefined;
 
   function generateState(): string {
     const bytes = new Uint8Array(32);
@@ -50,8 +52,29 @@ export function createOAuthClient(config: OAuthConfig): OAuthClient {
     return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
   }
 
+  function generateCodeVerifier(): string {
+    const bytes = new Uint8Array(32);
+    crypto.getRandomValues(bytes);
+    let binary = '';
+    for (const byte of bytes) binary += String.fromCharCode(byte);
+    return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  }
+
+  function base64urlencode(buffer: Uint8Array): string {
+    let binary = '';
+    for (const byte of buffer) binary += String.fromCharCode(byte);
+    return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  }
+
+  async function generateCodeChallenge(verifier: string): Promise<string> {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(verifier);
+    const digest = await crypto.subtle.digest('SHA-256', data);
+    return base64urlencode(new Uint8Array(digest));
+  }
+
   return {
-    generateAuthUrl(): string {
+    async generateAuthUrl(): Promise<string> {
       currentState = generateState();
       const params = new URLSearchParams({
         client_id: config.clientId,
@@ -60,6 +83,14 @@ export function createOAuthClient(config: OAuthConfig): OAuthClient {
         scope: config.scopes.join(' '),
         state: currentState,
       });
+
+      if (config.usePKCE !== false) {
+        currentCodeVerifier = generateCodeVerifier();
+        const codeChallenge = await generateCodeChallenge(currentCodeVerifier);
+        params.set('code_challenge', codeChallenge);
+        params.set('code_challenge_method', 'S256');
+      }
+
       return `${config.authorizeUrl}?${params.toString()}`;
     },
 
@@ -79,6 +110,12 @@ export function createOAuthClient(config: OAuthConfig): OAuthClient {
         redirect_uri: config.redirectUri,
         client_id: config.clientId,
       });
+
+      if (currentCodeVerifier) {
+        body.set('code_verifier', currentCodeVerifier);
+        currentCodeVerifier = undefined;
+      }
+
       const response = await fetch(config.tokenUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },

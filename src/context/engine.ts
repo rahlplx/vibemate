@@ -3,7 +3,6 @@ import { RepoMap } from './repo-map.js';
 import { TokenBudgetAllocator } from './token-budget.js';
 import { ProvenanceEngine } from './provenance.js';
 import { CacheBoundary } from './cache-boundary.js';
-import { QualityGuard } from './quality-guard.js';
 import { SkillAutoActivator } from './skill-auto.js';
 
 interface AssembledContext {
@@ -33,12 +32,10 @@ export class ContextEngine {
   private tokenBudget: TokenBudgetAllocator;
   private provenance: ProvenanceEngine;
   private cacheBoundary: CacheBoundary;
-  private qualityGuard: QualityGuard;
   private skillActivator: SkillAutoActivator;
   
   private assemblyCount: number = 0;
   private totalTokens: number = 0;
-  private cacheHits: number = 0;
 
   constructor(root: string) {
     this.root = root;
@@ -46,7 +43,6 @@ export class ContextEngine {
     this.tokenBudget = new TokenBudgetAllocator();
     this.provenance = new ProvenanceEngine();
     this.cacheBoundary = new CacheBoundary();
-    this.qualityGuard = new QualityGuard();
     this.skillActivator = new SkillAutoActivator();
   }
 

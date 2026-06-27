@@ -64,7 +64,7 @@ export class ProvenanceEngine {
     return TRUST_SCORES[provenance] || 0.5;
   }
 
-  quarantine(piece: Omit<QuarantinedPiece, 'sanitizedContent' | 'isQuarantined' | 'reason'>): QuarantinedPiece {
+  quarantine(piece: TaggedPiece): QuarantinedPiece {
     let sanitized = piece.content;
     let isQuarantined = false;
     let reason = '';
@@ -79,7 +79,7 @@ export class ProvenanceEngine {
     }
 
     // Check for malicious content
-    if (piece.type === 'external') {
+    if (piece.provenance === 'external') {
       isQuarantined = true;
       reason = reason || 'External content quarantined by default';
     }
