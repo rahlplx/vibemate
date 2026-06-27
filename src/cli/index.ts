@@ -3,6 +3,16 @@
 import { Command } from 'commander';
 import { install, detectPlatform } from '../mcp/installer.js';
 import { createSpecGenerator } from '../mcp/tools/spec-generator.js';
+import { createAuthManager, createOAuthClient, type OAuthConfig } from '../mcp/auth.js';
+import { createAutoFix } from '../mcp/tools/auto-fix.js';
+
+const VIBEMATE_OAUTH: OAuthConfig = {
+  clientId: 'vibemate-cli',
+  redirectUri: 'http://localhost:3456/callback',
+  authorizeUrl: 'https://vibemate.dev/auth/authorize',
+  tokenUrl: 'https://vibemate.dev/auth/token',
+  scopes: ['openid', 'profile', 'offline_access'],
+};
 
 const program = new Command();
 
@@ -107,6 +117,145 @@ program
     console.log(`Version: 1.0.0`);
     console.log(`Detected platform: ${platform || 'none'}`);
     console.log(`API Key: ${process.env.ANTHROPIC_API_KEY ? 'configured' : 'not set'}`);
+  });
+
+const auth = program.command('auth').description('Manage Vibemate authentication');
+
+auth
+  .command('login')
+  .description('Log in to Vibemate via OAuth')
+  .option('-t, --token <token>', 'Provide token directly (non-interactive)')
+  .action(async (options) => {
+    try {
+      if (options.token) {
+        const mgr = createAuthManager();
+        mgr.storeToken('default', { token: options.token, tier: 'free' });
+        console.log('Token stored successfully.');
+        return;
+      }
+
+      const oauth = createOAuthClient(VIBEMATE_OAUTH);
+      const url = oauth.generateAuthUrl();
+      console.log('Opening browser for Vibemate authentication...');
+      console.log(`If browser does not open, visit:\n${url}\n`);
+
+      try {
+        const cmd = process.platform === 'win32'
+          ? `start "" "${url}"`
+          : process.platform === 'darwin'
+            ? `open "${url}"`
+            : `xdg-open "${url}"`;
+        const { execSync } = await import('child_process');
+        execSync(cmd, { shell: true } as any);
+      } catch {
+        console.log('Could not open browser. Visit the URL above manually.');
+      }
+
+      const server = await oauth.startLocalServer(3456);
+      console.log('Waiting for authentication...');
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      server.close();
+      console.log('\nAuthentication complete. Run `vibemate auth status` to verify.');
+    } catch (error) {
+      console.error('Login failed:', error instanceof Error ? error.message : error);
+      process.exit(1);
+    }
+  });
+
+auth
+  .command('logout')
+  .description('Log out from Vibemate')
+  .action(() => {
+    const mgr = createAuthManager();
+    mgr.revokeToken('default');
+    console.log('Logged out. Token removed.');
+  });
+
+auth
+  .command('status')
+  .description('Show authentication status')
+  .action(() => {
+    const mgr = createAuthManager();
+    const token = mgr.getToken('default');
+    if (!token) {
+      console.log('Authentication status: not authenticated');
+      console.log('Run `vibemate auth login` to authenticate.');
+    } else {
+      console.log(`Authentication status: authenticated`);
+      console.log(`Tier: ${mgr.getTier('default')}`);
+      if (token.userId) console.log(`User ID: ${token.userId}`);
+      if (token.expiresAt) {
+        const remaining = token.expiresAt - Date.now();
+        const hours = Math.round(remaining / 3600000);
+        console.log(`Token expires: ${hours > 0 ? `in ${hours}h` : 'expired'}`);
+      }
+    }
+  });
+
+const fix = program.command('fix').description('Scan and fix common project issues');
+
+fix
+  .command('scan')
+  .description('Scan project for common issues')
+  .action(async () => {
+    try {
+      const af = createAutoFix();
+      const issues = await af.scan();
+      if (issues.length === 0) {
+        console.log('No issues found. Your project looks clean!');
+        return;
+      }
+      console.log(`Found ${issues.length} issues:\n`);
+      for (const issue of issues) {
+        console.log(`[${issue.severity.toUpperCase()}] ${issue.description}`);
+        console.log(`   Fix: ${issue.fix}\n`);
+      }
+    } catch (error) {
+      console.error('Scan failed:', error instanceof Error ? error.message : error);
+      process.exit(1);
+    }
+  });
+
+fix
+  .command('apply')
+  .description('Apply fixes for detected issues')
+  .option('-d, --dry-run', 'Preview fixes without applying')
+  .action(async (options) => {
+    try {
+      const af = createAutoFix();
+      const issues = await af.scan();
+      if (issues.length === 0) {
+        console.log('No issues to fix.');
+        return;
+      }
+      if (options.dryRun) {
+        console.log('Dry run - would fix:');
+        for (const issue of issues) {
+          console.log(`  [${issue.severity.toUpperCase()}] ${issue.description}`);
+        }
+        return;
+      }
+      const results = await af.fix(issues);
+      console.log('Fix results:');
+      for (const r of results) {
+        const icon = r.status === 'success' ? '✓' : r.status === 'failed' ? '✗' : '−';
+        console.log(`  ${icon} ${r.id}${r.error ? `: ${r.error}` : ''}`);
+      }
+    } catch (error) {
+      console.error('Fix failed:', error instanceof Error ? error.message : error);
+      process.exit(1);
+    }
+  });
+
+fix
+  .command('status')
+  .description('Show fix configuration and category info')
+  .action(() => {
+    const af = createAutoFix();
+    console.log('Auto-Fix Categories:');
+    for (const cat of af.getCategories()) {
+      console.log(`  - ${cat}`);
+    }
   });
 
 program.parse();

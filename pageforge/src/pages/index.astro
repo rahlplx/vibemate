@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PageForge — AI Landing Page Generator</title>
+  <link rel="stylesheet" href="/styles/global.css">
+</head>
+<body>
+  <div id="app">
+    <!-- Header -->
+    <header class="header">
+      <div class="logo">
+        <span class="logo-icon">⚡</span>
+        <span class="logo-text">PageForge</span>
+      </div>
+      <nav class="nav">
+        <a href="#features">Features</a>
+        <a href="#templates">Templates</a>
+        <a href="#pricing">Pricing</a>
+      </nav>
+    </header>
+
+    <!-- Hero Section -->
+    <section class="hero">
+      <h1>Describe Your Business.<br>Get a Landing Page.</h1>
+      <p class="hero-subtitle">No code. No designers. No waiting. Just describe what you do, and PageForge generates a beautiful, deployable landing page in under 5 minutes.</p>
+      
+      <!-- Main Input -->
+      <div class="generator-card">
+        <div class="input-section">
+          <label for="description">What does your business do?</label>
+          <textarea 
+            id="description" 
+            placeholder="e.g., We sell organic, sustainable dog food delivered to your door. Our recipes are vet-approved and made with real ingredients."
+            rows="4"
+          ></textarea>
+          
+          <div class="template-selector">
+            <label>Choose a template:</label>
+            <div class="template-options">
+              <button class="template-btn active" data-template="saas">SaaS</button>
+              <button class="template-btn" data-template="agency">Agency</button>
+              <button class="template-btn" data-template="product">Product</button>
+              <button class="template-btn" data-template="portfolio">Portfolio</button>
+              <button class="template-btn" data-template="coming-soon">Coming Soon</button>
+            </div>
+          </div>
+          
+          <button id="generate-btn" class="generate-btn">
+            <span class="btn-text">Generate Landing Page</span>
+            <span class="btn-icon">→</span>
+          </button>
+        </div>
+        
+        <!-- Preview Pane -->
+        <div class="preview-section" id="preview-section" style="display: none;">
+          <div class="preview-header">
+            <h3>Preview</h3>
+            <div class="preview-actions">
+              <button class="action-btn" id="refresh-btn">🔄 Refresh</button>
+              <button class="action-btn" id="export-btn">📥 Export HTML</button>
+              <button class="action-btn primary" id="deploy-btn">🚀 Deploy to Vercel</button>
+            </div>
+          </div>
+          <div class="preview-frame">
+            <iframe id="preview-iframe" srcdoc=""></iframe>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Features Section -->
+    <section class="features" id="features">
+      <h2>How It Works</h2>
+      <div class="features-grid">
+        <div class="feature-card">
+          <div class="feature-icon">✍️</div>
+          <h3>1. Describe</h3>
+          <p>Tell PageForge what your business does in plain English. No technical jargon needed.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">⚡</div>
+          <h3>2. Generate</h3>
+          <p>Our AI creates a beautiful landing page with copy, layout, and design — instantly.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">🚀</div>
+          <h3>3. Deploy</h3>
+          <p>One click to deploy to Vercel. Your landing page is live in seconds.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Templates Section -->
+    <section class="templates" id="templates">
+      <h2>Choose Your Style</h2>
+      <p class="section-subtitle">5 professionally designed templates, each optimized for different use cases.</p>
+      <div class="templates-grid">
+        <div class="template-card">
+          <div class="template-preview saas"></div>
+          <h3>SaaS</h3>
+          <p>Perfect for software products and subscriptions</p>
+        </div>
+        <div class="template-card">
+          <div class="template-preview agency"></div>
+          <h3>Agency</h3>
+          <p>Ideal for service businesses and consultants</p>
+        </div>
+        <div class="template-card">
+          <div class="template-preview product"></div>
+          <h3>Product</h3>
+          <p>Great for physical products and e-commerce</p>
+        </div>
+        <div class="template-card">
+          <div class="template-preview portfolio"></div>
+          <h3>Portfolio</h3>
+          <p>Showcase your work and creative projects</p>
+        </div>
+        <div class="template-card">
+          <div class="template-preview coming-soon"></div>
+          <h3>Coming Soon</h3>
+          <p>Build anticipation before your launch</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Pricing Section -->
+    <section class="pricing" id="pricing">
+      <h2>Simple Pricing</h2>
+      <div class="pricing-card">
+        <div class="pricing-header">
+          <h3>Launch Special</h3>
+          <div class="price">
+            <span class="price-amount">$0</span>
+            <span class="price-period">for first 100 users</span>
+          </div>
+        </div>
+        <ul class="pricing-features">
+          <li>✅ Unlimited landing pages</li>
+          <li>✅ All 5 templates</li>
+          <li>✅ One-click Vercel deploy</li>
+          <li>✅ Custom colors & fonts</li>
+          <li>✅ Email capture forms</li>
+          <li>✅ Mobile responsive</li>
+        </ul>
+        <button class="cta-btn">Get Started Free</button>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <p>Built with ⚡ by PageForge</p>
+    </footer>
+  </div>
+
+  <script src="/scripts/app.js"></script>
+</body>
+</html>

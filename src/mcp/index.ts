@@ -6,6 +6,8 @@ import {
   InitializeRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
 import { specToolDefinition, specToolHandler } from './tools/spec.js';
+import { autoCompleteToolDefinition, autoCompleteToolHandler } from './tools/auto-complete.js';
+import { autoFixToolDefinition, autoFixToolHandler } from './tools/auto-fix.js';
 import { StackDetector } from './stack-detector.js';
 
 interface ServerConfig {
@@ -153,6 +155,8 @@ export class VibemateMcpServer {
 
   private registerBuiltinTools(): void {
     this.registerTool(specToolDefinition, specToolHandler);
+    this.registerTool(autoCompleteToolDefinition, autoCompleteToolHandler);
+    this.registerTool(autoFixToolDefinition, autoFixToolHandler);
   }
 
   registerTool(definition: unknown, handler: Function): void {
