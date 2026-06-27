@@ -16,7 +16,7 @@ export interface TelemetryConfig {
 
 export class TelemetryCollector {
   private config: TelemetryConfig;
-  private spans: TelemetrySpan[] = [];
+  private spanMap: Map<string, TelemetrySpan> = new Map();
   private traces: Map<string, TelemetrySpan[]> = new Map();
   private persistence?: PersistenceManager;
 
@@ -41,7 +41,7 @@ export class TelemetryCollector {
       status: 'ok'
     };
 
-    this.spans.push(span);
+    this.spanMap.set(span.spanId, span);
     
     // Add to trace
     const traceSpans = this.traces.get(span.traceId) || [];
@@ -70,7 +70,7 @@ export class TelemetryCollector {
 
   // End a span
   endSpan(spanId: string, status: 'ok' | 'error' = 'ok'): void {
-    const span = this.spans.find(s => s.spanId === spanId);
+    const span = this.spanMap.get(spanId);
     if (span) {
       span.endTime = Date.now();
       span.status = status;
@@ -97,10 +97,16 @@ export class TelemetryCollector {
       cost
     };
 
-    // Update the span in this.spans with the full turn object
-    const index = this.spans.findIndex(s => s.spanId === span.spanId);
-    if (index !== -1) {
-      this.spans[index] = turn;
+    // Update the span in map with the full turn object
+    this.spanMap.set(span.spanId, turn);
+
+    // Also update in traces if it exists
+    const traceSpans = this.traces.get(span.traceId);
+    if (traceSpans) {
+      const index = traceSpans.findIndex(s => s.spanId === span.spanId);
+      if (index !== -1) {
+        traceSpans[index] = turn;
+      }
     }
 
     this.endSpan(span.spanId);
@@ -179,7 +185,7 @@ export class TelemetryCollector {
 
   // Detect stuck loops
   detectStuckLoop(toolName: string, threshold: number = 5): boolean {
-    const recentCalls = this.spans
+    const recentCalls = Array.from(this.spanMap.values())
       .filter(s => s.name === 'tool.call' && s.attributes['tool.name'] === toolName)
       .slice(-threshold);
     
@@ -188,8 +194,9 @@ export class TelemetryCollector {
 
   // Get metrics
   getMetrics(): TelemetryMetrics {
-    const agentTurns = this.spans.filter(s => s.name === 'agent.turn') as AgentTurn[];
-    const toolCalls = this.spans.filter(s => s.name === 'tool.call') as ToolCall[];
+    const allSpans = Array.from(this.spanMap.values());
+    const agentTurns = allSpans.filter(s => s.name === 'agent.turn') as AgentTurn[];
+    const toolCalls = allSpans.filter(s => s.name === 'tool.call') as ToolCall[];
     
     const totalTokens = agentTurns.reduce((sum, t) => sum + t.inputTokens + t.outputTokens, 0);
     const totalCost = agentTurns.reduce((sum, t) => sum + t.cost, 0);
@@ -197,8 +204,8 @@ export class TelemetryCollector {
     const latencies = agentTurns.map(t => (t.endTime || t.startTime) - t.startTime);
     const averageLatency = latencies.length > 0 ? latencies.reduce((a, b) => a + b, 0) / latencies.length : 0;
     
-    const errors = this.spans.filter(s => s.status === 'error').length;
-    const errorRate = this.spans.length > 0 ? errors / this.spans.length : 0;
+    const errors = allSpans.filter(s => s.status === 'error').length;
+    const errorRate = allSpans.length > 0 ? errors / allSpans.length : 0;
     
     const toolFailures = toolCalls.filter(t => t.status === 'error').length;
     const toolFailureRate = toolCalls.length > 0 ? toolFailures / toolCalls.length : 0;
@@ -228,14 +235,14 @@ export class TelemetryCollector {
       serviceName: this.config.serviceName,
       serviceVersion: this.config.serviceVersion,
       exportTime: new Date().toISOString(),
-      spans: this.spans,
+      spans: Array.from(this.spanMap.values()),
       metrics: this.getMetrics(),
       traces: Object.fromEntries(this.traces)
     };
 
     await writeFile(exportFile, JSON.stringify(exportData, null, 2));
 
-    this.spans = [];
+    this.spanMap.clear();
     this.traces.clear();
   }
 
@@ -271,18 +278,32 @@ export class TelemetryCollector {
 
   // Get span by ID
   getSpan(spanId: string): TelemetrySpan | undefined {
-    return this.spans.find(s => s.spanId === spanId);
+    return this.spanMap.get(spanId);
   }
 
   private getTraceId(spanId: string): string {
-    const span = this.spans.find(s => s.spanId === spanId);
+    const span = this.spanMap.get(spanId);
     return span?.traceId || randomUUID();
   }
 
   // Clear old spans (for memory management)
   clearOldSpans(maxAgeMs: number = 3600000): void {
     const cutoff = Date.now() - maxAgeMs;
-    this.spans = this.spans.filter(s => s.startTime > cutoff);
+    for (const [spanId, span] of this.spanMap.entries()) {
+      if (span.startTime <= cutoff) {
+        this.spanMap.delete(spanId);
+        // Also remove from traces
+        const traceSpans = this.traces.get(span.traceId);
+        if (traceSpans) {
+          const filtered = traceSpans.filter(s => s.spanId !== spanId);
+          if (filtered.length === 0) {
+            this.traces.delete(span.traceId);
+          } else {
+            this.traces.set(span.traceId, filtered);
+          }
+        }
+      }
+    }
   }
 }
 

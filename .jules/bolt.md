@@ -1,0 +1,3 @@
+## 2025-05-14 - [Span Lookup Optimization]
+**Learning:** Linear searches in an array of spans was causing a noticeable performance hit as the number of telemetry events grew. Using a `Map` for O(1) lookup is a simple but critical optimization for collectors. Also, `clearOldSpans` was missing logic to clean up the `traces` map, which would have led to a memory leak in long-running processes.
+**Action:** Always prefer Map over Array for storage when frequent lookup by a unique identifier (like spanId or traceId) is required. Ensure all associated secondary structures (like trace lists) are correctly synchronized and cleaned up during eviction.
