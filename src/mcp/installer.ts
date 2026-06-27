@@ -3,7 +3,7 @@ import { existsSync } from 'fs';
 import { join, dirname } from 'path';
 import { homedir } from 'os';
 
-export type Platform = 'claude' | 'cursor' | 'codex' | 'kilocode' | 'opencode';
+export type Platform = 'claude' | 'cursor' | 'codex' | 'kilocode' | 'opencode' | 'antigravity' | 'openhands';
 
 export interface PlatformConfig {
   name: string;
@@ -36,6 +36,17 @@ export const PLATFORMS: Record<Platform, PlatformConfig> = {
     name: 'OpenCode',
     configPath: join(homedir(), '.config', 'opencode', 'opencode.json'),
     mcpKey: 'mcp'
+  },
+  // TODO: Verify antigravity config path against official Google AI coding agent docs
+  antigravity: {
+    name: 'Antigravity',
+    configPath: join(homedir(), '.config', 'antigravity', 'mcp.json'),
+    mcpKey: 'mcpServers'
+  },
+  openhands: {
+    name: 'OpenHands',
+    configPath: join(homedir(), '.openhands', 'config.toml'),
+    mcpKey: 'mcpServers'
   }
 };
 
@@ -58,26 +69,50 @@ export function getPlatformConfig(platform: Platform): PlatformConfig {
   return PLATFORMS[platform];
 }
 
+function isTomlPlatform(platform: Platform): boolean {
+  return platform === 'openhands';
+}
+
 export async function readConfig(platform: Platform): Promise<Record<string, unknown>> {
   const config = PLATFORMS[platform];
-  
+
   if (!existsSync(config.configPath)) {
     return {};
   }
-  
+
   const content = await readFile(config.configPath, 'utf-8');
+  if (isTomlPlatform(platform)) {
+    return Bun.TOML.parse(content) as Record<string, unknown>;
+  }
   return JSON.parse(content);
 }
 
 export async function writeConfig(platform: Platform, data: Record<string, unknown>): Promise<void> {
   const config = PLATFORMS[platform];
-  
+
   // Ensure directory exists
   const dir = dirname(config.configPath);
   if (!existsSync(dir)) {
     await mkdir(dir, { recursive: true });
   }
-  
+
+  if (isTomlPlatform(platform)) {
+    // Bun.TOML only has parse; serialize with a minimal key=value writer
+    const lines: string[] = [];
+    for (const [section, value] of Object.entries(data)) {
+      if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+        lines.push(`[${section}]`);
+        for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+          lines.push(`${k} = ${JSON.stringify(v)}`);
+        }
+      } else {
+        lines.push(`${section} = ${JSON.stringify(value)}`);
+      }
+    }
+    await writeFile(config.configPath, lines.join('\n') + '\n', 'utf-8');
+    return;
+  }
+
   await writeFile(config.configPath, JSON.stringify(data, null, 2), 'utf-8');
 }
 

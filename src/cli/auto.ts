@@ -149,6 +149,21 @@ async function runAutoPipeline(description: string, options: AutoOptions): Promi
       circuitBreaker.consecutiveFailures = 0;
     }
 
+    // Telemetry quality gates: loop detection + anomaly detection
+    if (state.telemetry) {
+      const loopReport = telemetryCollector.detectLoop();
+      const anomalies = telemetryCollector.getAnomalies();
+
+      if (loopReport.detected && loopReport.severity === 'rapid') {
+        console.log(`\n⚠️  Telemetry: rapid tool loop detected (${loopReport.cycle.join('→')})`);
+        circuitBreaker.consecutiveFailures++;
+      }
+      if (anomalies.some(a => a.severity === 'critical')) {
+        console.log(`\n⚠️  Telemetry: critical anomaly detected (${anomalies.filter(a => a.severity === 'critical').map(a => a.type).join(', ')})`);
+        circuitBreaker.consecutiveFailures++;
+      }
+    }
+
     const completedPhase = state.phase;
 
     const transition = PHASE_TRANSITIONS[state.phase];
