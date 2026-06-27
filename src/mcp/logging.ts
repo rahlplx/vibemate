@@ -1,6 +1,12 @@
 // MCP Server Logging
 import type { LogLevel, LogEntry, ServerConfig } from './types.js';
 
+const VALID_LOG_LEVELS: LogLevel[] = ['debug', 'info', 'warn', 'error'];
+
+function parseLogLevel(value: string): LogLevel {
+  return VALID_LOG_LEVELS.includes(value as LogLevel) ? value as LogLevel : 'info';
+}
+
 const LOG_LEVELS: Record<LogLevel, number> = {
   debug: 0,
   info: 1,
@@ -32,7 +38,7 @@ export class McpLogger {
     if (config?.logLevel) {
       this.setLevel(config.logLevel);
     } else if (process.env.VIBEMATE_LOG_LEVEL) {
-      this.setLevel(process.env.VIBEMATE_LOG_LEVEL as LogLevel);
+      this.setLevel(parseLogLevel(process.env.VIBEMATE_LOG_LEVEL));
     }
   }
 
