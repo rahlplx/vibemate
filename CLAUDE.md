@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Context
 
-Vibemate is an AI-native product platform that ships as an MCP server plugging into AI coding tools (Claude Code, Cursor, Codex, Kilocode, OpenCode). It gives solo founders and small teams enterprise-grade patterns through curated skills and a 13-phase autonomous pipeline.
+Vibemate is an AI-native product platform that ships as an MCP server plugging into AI coding tools (Claude Code, Cursor, Codex, Kilocode, OpenCode). It gives solo founders and small teams enterprise-grade patterns through curated skills and a 12-phase autonomous pipeline.
 
 ## Commands
 
@@ -26,7 +26,7 @@ bun run typecheck       # tsc --noEmit
 bun run clean           # Remove dist/
 ```
 
-Prefer `bun test` over `npm test`. Tests use vitest (configured via `bunfig.toml`). `tsconfig.json` excludes `tests/` from compilation — type-check only runs over `src/`.
+Prefer `bun test` over `npm test`. Tests use Bun's native test runner (configured via `bunfig.toml`). `tsconfig.json` excludes `tests/` from compilation — type-check only runs over `src/`.
 
 ## Architecture
 
@@ -34,7 +34,7 @@ Prefer `bun test` over `npm test`. Tests use vitest (configured via `bunfig.toml
 - `src/cli/index.ts` — CLI entry (`vibemate` binary), registers all subcommands
 - `src/mcp/index.ts` — MCP server entry (`vibemate-mcp` binary), exposes tools over stdio transport
 
-### 13-Phase Autonomous Pipeline (`src/cli/auto.ts`)
+### 12-Phase Autonomous Pipeline (`src/cli/auto.ts`)
 The `vibemate auto "<description>"` command runs a state machine through: THINK → PLAN → DESIGN → BREAK → BUILD → HARNESS → REVIEW → QA → SHIP → RETRO → LEARN → DONE. Each phase maps to a skill file in `skills/vibe-*.md`. Circuit breakers (budget, failure count, dispatch count) halt the pipeline. State is persisted to `.vibe/`.
 
 ### Commercial Modules (`src/`)
