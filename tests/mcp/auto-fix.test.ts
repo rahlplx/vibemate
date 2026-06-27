@@ -1,5 +1,8 @@
-import { describe, it, expect } from 'bun:test';
+import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
 import { createAutoFix, type FixIssue, type FixResult } from '../../src/mcp/tools/auto-fix.js';
+import { existsSync, mkdirSync, rmSync, readFileSync, writeFileSync, mkdirSync as mkDirSync } from 'fs';
+import { join } from 'path';
+import { tmpdir } from 'os';
 
 describe('AutoFix', () => {
   const af = createAutoFix();
@@ -50,6 +53,106 @@ describe('AutoFix', () => {
         if (r.status === 'success' && r.file) {
           expect(r.backup).toBeDefined();
         }
+      }
+    });
+
+    it('actually applies the fix and creates the file', async () => {
+      const testDir = join(tmpdir(), `vibemate-fix-test-${Date.now()}`);
+      mkDirSync(testDir, { recursive: true });
+      const fixer = createAutoFix(testDir);
+
+      try {
+        const results = await fixer.fix([{
+          id: 'missing-env',
+          type: 'config',
+          severity: 'high',
+          description: 'No .env file found',
+          fix: 'Create .env',
+          file: '.env'
+        }]);
+        expect(results[0].status).toBe('success');
+        expect(existsSync(join(testDir, '.env'))).toBe(true);
+      } finally {
+        rmSync(testDir, { recursive: true, force: true });
+      }
+    });
+
+    it('creates .gitignore with standard patterns', async () => {
+      const testDir = join(tmpdir(), `vibemate-gitignore-test-${Date.now()}`);
+      mkDirSync(testDir, { recursive: true });
+      const fixer = createAutoFix(testDir);
+
+      try {
+        const results = await fixer.fix([{
+          id: 'missing-gitignore',
+          type: 'config',
+          severity: 'high',
+          description: 'No .gitignore file',
+          fix: 'Create .gitignore',
+          file: '.gitignore'
+        }]);
+        expect(results[0].status).toBe('success');
+        expect(existsSync(join(testDir, '.gitignore'))).toBe(true);
+        const content = readFileSync(join(testDir, '.gitignore'), 'utf-8');
+        expect(content).toContain('node_modules');
+      } finally {
+        rmSync(testDir, { recursive: true, force: true });
+      }
+    });
+
+    it('enables strict mode in tsconfig.json', async () => {
+      const testDir = join(tmpdir(), `vibemate-tsconfig-test-${Date.now()}`);
+      mkDirSync(testDir, { recursive: true });
+      writeFileSync(join(testDir, 'tsconfig.json'), JSON.stringify({ compilerOptions: { target: 'ES2022' } }, null, 2));
+      const fixer = createAutoFix(testDir);
+
+      try {
+        const results = await fixer.fix([{
+          id: 'typescript-no-strict',
+          type: 'config',
+          severity: 'medium',
+          description: 'TypeScript strict mode not enabled',
+          fix: 'Set strict: true',
+          file: 'tsconfig.json'
+        }]);
+        expect(results[0].status).toBe('success');
+        const content = readFileSync(join(testDir, 'tsconfig.json'), 'utf-8');
+        expect(content).toContain('"strict": true');
+      } finally {
+        rmSync(testDir, { recursive: true, force: true });
+      }
+    });
+
+    it('skips issues without apply function', async () => {
+      const results = await af.fix([{
+        id: 'node-modules-check',
+        type: 'dependency',
+        severity: 'high',
+        description: 'node_modules missing',
+        fix: 'Run install'
+      }]);
+      expect(results[0].status).toBe('skipped');
+    });
+
+    it('returns failed for issues that throw during apply', async () => {
+      const testDir = join(tmpdir(), `vibemate-fail-test-${Date.now()}`);
+      mkDirSync(testDir, { recursive: true });
+      const fixer = createAutoFix(testDir);
+
+      try {
+        // typescript-no-strict needs a tsconfig.json to exist
+        const results = await fixer.fix([{
+          id: 'typescript-no-strict',
+          type: 'config',
+          severity: 'medium',
+          description: 'TypeScript strict mode not enabled',
+          fix: 'Set strict: true',
+          file: 'tsconfig.json'
+        }]);
+        expect(results[0].status).toBe('failed');
+        expect(results[0].error).toBeDefined();
+      } finally {
+        rmSync(testDir, { recursive: true, force: true });
       }
     });
   });

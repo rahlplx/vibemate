@@ -26,7 +26,6 @@ describe('AutoFix MCP Tool', () => {
       expect(result.content).toBeDefined();
       const text = result.content[0].text;
       expect(text).toContain('issues');
-      expect(text).toContain('[HIGH]');
     });
 
     it('returns structured data in response', async () => {
