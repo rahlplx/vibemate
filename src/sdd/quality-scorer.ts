@@ -18,10 +18,6 @@ export function scoreReadability(text: string): number {
   // Average words per sentence
   const avgWordsPerSentence = words.length / Math.max(1, sentences.length);
   
-  // Flesch-Kincaid approximation
-  const syllableCount = words.reduce((sum, word) => sum + countSyllables(word), 0);
-  const avgSyllablesPerWord = syllableCount / words.length;
-  
   // Score: lower avg words per sentence = more readable
   let score = 100;
   

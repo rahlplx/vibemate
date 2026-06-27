@@ -1,6 +1,6 @@
 // Vibemate SDD — Governance Engine
 
-import { Rule, GOVERNANCE_POLICIES, RULES } from './knowledge-base';
+import type { Rule } from './knowledge-base';
 
 export interface Violation {
   ruleId: string;

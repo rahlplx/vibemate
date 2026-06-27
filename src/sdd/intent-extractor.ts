@@ -13,8 +13,6 @@ export interface IntentExtraction {
 }
 
 export function extractIntent(input: string): IntentExtraction {
-  const lowerInput = input.toLowerCase();
-  
   // Extract problem
   const problem = extractProblem(input);
   
@@ -47,8 +45,6 @@ export function extractIntent(input: string): IntentExtraction {
 }
 
 function extractProblem(input: string): string {
-  const lowerInput = input.toLowerCase();
-  
   // Look for "build", "create", "make", "develop"
   const buildPatterns = [
     /(?:build|create|make|develop)\s+(?:a\s+)?(.+?)(?:\s+for|\s+that|\s+which|$)/i,
@@ -99,8 +95,6 @@ function extractAudience(input: string): string {
 }
 
 function extractSuccessMetric(input: string): string {
-  const lowerInput = input.toLowerCase();
-  
   // Look for time-based metrics
   const timePatterns = [
     /(?:in|under|within|less than)\s+(\d+)\s+(minutes?|hours?|seconds?)/i,

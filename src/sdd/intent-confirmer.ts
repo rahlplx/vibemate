@@ -98,7 +98,7 @@ function calculateConfirmationConfidence(
   // Boost for addressing gaps
   if (feedback && extraction.gaps.length > 0) {
     const lowerFeedback = feedback.toLowerCase();
-    for (const gap of extraction.gaps) {
+    for (const _gap of extraction.gaps) {
       if (lowerFeedback.includes('success') || lowerFeedback.includes('metric')) {
         confidence += 5;
       }

@@ -16,6 +16,7 @@ export interface Rule {
   id: string;
   name: string;
   description: string;
+  category?: string;
   condition: string;
   action: string;
   severity: 'info' | 'warning' | 'error' | 'critical';
@@ -363,7 +364,7 @@ export function getRulesBySeverity(severity: Rule['severity']): Rule[] {
 export function getRelevantRules(context: string): Rule[] {
   const lower = context.toLowerCase();
   return RULES.filter(r => 
-    lower.includes(r.category) ||
+    (r.category != null && lower.includes(r.category)) ||
     r.evidence.some(e => lower.includes(e.toLowerCase().substring(0, 20)))
   );
 }
