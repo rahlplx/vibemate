@@ -163,18 +163,30 @@ describe('OAuthClient', () => {
   });
 
   it('exchanges code for token', async () => {
-    const client = createOAuthClient({
-      clientId: 'test',
-      redirectUri: 'http://localhost/callback',
-      authorizeUrl: 'https://auth.example.com/authorize',
-      tokenUrl: 'https://auth.example.com/token',
-      scopes: [],
+    const http = await import('http');
+    const server = http.createServer((_req, res) => {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ access_token: 'vib-test-token-123', tier: 'pro', user_id: 'user-1' }));
     });
+    await new Promise<void>(r => server.listen(0, r));
+    const port = (server.address() as { port: number }).port;
 
-    const token = await client.exchangeCode('auth-code');
-    expect(token.token).toContain('vib-');
-    expect(token.tier).toBe('free');
-    expect(token.userId).toBeDefined();
+    try {
+      const client = createOAuthClient({
+        clientId: 'test',
+        redirectUri: 'http://localhost/callback',
+        authorizeUrl: 'https://auth.example.com/authorize',
+        tokenUrl: `http://localhost:${port}`,
+        scopes: [],
+      });
+
+      const token = await client.exchangeCode('auth-code');
+      expect(token.token).toBe('vib-test-token-123');
+      expect(token.tier).toBe('pro');
+      expect(token.userId).toBe('user-1');
+    } finally {
+      server.close();
+    }
   });
 
   it('rejects empty code', async () => {

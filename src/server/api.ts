@@ -167,11 +167,14 @@ app.post('/api/router/route', async (c) => {
   return c.json({ score, ...routeResult });
 });
 
-app.get('/api/status', (c) => {
+app.get('/api/status', async (c) => {
   const statePath = path.join(ROOT, '.vibe', 'state.json');
   let state = {};
-  if (fs.existsSync(statePath)) {
-    state = JSON.parse(fs.readFileSync(statePath, 'utf-8'));
+  try {
+    const raw = await fs.promises.readFile(statePath, 'utf-8');
+    state = JSON.parse(raw);
+  } catch (err: unknown) {
+    if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
   }
   return c.json({
     state,

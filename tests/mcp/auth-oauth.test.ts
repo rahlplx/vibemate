@@ -62,12 +62,23 @@ describe('OAuthClient', () => {
 
   describe('exchangeCode', () => {
     it('exchanges code for token via callback URL', async () => {
-      const client = createOAuthClient(config);
-      const token = await client.exchangeCode('test-auth-code');
-      expect(token.token).toBeTruthy();
-      expect(token.tier).toBe('free');
-      expect(token.userId).toBeTruthy();
-      expect(token.expiresAt).toBeGreaterThan(Date.now());
+      const http = await import('http');
+      const server = http.createServer((_req, res) => {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ access_token: 'vib-test-token-456', tier: 'pro', user_id: 'user-2', expires_in: 3600 }));
+      });
+      await new Promise<void>(r => server.listen(0, r));
+      const port = (server.address() as { port: number }).port;
+      try {
+        const client = createOAuthClient({ ...config, tokenUrl: `http://localhost:${port}` });
+        const token = await client.exchangeCode('test-auth-code');
+        expect(token.token).toBe('vib-test-token-456');
+        expect(token.tier).toBe('pro');
+        expect(token.userId).toBe('user-2');
+        expect(token.expiresAt).toBeGreaterThan(Date.now());
+      } finally {
+        server.close();
+      }
     });
 
     it('rejects empty code', async () => {

@@ -46,10 +46,24 @@ export class ContextPipeline {
   private root: string;
   private cacheDir: string;
   private cache: Map<string, CacheEntry> = new Map();
+  private maxEntries = 500;
+  private maxBytes = 50 * 1024 * 1024;
 
   constructor(root: string) {
     this.root = root;
     this.cacheDir = join(root, '.vibe', 'context-cache');
+  }
+
+  private evict(): void {
+    let totalSize = 0;
+    for (const entry of this.cache.values()) {
+      totalSize += entry.content.length;
+    }
+    for (const [key, entry] of this.cache) {
+      if (this.cache.size <= this.maxEntries && totalSize <= this.maxBytes) break;
+      totalSize -= entry.content.length;
+      this.cache.delete(key);
+    }
   }
 
   // AST-style extraction - extract only relevant code sections
@@ -173,6 +187,7 @@ export class ContextPipeline {
       timestamp: Date.now()
     };
     this.cache.set(hash, entry);
+    this.evict();
     
     // Persist cache
     await this.persistCache();

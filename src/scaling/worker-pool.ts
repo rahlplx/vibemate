@@ -16,6 +16,7 @@ export interface WorkerInfo {
   busy: boolean;
   tasksCompleted: number;
   lastActive: number;
+  activeReject?: (err: Error) => void;
 }
 
 export interface WorkerTask<T, R> {
@@ -85,6 +86,10 @@ export class WorkerPool {
   }
 
   private handleWorkerError(worker: WorkerInfo, err: Error): void {
+    if (worker.activeReject) {
+      worker.activeReject(err);
+      worker.activeReject = undefined;
+    }
     worker.busy = false;
     console.error(`Worker ${worker.id} error:`, err);
     this.processQueue();
@@ -119,13 +124,16 @@ export class WorkerPool {
     worker.lastActive = Date.now();
 
     return new Promise<R>((resolve, reject) => {
+      worker!.activeReject = reject;
       const timeout = setTimeout(() => {
+        worker!.activeReject = undefined;
         worker!.worker.removeListener('message', messageHandler);
         worker!.busy = false;
         reject(new Error(`Task ${id} timeout`));
       }, this.config.taskTimeoutMs);
 
       const messageHandler = (result: R) => {
+        worker!.activeReject = undefined;
         worker!.worker.removeListener('message', messageHandler);
         clearTimeout(timeout);
         worker!.busy = false;
