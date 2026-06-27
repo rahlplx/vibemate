@@ -3,7 +3,7 @@ type: retro-learning
 title: "Retro: integration-test"
 description: "Task integration-test: success"
 tags: [testing]
-timestamp: "2026-06-27T23:20:24.767Z"
+timestamp: "2026-06-27T23:49:36.698Z"
 learningType: "success"
 ---
 
