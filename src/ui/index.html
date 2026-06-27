@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vibemate - AI Product Platform</title>
+  <link rel="stylesheet" href="/ui/styles.css">
+</head>
+<body>
+  <div id="app">
+    <nav class="sidebar">
+      <div class="logo">
+        <span class="logo-icon">V</span>
+        <span class="logo-text">Vibemate</span>
+      </div>
+      <ul class="nav-links">
+        <li class="active" data-page="dashboard">Dashboard</li>
+        <li data-page="discovery">Discovery</li>
+        <li data-page="decisions">Decisions</li>
+        <li data-page="scaffold">Scaffold</li>
+        <li data-page="telemetry">Telemetry</li>
+        <li data-page="governance">Governance</li>
+        <li data-page="settings">Settings</li>
+      </ul>
+      <div class="nav-footer">
+        <span class="version">v1.0.0</span>
+      </div>
+    </nav>
+    <main class="content">
+      <header class="topbar">
+        <h1 id="page-title">Dashboard</h1>
+        <div class="topbar-actions">
+          <span class="status-badge" id="status-badge">Connected</span>
+        </div>
+      </header>
+      <div id="page-content" class="page-content"></div>
+    </main>
+  </div>
+  <script src="/ui/app.js"></script>
+</body>
+</html>
