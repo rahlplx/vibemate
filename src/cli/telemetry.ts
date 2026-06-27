@@ -85,7 +85,8 @@ async function viewTelemetry(telemetryDir: string): Promise<void> {
       console.log(`\nHistorical files: ${sortedFiles.length - 1}`);
     }
 
-  } catch {
+  } catch (error) {
+    console.error(`[Telemetry] Failed to view telemetry data: ${error instanceof Error ? error.message : 'Unknown error'}`);
     console.log('No telemetry data found.');
     console.log(`\nRun ${colors.cyan('vibemate auto')} to generate telemetry data.`);
   }
@@ -104,7 +105,8 @@ async function clearTelemetry(telemetryDir: string): Promise<void> {
     }
     
     console.log(`✅ Cleared ${telemetryFiles.length} telemetry files`);
-  } catch {
+  } catch (error) {
+    console.error(`[Telemetry] Failed to clear telemetry data: ${error instanceof Error ? error.message : 'Unknown error'}`);
     console.log('No telemetry data to clear.');
   }
 }
@@ -144,7 +146,8 @@ async function showStats(_telemetryDir: string, collector: TelemetryCollector): 
       console.log(`  Latency: ${recent.averageLatency > previous.averageLatency ? '📈' : '📉'} ${Math.abs(recent.averageLatency - previous.averageLatency).toFixed(0)}ms`);
     }
 
-  } catch {
+  } catch (error) {
+    console.error(`[Telemetry] Failed to load telemetry history: ${error instanceof Error ? error.message : 'Unknown error'}`);
     console.log('No historical telemetry data found.');
   }
 }

@@ -3,7 +3,7 @@ import { Command } from 'commander';
 import { HarnessCompiler } from '../compiler/index.js';
 import { readFile, readdir } from 'fs/promises';
 import { join } from 'path';
-import { AgentType } from '../types.js';
+import { AgentType, OKFFrontmatter } from '../types.js';
 
 interface SyncOptions {
   agent?: AgentType;
@@ -80,7 +80,8 @@ async function syncArtifacts(options: SyncOptions): Promise<void> {
     const { writeFile } = await import('fs/promises');
     await writeFile(statePath, JSON.stringify(state, null, 2));
     console.log('   ✓ State updated\n');
-  } catch {
+  } catch (error) {
+    console.error(`[Sync] Failed to update state.json: ${error instanceof Error ? error.message : 'Unknown error'}`);
     console.log('   ⚠️  Could not update state.json\n');
   }
 
@@ -103,22 +104,30 @@ async function detectAgent(root: string): Promise<AgentType> {
   try {
     await readFile(join(root, '.cursorrules'));
     return 'cursor';
-  } catch {}
+  } catch (error) {
+    console.error(`[Sync] .cursorrules check failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
 
   try {
     await readFile(join(root, 'CLAUDE.md'));
     return 'claude-code';
-  } catch {}
+  } catch (error) {
+    console.error(`[Sync] CLAUDE.md check failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
 
   try {
     await readFile(join(root, 'opencode.json'));
     return 'opencode';
-  } catch {}
+  } catch (error) {
+    console.error(`[Sync] opencode.json check failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
 
   try {
     await readFile(join(root, 'AGENTS.md'));
     return 'codex';
-  } catch {}
+  } catch (error) {
+    console.error(`[Sync] AGENTS.md check failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
 
   // Default to claude-code
   return 'claude-code';
@@ -126,7 +135,7 @@ async function detectAgent(root: string): Promise<AgentType> {
 
 async function loadBundle(root: string) {
   const bundleRoot = join(root, '.agents', 'okf-bundle');
-  const concepts: any[] = [];
+  const concepts: Array<{ path: string; frontmatter: OKFFrontmatter; body: string }> = [];
 
   try {
     const files = await readdir(bundleRoot, { recursive: true });
@@ -135,7 +144,7 @@ async function loadBundle(root: string) {
         const content = await readFile(join(bundleRoot, file as string), 'utf-8');
         const frontmatterMatch = content.match(/^---\n([\s\S]*?)\n---/);
         if (frontmatterMatch) {
-          const frontmatter: any = {};
+          const frontmatter: Record<string, string> = {};
           const lines = frontmatterMatch[1].split('\n');
           for (const line of lines) {
             const [key, ...valueParts] = line.split(':');
@@ -145,14 +154,14 @@ async function loadBundle(root: string) {
           }
           concepts.push({
             path: file,
-            frontmatter,
+            frontmatter: frontmatter as OKFFrontmatter,
             body: content.substring(frontmatterMatch[0].length).trim()
           });
         }
       }
     }
-  } catch {
-    // Bundle doesn't exist yet
+  } catch (error) {
+    console.error(`[Sync] Failed to read OKF bundle: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 
   return {

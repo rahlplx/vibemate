@@ -20,7 +20,8 @@ export function createSQLiteAdapter(path: string): SQLiteAdapter {
     try {
       const { NodeSQLiteAdapter } = require('./node-adapter.js');
       return new NodeSQLiteAdapter(path);
-    } catch {
+    } catch (error) {
+      console.error(`[Factory] Node adapter load failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
       throw new Error(
         'better-sqlite3 is required for Node.js runtime. ' +
         'Install it with: npm install better-sqlite3 @types/better-sqlite3'

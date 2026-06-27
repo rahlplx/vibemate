@@ -3,6 +3,8 @@
 import { RetroLearning, EvolveRule, ExperiencePrinciple, OKFBundle } from '../types.js';
 import { OKFGenerator } from '../okf/generator.js';
 import { randomUUID } from 'crypto';
+import { createSeededRandom } from '../shared/random.js';
+import type { PersistenceManager } from '../shared/persistence.js';
 
 // RetroAgent-style dual intrinsic feedback
 export interface RetroFeedback {
@@ -125,9 +127,9 @@ export class RetroAgent {
   private extractPattern(_trajectory: {
     steps: string[];
   }): string {
-    // Extract common patterns from successful steps
     const patterns = ['modular design', 'TDD approach', 'incremental delivery'];
-    return patterns[Math.floor(Math.random() * patterns.length)];
+    const rng = createSeededRandom();
+    return rng.pick(patterns);
   }
 
   private extractTags(trajectory: {
@@ -177,8 +179,10 @@ export class RetroAgent {
 export class EvolveAgent {
   private rules: EvolveRule[] = [];
   private config: AELConfig;
+  private rng: ReturnType<typeof createSeededRandom>;
+  private persistence?: PersistenceManager;
 
-  constructor(_okfGenerator: OKFGenerator, config?: Partial<AELConfig>) {
+  constructor(_okfGenerator: OKFGenerator, config?: Partial<AELConfig> & { persistence?: PersistenceManager }) {
     this.config = {
       fastTimescale: {
         thompsonSampling: {
@@ -187,18 +191,18 @@ export class EvolveAgent {
         }
       },
       slowTimescale: {
-        reflectionInterval: 7 * 24 * 60 * 60 * 1000, // Weekly
+        reflectionInterval: 7 * 24 * 60 * 60 * 1000,
         failureStreakThreshold: 3,
         rewardThreshold: 0.4
       },
       ...config
     };
+    this.persistence = config?.persistence;
+    this.rng = createSeededRandom();
   }
 
-  // AEL fast timescale - Thompson Sampling for skill selection
   selectSkill(_taskContext: string): EvolveRule {
-    // Thompson Sampling: balance exploration vs exploitation
-    const explorationBonus = Math.random() < this.config.fastTimescale.thompsonSampling.explorationRate;
+    const explorationBonus = this.rng.next() < this.config.fastTimescale.thompsonSampling.explorationRate;
     
     if (explorationBonus || this.rules.length === 0) {
       // Explore: return default or random rule
@@ -243,6 +247,17 @@ export class EvolveAgent {
       const rule = await this.createRuleFromDiagnosis(diagnosis);
       newRules.push(rule);
       this.rules.push(rule);
+    }
+
+    // Persist new rules if persistence is available
+    if (this.persistence && newRules.length > 0) {
+      const store = await this.persistence.getEvolveStore();
+      for (const rule of newRules) {
+        await store.saveRule({
+          ...rule,
+          lastUsed: new Date(rule.lastUsed),
+        });
+      }
     }
 
     return newRules;

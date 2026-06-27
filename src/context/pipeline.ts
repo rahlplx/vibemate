@@ -3,6 +3,7 @@ import { ASTExtraction, CompressionResult, DLPMask, CacheEntry } from '../types.
 import { readFile, writeFile } from 'fs/promises';
 import { join } from 'path';
 import { createHash } from 'crypto';
+import { classifyFailure } from '../shared/failure-classification.js';
 
 // DLP Patterns for sensitive data masking (ordered for correct matching)
 const DLP_PATTERNS: DLPMask[] = [
@@ -45,10 +46,24 @@ export class ContextPipeline {
   private root: string;
   private cacheDir: string;
   private cache: Map<string, CacheEntry> = new Map();
+  private maxEntries = 500;
+  private maxBytes = 50 * 1024 * 1024;
 
   constructor(root: string) {
     this.root = root;
     this.cacheDir = join(root, '.vibe', 'context-cache');
+  }
+
+  private evict(): void {
+    let totalSize = 0;
+    for (const entry of this.cache.values()) {
+      totalSize += entry.content.length;
+    }
+    for (const [key, entry] of this.cache) {
+      if (this.cache.size <= this.maxEntries && totalSize <= this.maxBytes) break;
+      totalSize -= entry.content.length;
+      this.cache.delete(key);
+    }
   }
 
   // AST-style extraction - extract only relevant code sections
@@ -172,6 +187,7 @@ export class ContextPipeline {
       timestamp: Date.now()
     };
     this.cache.set(hash, entry);
+    this.evict();
     
     // Persist cache
     await this.persistCache();
@@ -192,8 +208,9 @@ export class ContextPipeline {
       const cacheFile = join(this.cacheDir, 'context-cache.json');
       const cacheObj = Object.fromEntries(this.cache);
       await writeFile(cacheFile, JSON.stringify(cacheObj, null, 2));
-    } catch {
-      // Cache persistence is best-effort
+    } catch (error) {
+      const failure = classifyFailure(error);
+      console.error(`[ContextPipeline] Cache persistence failed: [${failure.kind}] ${failure.reason} — ${failure.nextStep}`);
     }
   }
 
@@ -204,8 +221,9 @@ export class ContextPipeline {
       const content = await readFile(cacheFile, 'utf-8');
       const cacheObj = JSON.parse(content);
       this.cache = new Map(Object.entries(cacheObj));
-    } catch {
-      // Start with empty cache
+    } catch (error) {
+      const failure = classifyFailure(error);
+      console.error(`[ContextPipeline] Cache load failed: [${failure.kind}] ${failure.reason} — ${failure.nextStep}`);
     }
   }
 

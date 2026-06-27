@@ -8,8 +8,11 @@ export interface JsonSchema {
   additionalProperties?: boolean
 }
 
+let cachedSchema: JsonSchema | null = null
+
 export function generateJsonSchema(): JsonSchema {
-  return {
+  if (cachedSchema) return cachedSchema
+  cachedSchema = {
     type: "object",
     properties: {
       version: {
@@ -76,6 +79,11 @@ export function generateJsonSchema(): JsonSchema {
     required: ["version", "stateDir", "budget"],
     additionalProperties: false,
   }
+  return cachedSchema
+}
+
+export function resetSchemaCache(): void {
+  cachedSchema = null
 }
 
 export type InputType = "text" | "number" | "boolean" | "select" | "password" | "textarea"
@@ -151,8 +159,8 @@ export class ConfigBackupManager {
       for (const backup of backups.slice(this.maxBackups)) {
         try {
           fs.unlinkSync(backup.path)
-        } catch {
-          // Ignore cleanup errors
+        } catch (error) {
+          console.error(`[ConfigBackup] Failed to remove old backup: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
       }
     }

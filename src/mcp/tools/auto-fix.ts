@@ -175,7 +175,10 @@ function buildCommonChecks(root: string) {
         try {
           const content = await readFile(join(root, 'tsconfig.json'), 'utf-8');
           return !content.includes('"strict": true');
-        } catch { return false; }
+        } catch (error) {
+          console.error(`[AutoFix] Failed to read tsconfig.json: ${error instanceof Error ? error.message : 'Unknown error'}`);
+          return false;
+        }
       },
       apply: async () => {
         const tsconfigPath = join(root, 'tsconfig.json');
@@ -216,7 +219,10 @@ function buildCommonChecks(root: string) {
           try {
             const content = await readFile(join(root, p), 'utf-8');
             if (!content.includes('vibemate')) return true;
-          } catch { continue; }
+          } catch (error) {
+            console.error(`[AutoFix] Failed to read MCP config ${p}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+            continue;
+          }
         }
         return false;
       },
@@ -245,8 +251,8 @@ export function createAutoFix(root?: string): AutoFix {
               file: check.file,
             });
           }
-        } catch {
-          // skip checks that error
+        } catch (error) {
+          console.error(`[AutoFix] Check ${check.id} failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
       }
       return issues.sort((a, b) => {

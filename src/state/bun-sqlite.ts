@@ -58,7 +58,8 @@ export class BunSQLiteDatabase {
         return row;
       }
       return this.db.query(`PRAGMA ${pragma}`).get();
-    } catch {
+    } catch (error) {
+      console.error(`[BunSQLite] PrAGMA write failed: ${error instanceof Error ? error.message : 'Unknown error'}, falling back to read-only query`);
       return this.db.query(`PRAGMA ${pragma}`).get();
     }
   }

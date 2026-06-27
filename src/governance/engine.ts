@@ -4,6 +4,8 @@ import { randomUUID } from 'crypto';
 import { readFile, writeFile, mkdir } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join } from 'path';
+import type { PersistenceManager } from '../shared/persistence.js';
+import { classifyFailure } from '../shared/failure-classification.js';
 
 export type Permission = 'read' | 'write' | 'execute' | 'admin';
 
@@ -48,6 +50,7 @@ export interface PolicyContext {
 export interface GovernanceConfig {
   persistPath?: string;
   maxAuditEntries?: number;
+  persistence?: PersistenceManager;
 }
 
 export class GovernanceEngine {
@@ -57,6 +60,7 @@ export class GovernanceEngine {
   private policies: Policy[] = [];
   private config: GovernanceConfig;
   private persistPath?: string;
+  private persistence?: PersistenceManager;
 
   constructor(config: GovernanceConfig = {}) {
     this.config = {
@@ -64,6 +68,7 @@ export class GovernanceEngine {
       ...config
     };
     this.persistPath = config.persistPath;
+    this.persistence = config.persistence;
     this.initializeDefaultRoles();
   }
 
@@ -171,6 +176,20 @@ export class GovernanceEngine {
   }
 
   async persist(): Promise<void> {
+    if (this.persistence) {
+      const store = await this.persistence.getGovernanceStore();
+      for (const [, role] of this.roles) {
+        await store.saveRole(role);
+      }
+      for (const [, user] of this.users) {
+        await store.saveUser(user);
+      }
+      for (const entry of this.auditLog.slice(-1000)) {
+        await store.saveAuditEntry(entry);
+      }
+      return;
+    }
+
     if (!this.persistPath) return;
 
     const dir = this.persistPath;
@@ -188,6 +207,26 @@ export class GovernanceEngine {
   }
 
   async load(): Promise<void> {
+    if (this.persistence) {
+      const store = await this.persistence.getGovernanceStore();
+      const roles = await store.getAllRoles();
+      for (const role of roles) {
+        this.roles.set(role.name, { name: role.name, permissions: role.permissions as Permission[], description: role.description });
+      }
+      // Load audit log via GovernanceStore
+      const auditEntries = await store.getAuditLog();
+      this.auditLog = auditEntries.map(e => ({
+        id: e.id,
+        userId: e.userId,
+        action: e.action,
+        resource: e.resource,
+        timestamp: e.timestamp,
+        success: e.success,
+        details: e.details as Record<string, unknown> | undefined,
+      }));
+      return;
+    }
+
     if (!this.persistPath) return;
 
     try {
@@ -209,8 +248,9 @@ export class GovernanceEngine {
           timestamp: new Date(e.timestamp)
         }));
       }
-    } catch {
-      // No existing data, start fresh
+    } catch (error) {
+      const failure = classifyFailure(error);
+      console.error(`[GovernanceEngine] Load failed: [${failure.kind}] ${failure.reason} — ${failure.nextStep}`);
     }
   }
 

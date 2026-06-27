@@ -68,7 +68,8 @@ async function showEvolutionStatus(root: string, orchestrator: SelfImprovementOr
     console.log(`  Principles stored: ${evolution.principles?.length || 0}`);
     console.log(`  Last reflection: ${evolution.lastReflection || 'Never'}`);
 
-  } catch {
+  } catch (error) {
+    console.error(`[Evolve] Failed to read evolution.json: ${error instanceof Error ? error.message : 'Unknown error'}`);
     console.log('\n⚠️  No evolution data found. Run "vibemate evolve --action trigger" to start.');
   }
 }
@@ -126,7 +127,8 @@ async function triggerEvolution(root: string, orchestrator: SelfImprovementOrche
 
     await writeFile(evolutionPath, JSON.stringify(evolution, null, 2));
     console.log('\n📊 Evolution data updated.');
-  } catch {
+  } catch (error) {
+    console.error(`[Evolve] Failed to update evolution.json: ${error instanceof Error ? error.message : 'Unknown error'}`);
     console.log('\n⚠️  Could not update evolution.json');
   }
 }

@@ -120,19 +120,9 @@ export class LRUCache<T> {
   }
 
   private evict(): void {
-    // Find least recently used entry
-    let oldestKey: string | null = null;
-    let oldestTime = Infinity;
-
-    for (const [key, entry] of this.cache.entries()) {
-      if (entry.lastAccess < oldestTime) {
-        oldestTime = entry.lastAccess;
-        oldestKey = key;
-      }
-    }
-
-    if (oldestKey) {
-      this.cache.delete(oldestKey);
+    const firstKey = this.cache.keys().next().value;
+    if (firstKey) {
+      this.cache.delete(firstKey);
       this.stats.evictions++;
       this.stats.size = this.cache.size;
     }

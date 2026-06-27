@@ -9,6 +9,8 @@ import { specToolDefinition, specToolHandler } from './tools/spec.js';
 import { autoCompleteToolDefinition, autoCompleteToolHandler } from './tools/auto-complete.js';
 import { autoFixToolDefinition, autoFixToolHandler } from './tools/auto-fix.js';
 import { StackDetector } from './stack-detector.js';
+import { createAuthManager, type AuthManager } from './auth.js';
+import { createAuthMiddleware, type AuthMiddleware } from './auth-middleware.js';
 
 interface ServerConfig {
   logLevel: 'debug' | 'info' | 'warn' | 'error';
@@ -86,11 +88,15 @@ export class VibemateMcpServer {
   private transport: StdioServerTransport;
   private logger: McpLogger;
   private stackDetector: StackDetector;
+  private authManager: AuthManager;
+  private authMiddleware: AuthMiddleware;
   private tools = new Map<string, { definition: unknown; handler: Function }>();
 
   constructor(config: ServerConfig) {
     this.logger = new McpLogger(config.logLevel);
     this.stackDetector = new StackDetector();
+    this.authManager = createAuthManager();
+    this.authMiddleware = createAuthMiddleware(this.authManager);
     
     this.server = new Server(
       { name: 'vibemate', version: '1.0.0' },
@@ -188,6 +194,14 @@ export class VibemateMcpServer {
 
   getStackDetector(): StackDetector {
     return this.stackDetector;
+  }
+
+  getAuthManager(): AuthManager {
+    return this.authManager;
+  }
+
+  getAuthMiddleware(): AuthMiddleware {
+    return this.authMiddleware;
   }
 }
 

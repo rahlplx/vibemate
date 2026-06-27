@@ -112,6 +112,9 @@ export default {
         content: `import { hash } from "bcryptjs";
 import { sign } from "jsonwebtoken";
 
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) throw new Error("JWT_SECRET environment variable is not set");
+
 interface SignupInput {
   email: string;
   password: string;
@@ -129,7 +132,7 @@ export async function signup(input: SignupInput) {
     createdAt: new Date(),
   };
   // TODO: Persist user to database
-  const token = sign({ sub: user.id, role: user.role }, process.env.JWT_SECRET!, { expiresIn: "7d" });
+  const token = sign({ sub: user.id, role: user.role }, JWT_SECRET, { expiresIn: "7d" });
   return { user: { id: user.id, email: user.email, name: user.name, role: user.role }, token };
 }`,
       },
@@ -137,6 +140,9 @@ export async function signup(input: SignupInput) {
         path: 'src/auth/login.ts',
         content: `import { compare } from "bcryptjs";
 import { sign } from "jsonwebtoken";
+
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) throw new Error("JWT_SECRET environment variable is not set");
 
 interface LoginInput {
   email: string;
@@ -153,13 +159,16 @@ export async function login(input: LoginInput) {
   if (!valid) {
     throw new Error("Invalid credentials");
   }
-  const token = sign({ sub: user.id, role: user.role }, process.env.JWT_SECRET!, { expiresIn: "7d" });
+  const token = sign({ sub: user.id, role: user.role }, JWT_SECRET, { expiresIn: "7d" });
   return { user: { id: user.id, email: user.email, name: user.name, role: user.role }, token };
 }`,
       },
       {
         path: 'src/auth/middleware.ts',
         content: `import { verify } from "jsonwebtoken";
+
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) throw new Error("JWT_SECRET environment variable is not set");
 
 interface AuthRequest {
   headers: { authorization?: string };
@@ -172,7 +181,7 @@ export function authenticate(req: AuthRequest) {
   }
   const token = header.slice(7);
   try {
-    const payload = verify(token, process.env.JWT_SECRET!) as { sub: string; role: string };
+    const payload = verify(token, JWT_SECRET) as { sub: string; role: string };
     return { userId: payload.sub, role: payload.role };
   } catch {
     throw new Error("Invalid or expired token");

@@ -6,7 +6,8 @@ import type { InstrumentResult, TraceEntry, LogEntry, RawMetrics } from "./types
 function safeExec(cmd: string, cwd: string, timeout = 60_000): string {
   try {
     return execSync(cmd, { cwd, timeout, encoding: "utf-8", stdio: ["pipe", "pipe", "pipe"] })
-  } catch {
+  } catch (error) {
+    console.error(`[Instrument] Command failed: ${cmd} - ${error instanceof Error ? error.message : 'Unknown error'}`);
     return ""
   }
 }
@@ -28,9 +29,13 @@ function countLOC(dir: string): { total: number; maxFile: number; count: number;
           const lines = readFileSync(full, "utf-8").split("\n").length
           total += lines; count++
           if (lines > maxFile) maxFile = lines
-        } catch { /* ignore binary/locked files */ }
+        } catch (error) {
+          console.error(`[Instrument] Failed to read file ${full}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
       }
-    } catch { /* ignore */ }
+    } catch (error) {
+      console.error(`[Instrument] Failed to walk directory ${d}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   }
   walk(dir)
   return { total, maxFile, count, avg: count > 0 ? Math.round(total / count) : 0 }
@@ -51,7 +56,9 @@ function countTests(dir: string): { pass: number; fail: number; skip: number; to
           testFiles++
         }
       }
-    } catch { /* ignore */ }
+    } catch (error) {
+      console.error(`[Instrument] Failed to walk directory ${d}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   }
   walk(dir)
 
@@ -89,9 +96,13 @@ function countExports(dir: string): number {
           const content = readFileSync(full, "utf-8")
           const exports = content.match(/^export\s+(default\s+)?(function|class|const|let|var|interface|type|enum)\s+\w+/gm)
           count += exports?.length || 0
-        } catch { /* ignore */ }
+        } catch (error) {
+          console.error(`[Instrument] Failed to read file ${full}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
       }
-    } catch { /* ignore */ }
+    } catch (error) {
+      console.error(`[Instrument] Failed to walk directory ${d}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   }
   walk(dir)
   return count
@@ -114,9 +125,13 @@ function countImports(dir: string): number {
           const content = readFileSync(full, "utf-8")
           const imports = content.match(/^import\s+/gm)
           count += imports?.length || 0
-        } catch { /* ignore */ }
+        } catch (error) {
+          console.error(`[Instrument] Failed to read file ${full}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
       }
-    } catch { /* ignore */ }
+    } catch (error) {
+      console.error(`[Instrument] Failed to walk directory ${d}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   }
   walk(dir)
   return count
@@ -129,7 +144,10 @@ function countDeps(dir: string): { direct: number; dev: number } {
       direct: Object.keys(pkg.dependencies || {}).length,
       dev: Object.keys(pkg.devDependencies || {}).length,
     }
-  } catch { return { direct: 0, dev: 0 } }
+  } catch (error) {
+    console.error(`[Instrument] Failed to read package.json: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    return { direct: 0, dev: 0 }
+  }
 }
 
 function detectCircularDeps(dir: string): string[] {
@@ -152,9 +170,13 @@ function detectCircularDeps(dir: string): string[] {
             .filter(i => i.includes("./") || i.includes("../"))
             .map(i => i.replace(/from\s+["']/, "").replace(/["']/, ""))
           graph.set(full, new Set(localImports))
-        } catch { /* ignore */ }
+        } catch (error) {
+          console.error(`[Instrument] Failed to read file ${full}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
       }
-    } catch { /* ignore */ }
+    } catch (error) {
+      console.error(`[Instrument] Failed to walk directory ${d}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   }
   walk(dir)
 
@@ -172,7 +194,10 @@ function detectCircularDeps(dir: string): string[] {
 function tryReadPackage(dir: string): Record<string, unknown> | null {
   try {
     return JSON.parse(readFileSync(join(dir, "package.json"), "utf-8"))
-  } catch { return null }
+  } catch (error) {
+    console.error(`[Instrument] Failed to read package.json in ${dir}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    return null
+  }
 }
 
 export function instrument(repoPath: string, config: { timeout?: number }): InstrumentResult {

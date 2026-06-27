@@ -19,7 +19,9 @@ function countFiles(dir: string): number {
       if (entry.isDirectory()) count += countFiles(full)
       else count++
     }
-  } catch { /* ignore */ }
+  } catch (error) {
+    console.error(`[Clone] Failed to count files in ${dir}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
   return count
 }
 
@@ -45,7 +47,9 @@ function detectLanguages(dir: string): Record<string, number> {
         const lang = extMap[ext]
         if (lang) langs[lang] = (langs[lang] || 0) + 1
       }
-    } catch { /* ignore */ }
+    } catch (error) {
+      console.error(`[Clone] Failed to detect languages in ${d}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   }
   walk(dir)
   return langs
@@ -66,7 +70,10 @@ function hasTests(dir: string): boolean {
   try {
     const pkg = JSON.parse(readFileSync(join(dir, "package.json"), "utf-8"))
     return !!(pkg.scripts?.test)
-  } catch { return false }
+  } catch (error) {
+    console.error(`[Clone] Failed to read package.json for test detection: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    return false
+  }
 }
 
 function hasCI(dir: string): boolean {

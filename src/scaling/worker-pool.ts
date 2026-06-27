@@ -16,6 +16,7 @@ export interface WorkerInfo {
   busy: boolean;
   tasksCompleted: number;
   lastActive: number;
+  activeReject?: (err: Error) => void;
 }
 
 export interface WorkerTask<T, R> {
@@ -29,7 +30,7 @@ export interface WorkerTask<T, R> {
 export class WorkerPool {
   private config: WorkerConfig;
   private workers: Map<string, WorkerInfo> = new Map();
-  private taskQueue: WorkerTask<any, any>[] = [];
+  private taskQueue: WorkerTask<unknown, unknown>[] = [];
   private taskIdCounter = 0;
 
   constructor(config?: Partial<WorkerConfig>) {
@@ -76,16 +77,19 @@ export class WorkerPool {
     return info;
   }
 
-  private handleWorkerMessage(worker: WorkerInfo, _result: any): void {
+  private handleWorkerMessage(worker: WorkerInfo, _result: unknown): void {
     worker.busy = false;
     worker.tasksCompleted++;
     worker.lastActive = Date.now();
 
-    // Process next task from queue
     this.processQueue();
   }
 
   private handleWorkerError(worker: WorkerInfo, err: Error): void {
+    if (worker.activeReject) {
+      worker.activeReject(err);
+      worker.activeReject = undefined;
+    }
     worker.busy = false;
     console.error(`Worker ${worker.id} error:`, err);
     this.processQueue();
@@ -111,7 +115,8 @@ export class WorkerPool {
           if (idx !== -1) this.taskQueue.splice(idx, 1);
           reject(new Error(`Task ${id} timeout`));
         }, this.config.taskTimeoutMs);
-        this.taskQueue.push({ id, data, resolve, reject, timeout });
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        this.taskQueue.push({ id, data, resolve: resolve as any, reject, timeout });
       });
     }
 
@@ -119,13 +124,16 @@ export class WorkerPool {
     worker.lastActive = Date.now();
 
     return new Promise<R>((resolve, reject) => {
+      worker!.activeReject = reject;
       const timeout = setTimeout(() => {
+        worker!.activeReject = undefined;
         worker!.worker.removeListener('message', messageHandler);
         worker!.busy = false;
         reject(new Error(`Task ${id} timeout`));
       }, this.config.taskTimeoutMs);
 
       const messageHandler = (result: R) => {
+        worker!.activeReject = undefined;
         worker!.worker.removeListener('message', messageHandler);
         clearTimeout(timeout);
         worker!.busy = false;
@@ -169,7 +177,9 @@ export class WorkerPool {
       Promise.race([
         info.worker.terminate(),
         new Promise<void>((resolve) => setTimeout(() => {
-          try { info.worker.terminate(); } catch { /* already terminated */ }
+          try { info.worker.terminate(); } catch (error) {
+            console.error(`[WorkerPool] Worker ${info.id} already terminated: ${error instanceof Error ? error.message : 'Unknown error'}`);
+          }
           resolve();
         }, timeoutMs)),
       ])

@@ -1,5 +1,7 @@
 // Unified error hierarchy for Vibemate modules
 
+export const ErrorBrand = Symbol.for('vibemate-error')
+
 export type ErrorCode =
   | 'DISCOVERY_MAX_CYCLES'
   | 'DISCOVERY_TREE_EXHAUSTED'
@@ -30,7 +32,16 @@ export interface VibemateErrorOptions extends ErrorOptions {
   context?: Record<string, unknown>;
 }
 
+export function isVibemateError(error: unknown): error is VibemateError {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    ErrorBrand in error
+  );
+}
+
 export class VibemateError extends Error {
+  readonly [ErrorBrand] = true;
   readonly code: string;
   readonly context?: Record<string, unknown>;
 

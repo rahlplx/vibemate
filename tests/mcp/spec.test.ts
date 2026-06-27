@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'bun:test';
-import { SpecInputSchema, SpecOutputSchema, specToolDefinition, createSpecToolHandler, specToolHandler } from './spec.js';
-import { buildSystemPrompt, buildUserPrompt, createSpecGenerator } from './spec-generator.js';
-import type { SpecOutput } from './spec.js';
+import { SpecInputSchema, SpecOutputSchema, specToolDefinition, createSpecToolHandler, specToolHandler } from '../../src/mcp/tools/spec.js';
+import { buildSystemPrompt, buildUserPrompt, createSpecGenerator } from '../../src/mcp/tools/spec-generator.js';
+import type { SpecOutput } from '../../src/mcp/tools/spec.js';
 
 describe('buildSystemPrompt', () => {
   it('returns a non-empty string', () => {

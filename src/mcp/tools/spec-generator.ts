@@ -160,7 +160,8 @@ export function createSpecGenerator(config: { apiKey?: string; model?: string; m
         let parsed: unknown;
         try {
           parsed = JSON.parse(content.text);
-        } catch {
+        } catch (error) {
+          console.error(`[SpecGenerator] Failed to parse LLM response: ${error instanceof Error ? error.message : 'Unknown error'}`);
           throw new Error('Failed to parse LLM response as JSON');
         }
 

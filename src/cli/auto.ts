@@ -108,7 +108,8 @@ async function runAutoPipeline(description: string, options: AutoOptions): Promi
     const existingState = await readFile(statePath, 'utf-8');
     state = JSON.parse(existingState);
     console.log(`📂 Resuming from phase: ${state.phase}\n`);
-  } catch {
+  } catch (error) {
+    console.error(`[Auto] Failed to read existing state: ${error instanceof Error ? error.message : 'Unknown error'}`);
     await mkdir(vibeDir, { recursive: true });
     await writeFile(statePath, JSON.stringify(state, null, 2));
   }
@@ -419,8 +420,9 @@ async function runBuild(root: string): Promise<{ hasMoreTasks: boolean }> {
     });
     log.push(`TypeCheck: PASS\n${tscOutput}`);
     console.log('   ✅ Type check passed');
-  } catch (e: any) {
-    log.push(`TypeCheck: FAIL\n${e.stderr || e.stdout || e.message}`);
+  } catch (e: unknown) {
+    const error = e as { stderr?: string; stdout?: string; message?: string };
+    log.push(`TypeCheck: FAIL\n${error.stderr || error.stdout || error.message || 'Unknown error'}`);
     console.log('   ❌ Type check failed');
   }
 
@@ -434,8 +436,9 @@ async function runBuild(root: string): Promise<{ hasMoreTasks: boolean }> {
     });
     log.push(`\nTests: PASS\n${testOutput}`);
     console.log('   ✅ Tests passed');
-  } catch (e: any) {
-    log.push(`\nTests: FAIL\n${e.stderr || e.stdout || e.message}`);
+  } catch (e: unknown) {
+    const error = e as { stderr?: string; stdout?: string; message?: string };
+    log.push(`\nTests: FAIL\n${error.stderr || error.stdout || error.message || 'Unknown error'}`);
     console.log('   ❌ Tests failed');
   }
 
@@ -464,7 +467,8 @@ async function runHarnessChecks(root: string): Promise<HarnessReport> {
       duration: Math.round(performance.now() - tscStart)
     });
     console.log('   ✅ Type Check');
-  } catch {
+  } catch (error) {
+    console.error(`[Auto] Type check failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     checks.push({
       name: 'Type Check',
       status: 'fail',
@@ -492,7 +496,8 @@ async function runHarnessChecks(root: string): Promise<HarnessReport> {
       duration: Math.round(performance.now() - testStart)
     });
     console.log(`   ✅ Unit Tests (${testCount} passing)`);
-  } catch {
+  } catch (error) {
+    console.error(`[Auto] Unit tests failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     checks.push({
       name: 'Unit Tests',
       status: 'fail',
@@ -519,7 +524,8 @@ async function runHarnessChecks(root: string): Promise<HarnessReport> {
         duration: Math.round(performance.now() - lintStart)
       });
       console.log('   ✅ Lint');
-    } catch {
+    } catch (error) {
+      console.error(`[Auto] Lint check failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
       checks.push({
         name: 'Lint',
         status: 'warn',
@@ -588,7 +594,8 @@ async function runCodeReview(root: string): Promise<string> {
         }
       }
     }
-  } catch {
+  } catch (error) {
+    console.error(`[Auto] Code review failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     issues.push('⚠️  Could not perform full code review');
   }
 
@@ -618,7 +625,8 @@ async function runShip(root: string): Promise<{ prLink: string }> {
     try {
       execFileSync('git', ['add', '-A'], { cwd: root, stdio: ['pipe'] });
       log.push('Git: staged all changes');
-    } catch {
+    } catch (error) {
+      console.error(`[Auto] Git add failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
       log.push('Git: no changes to stage');
     }
 
@@ -639,7 +647,8 @@ async function runShip(root: string): Promise<{ prLink: string }> {
     } else {
       log.push('Git: no changes to commit');
     }
-  } catch {
+  } catch (error) {
+    console.error(`[Auto] Git operations failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     log.push('Git: not initialized or error');
   }
 

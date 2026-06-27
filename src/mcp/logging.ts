@@ -16,7 +16,7 @@ class ConsoleSink {
     const durationInfo = entry.durationMs !== undefined ? ` (${entry.durationMs}ms)` : '';
     const errorInfo = entry.error ? ` ERROR: ${entry.error}` : '';
     
-    console.log(`${entry.timestamp} ${prefix}${requestInfo}${methodInfo}${durationInfo} ${entry.message}${errorInfo}`);
+    console.error(`${entry.timestamp} ${prefix}${requestInfo}${methodInfo}${durationInfo} ${entry.message}${errorInfo}`);
   }
 }
 

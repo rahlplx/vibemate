@@ -150,7 +150,8 @@ export class MCPConfigGenerator {
       const configPath = join(this.root, '.mcp.json');
       const content = await readFile(configPath, 'utf-8');
       return JSON.parse(content) as MCPConfig;
-    } catch {
+    } catch (error) {
+      console.error(`[MCPConfig] Failed to read config: ${error instanceof Error ? error.message : 'Unknown error'}`);
       return null;
     }
   }
@@ -196,8 +197,8 @@ export class MCPConfigGenerator {
           execFileSync('which', [cmd], { stdio: 'ignore' });
         }
         results[name] = { healthy: true };
-      } catch {
-        results[name] = { healthy: false, error: 'Command not found: ' + server.command };
+      } catch (error) {
+        results[name] = { healthy: false, error: `Command not found: ${server.command} - ${error instanceof Error ? error.message : 'Unknown error'}` };
       }
     }
 

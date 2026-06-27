@@ -16,7 +16,53 @@ import * as path from 'path';
 import * as fs from 'fs';
 
 const app = new Hono();
+
 app.use('*', cors());
+
+const RATE_LIMIT_MAX_ENTRIES = 10_000;
+const rateLimitStore = new Map<string, { count: number; resetTime: number }>();
+
+function evictExpiredRateLimitEntries(now: number): void {
+  for (const [ip, record] of rateLimitStore.entries()) {
+    if (now > record.resetTime) rateLimitStore.delete(ip);
+  }
+}
+
+function rateLimiter(windowMs: number = 15 * 60 * 1000, max: number = 100) {
+  return async (c: { req: { header: (name: string) => string | undefined }; json: (data: unknown, status?: number) => Response }, next: () => Promise<void>) => {
+    const ip = c.req.header('x-forwarded-for') || c.req.header('x-real-ip') || 'unknown';
+    const now = Date.now();
+    const record = rateLimitStore.get(ip);
+
+    if (!record || now > record.resetTime) {
+      if (rateLimitStore.size >= RATE_LIMIT_MAX_ENTRIES) {
+        evictExpiredRateLimitEntries(now);
+      }
+      rateLimitStore.set(ip, { count: 1, resetTime: now + windowMs });
+      return next();
+    }
+
+    if (record.count >= max) {
+      return c.json({ error: 'Too many requests, please try again later.' }, 429);
+    }
+
+    record.count++;
+    return next();
+  };
+}
+
+app.use('*', rateLimiter());
+
+const rateLimitCleanupInterval = setInterval(() => {
+  const now = Date.now();
+  for (const [ip, record] of rateLimitStore.entries()) {
+    if (now > record.resetTime) {
+      rateLimitStore.delete(ip);
+    }
+  }
+}, 5 * 60 * 1000);
+
+export { rateLimitCleanupInterval };
 
 const ROOT = process.cwd();
 const DB_PATH = path.join(ROOT, '.vibe', 'state.db');
@@ -131,11 +177,14 @@ app.post('/api/router/route', async (c) => {
   return c.json({ score, ...routeResult });
 });
 
-app.get('/api/status', (c) => {
+app.get('/api/status', async (c) => {
   const statePath = path.join(ROOT, '.vibe', 'state.json');
   let state = {};
-  if (fs.existsSync(statePath)) {
-    state = JSON.parse(fs.readFileSync(statePath, 'utf-8'));
+  try {
+    const raw = await fs.promises.readFile(statePath, 'utf-8');
+    state = JSON.parse(raw);
+  } catch (err: unknown) {
+    if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
   }
   return c.json({
     state,
