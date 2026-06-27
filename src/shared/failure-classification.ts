@@ -19,7 +19,9 @@ export interface FailureClassification {
   confidence: "high" | "low"
 }
 
-const NETWORK_PATTERNS: Array<{ pattern: RegExp; kind: FailureKind; nextStep: string }> = [
+export type FailurePattern = { pattern: RegExp; kind: FailureKind; nextStep: string }
+
+let networkPatterns: FailurePattern[] = [
   { pattern: /ECONNREFUSED/i, kind: "blocked-by-policy", nextStep: "Check if target host is reachable and port is open" },
   { pattern: /ECONNRESET/i, kind: "blocked-by-policy", nextStep: "Connection was reset — check firewall rules" },
   { pattern: /ETIMEDOUT/i, kind: "timeout", nextStep: "Increase timeout or check network connectivity" },
@@ -30,7 +32,7 @@ const NETWORK_PATTERNS: Array<{ pattern: RegExp; kind: FailureKind; nextStep: st
   { pattern: /EACCES.*permission/i, kind: "permission-denied", nextStep: "Check file permissions" },
 ]
 
-const HTTP_PATTERNS: Array<{ pattern: RegExp; kind: FailureKind; nextStep: string }> = [
+let httpPatterns: FailurePattern[] = [
   { pattern: /401\s*Unauthorized/i, kind: "auth-error", nextStep: "Check API key or token — may be expired" },
   { pattern: /403\s*Forbidden/i, kind: "blocked-by-policy", nextStep: "Insufficient permissions — check access scope" },
   { pattern: /429\s*(Too Many|Rate)/i, kind: "rate-limit", nextStep: "Rate limited — implement backoff retry" },
@@ -39,13 +41,23 @@ const HTTP_PATTERNS: Array<{ pattern: RegExp; kind: FailureKind; nextStep: strin
   { pattern: /503\s*Service/i, kind: "resource-exhausted", nextStep: "Service unavailable — retry with backoff" },
 ]
 
-const OS_PATTERNS: Array<{ pattern: RegExp; kind: FailureKind; nextStep: string }> = [
+let osPatterns: FailurePattern[] = [
   { pattern: /ENOENT/i, kind: "not-found", nextStep: "File or directory does not exist" },
   { pattern: /EACCES/i, kind: "permission-denied", nextStep: "Permission denied — check file permissions" },
   { pattern: /EPERM/i, kind: "permission-denied", nextStep: "Operation not permitted — check privileges" },
   { pattern: /ENOSPC/i, kind: "resource-exhausted", nextStep: "Disk full — free space" },
   { pattern: /EMFILE/i, kind: "resource-exhausted", nextStep: "Too many open files — close other handles" },
 ]
+
+export const _internal = {
+  get networkPatterns() { return networkPatterns },
+  set networkPatterns(p: FailurePattern[]) { networkPatterns = p },
+  get httpPatterns() { return httpPatterns },
+  set httpPatterns(p: FailurePattern[]) { httpPatterns = p },
+  get osPatterns() { return osPatterns },
+  set osPatterns(p: FailurePattern[]) { osPatterns = p },
+  matchPatterns,
+}
 
 function matchPatterns(message: string, patterns: Array<{ pattern: RegExp; kind: FailureKind; nextStep: string }>): FailureClassification | null {
   for (const { pattern, kind, nextStep } of patterns) {
@@ -59,13 +71,13 @@ function matchPatterns(message: string, patterns: Array<{ pattern: RegExp; kind:
 export function classifyFailure(err: unknown): FailureClassification {
   const message = err instanceof Error ? err.message : String(err)
 
-  const networkResult = matchPatterns(message, NETWORK_PATTERNS)
+  const networkResult = matchPatterns(message, networkPatterns)
   if (networkResult) return networkResult
 
-  const httpResult = matchPatterns(message, HTTP_PATTERNS)
+  const httpResult = matchPatterns(message, httpPatterns)
   if (httpResult) return httpResult
 
-  const osResult = matchPatterns(message, OS_PATTERNS)
+  const osResult = matchPatterns(message, osPatterns)
   if (osResult) return osResult
 
   return { kind: "unknown", reason: message, nextStep: "Check logs for details", confidence: "low" }
@@ -73,7 +85,7 @@ export function classifyFailure(err: unknown): FailureClassification {
 
 export function classifyNetworkFailure(err: unknown): FailureClassification {
   const message = err instanceof Error ? err.message : String(err)
-  const result = matchPatterns(message, NETWORK_PATTERNS)
+  const result = matchPatterns(message, networkPatterns)
   return result ?? { kind: "unknown", reason: message, nextStep: "Check network configuration", confidence: "low" }
 }
 

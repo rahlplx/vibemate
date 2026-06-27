@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'bun:test';
-import { getTemplateNames, getTemplate, renderTemplate } from './templates.js';
+import { getTemplateNames, getTemplate, renderTemplate } from '../../src/scaffold/templates.js';
 
 describe('getTemplateNames', () => {
   it('returns all template names', () => {

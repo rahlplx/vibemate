@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'bun:test';
-import { VibemateMcpServer } from '../index.js';
-import { createAuthManager, createOAuthClient } from '../auth.js';
-import { createAuthMiddleware } from '../auth-middleware.js';
-import { createLogger } from '../logging.js';
+import { VibemateMcpServer } from '../../src/mcp/index.js';
+import { createAuthManager, createOAuthClient } from '../../src/mcp/auth.js';
+import { createAuthMiddleware } from '../../src/mcp/auth-middleware.js';
+import { createLogger } from '../../src/mcp/logging.js';
 
 describe('VibemateMcpServer', () => {
   it('creates server with default config', () => {
