@@ -66,4 +66,26 @@ describe('FileWriter', () => {
       expect(readFile(TEST_DIR, 'nope.txt')).toBeNull();
     });
   });
+
+  describe('path traversal prevention', () => {
+    it('rejects ../ escapes', () => {
+      expect(() => writeFile(TEST_DIR, '../escape.txt', 'bad')).toThrow('Path traversal detected');
+    });
+
+    it('rejects ..\\ escapes', () => {
+      expect(() => writeFile(TEST_DIR, '..\\escape.txt', 'bad')).toThrow('Path traversal detected');
+    });
+
+    it('rejects absolute paths', () => {
+      expect(() => writeFile(TEST_DIR, '/etc/passwd', 'bad')).toThrow('Path traversal detected');
+    });
+
+    it('allows files within base directory', () => {
+      expect(() => writeFile(TEST_DIR, 'subdir/file.txt', 'good')).not.toThrow();
+    });
+
+    it('allows the base directory itself', () => {
+      expect(() => fileExists(TEST_DIR, '')).not.toThrow();
+    });
+  });
 });

@@ -212,6 +212,9 @@ export class TelemetryCollector {
     };
 
     await writeFile(exportFile, JSON.stringify(exportData, null, 2));
+
+    this.spans = [];
+    this.traces.clear();
   }
 
   // Load historical telemetry

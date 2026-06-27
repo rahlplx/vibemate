@@ -158,18 +158,23 @@ export class WorkerPool {
     worker.worker.postMessage(task.data);
   }
 
-  async terminate(): Promise<void> {
-    // Clear queue
+  async terminate(timeoutMs: number = 5000): Promise<void> {
     for (const task of this.taskQueue) {
       clearTimeout(task.timeout);
       task.reject(new Error('Pool terminated'));
     }
     this.taskQueue = [];
 
-    // Terminate all workers
-    for (const info of this.workers.values()) {
-      await info.worker.terminate();
-    }
+    const terminations = Array.from(this.workers.values()).map((info) =>
+      Promise.race([
+        info.worker.terminate(),
+        new Promise<void>((resolve) => setTimeout(() => {
+          try { info.worker.terminate(); } catch { /* already terminated */ }
+          resolve();
+        }, timeoutMs)),
+      ])
+    );
+    await Promise.allSettled(terminations);
     this.workers.clear();
   }
 

@@ -4,7 +4,9 @@ import * as path from 'path';
 function assertSafePath(baseDir: string, filePath: string): void {
   const resolvedBase = path.resolve(baseDir);
   const fullPath = path.resolve(baseDir, filePath);
-  if (!fullPath.startsWith(resolvedBase + path.sep) && fullPath !== resolvedBase) {
+  const normalizedBase = resolvedBase.replace(/\\/g, '/');
+  const normalizedFull = fullPath.replace(/\\/g, '/');
+  if (!normalizedFull.startsWith(normalizedBase + '/') && normalizedFull !== normalizedBase) {
     throw new Error(`Path traversal detected: ${filePath}`);
   }
 }

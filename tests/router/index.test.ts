@@ -273,4 +273,48 @@ describe('FallbackManager', () => {
       expect(manager.shouldEscalate('claude-haiku')).toBe(false);
     });
   });
+
+  describe('circuit breaker', () => {
+    it('should open circuit after threshold failures', () => {
+      for (let i = 0; i < 3; i++) {
+        manager.recordFailure('claude-haiku');
+      }
+      expect(manager.isCircuitOpen('claude-haiku')).toBe(true);
+    });
+
+    it('should not open circuit below threshold', () => {
+      for (let i = 0; i < 2; i++) {
+        manager.recordFailure('claude-haiku');
+      }
+      expect(manager.isCircuitOpen('claude-haiku')).toBe(false);
+    });
+
+    it('should close circuit on success', () => {
+      for (let i = 0; i < 3; i++) {
+        manager.recordFailure('claude-haiku');
+      }
+      manager.recordSuccess('claude-haiku');
+      expect(manager.isCircuitOpen('claude-haiku')).toBe(false);
+    });
+
+    it('should close circuit after cooldown expires', () => {
+      const shortCooldown = new FallbackManager({ cooldownMs: 1 });
+      for (let i = 0; i < 3; i++) {
+        shortCooldown.recordFailure('claude-haiku');
+      }
+      expect(shortCooldown.isCircuitOpen('claude-haiku')).toBe(true);
+      // After waiting for cooldown to expire
+      setTimeout(() => {
+        expect(shortCooldown.isCircuitOpen('claude-haiku')).toBe(false);
+      }, 10);
+    });
+
+    it('should reset circuit on resetFailures', () => {
+      for (let i = 0; i < 3; i++) {
+        manager.recordFailure('claude-haiku');
+      }
+      manager.resetFailures('claude-haiku');
+      expect(manager.isCircuitOpen('claude-haiku')).toBe(false);
+    });
+  });
 });

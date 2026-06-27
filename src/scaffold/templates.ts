@@ -169,11 +169,21 @@ export function renderTemplate(
   variables: Record<string, string>
 ): TemplateFile[] {
   return template.files.map((file) => ({
-    path: file.path,
+    path: template.variables.reduce(
+      (p, varName) =>
+        p.replace(new RegExp(`\\{\\{${varName}\\}\\}`, 'g'), sanitizePathSegment(variables[varName] ?? '')),
+      file.path
+    ),
     content: template.variables.reduce(
       (content, varName) =>
         content.replace(new RegExp(`\\{\\{${varName}\\}\\}`, 'g'), variables[varName] ?? ''),
       file.content
     ),
   }));
+}
+
+function sanitizePathSegment(value: string): string {
+  return value
+    .replace(/^(\.\.[\\/]?|\.\b)+/, '')
+    .replace(/[<>:"/\\|?*]/g, '_');
 }

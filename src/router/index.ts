@@ -323,18 +323,29 @@ export class CostAwareRouter {
   }
 }
 
-// Fallback logic for repeated failures
+// Fallback logic for repeated failures with circuit breaker
 export class FallbackManager {
   private failureCounts: Map<string, number> = new Map();
+  private cooldownUntil: Map<string, number> = new Map();
   private escalationThreshold: number = 3;
+  private cooldownMs: number = 60_000;
+
+  constructor(config?: { escalationThreshold?: number; cooldownMs?: number }) {
+    if (config?.escalationThreshold !== undefined) this.escalationThreshold = config.escalationThreshold;
+    if (config?.cooldownMs !== undefined) this.cooldownMs = config.cooldownMs;
+  }
 
   recordFailure(model: string): void {
     const count = this.failureCounts.get(model) || 0;
     this.failureCounts.set(model, count + 1);
+    if (count + 1 >= this.escalationThreshold) {
+      this.cooldownUntil.set(model, Date.now() + this.cooldownMs);
+    }
   }
 
   recordSuccess(model: string): void {
     this.failureCounts.set(model, 0);
+    this.cooldownUntil.delete(model);
   }
 
   shouldEscalate(model: string): boolean {
@@ -342,13 +353,22 @@ export class FallbackManager {
     return failures >= this.escalationThreshold;
   }
 
+  isCircuitOpen(model: string): boolean {
+    const until = this.cooldownUntil.get(model);
+    if (!until) return false;
+    if (Date.now() >= until) {
+      this.cooldownUntil.delete(model);
+      return false;
+    }
+    return true;
+  }
+
   getNextModel(currentModel: string): string {
-    // Escalate to more capable model
     const modelOrder = ['claude-haiku', 'gemini-flash', 'gpt-4o-mini', 'claude-sonnet', 'gemini-pro', 'gpt-4o', 'claude-opus', 'o3-mini'];
     const currentIndex = modelOrder.indexOf(currentModel);
     
     if (currentIndex === -1 || currentIndex === modelOrder.length - 1) {
-      return currentModel; // Already at most capable
+      return currentModel;
     }
     
     return modelOrder[currentIndex + 1];
@@ -356,5 +376,6 @@ export class FallbackManager {
 
   resetFailures(model: string): void {
     this.failureCounts.set(model, 0);
+    this.cooldownUntil.delete(model);
   }
 }

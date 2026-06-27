@@ -1,8 +1,10 @@
 import { Database } from 'bun:sqlite';
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type Bindable = any;
+
 class Statement {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private db: any;
+  private db: Database;
   private sql: string;
 
   constructor(db: Database, sql: string) {
@@ -10,19 +12,22 @@ class Statement {
     this.sql = sql;
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  run(...params: any[]): { changes: number; lastInsertRowid: number } {
-    return this.db.run(this.sql, ...params);
+  run(...params: Bindable[]): { changes: number; lastInsertRowid: number } {
+    const result = this.db.run(this.sql, ...params);
+    return {
+      changes: result.changes,
+      lastInsertRowid: Number(result.lastInsertRowid),
+    };
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  get(...params: any[]): unknown {
-    return this.db.query(this.sql).get(...params) ?? undefined;
+  get<T = Record<string, unknown>>(...params: Bindable[]): T | undefined {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return (this.db.query(this.sql).get(...params) as any as T) ?? undefined;
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  all(...params: any[]): unknown[] {
-    return this.db.query(this.sql).all(...params);
+  all<T = Record<string, unknown>>(...params: Bindable[]): T[] {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return (this.db.query(this.sql).all(...params) as any as T[]);
   }
 }
 

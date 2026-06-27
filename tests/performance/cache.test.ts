@@ -95,4 +95,39 @@ describe('LRUCache', () => {
     cache.set('key2', 'value2');
     expect(cache.getSize()).toBe(2);
   });
+
+  it('should expire entries after TTL', async () => {
+    const shortCache = new LRUCache<string>({ maxSize: 5, defaultTTL: 10 });
+    shortCache.set('key1', 'value1');
+    expect(shortCache.get('key1')).toBe('value1');
+    await new Promise((r) => setTimeout(r, 20));
+    expect(shortCache.get('key1')).toBeUndefined();
+  });
+
+  it('should respect custom TTL per entry', async () => {
+    cache.set('key1', 'value1', 10);
+    cache.set('key2', 'value2', 5000);
+    await new Promise((r) => setTimeout(r, 20));
+    expect(cache.get('key1')).toBeUndefined();
+    expect(cache.get('key2')).toBe('value2');
+  });
+
+  it('should prune expired entries', async () => {
+    cache.set('key1', 'value1', 10);
+    cache.set('key2', 'value2', 5000);
+    await new Promise((r) => setTimeout(r, 20));
+    cache.prune();
+    expect(cache.getSize()).toBe(1);
+    expect(cache.has('key2')).toBe(true);
+  });
+
+  it('should not count expired entries in keys/values', async () => {
+    const shortCache = new LRUCache<string>({ maxSize: 5, defaultTTL: 10 });
+    shortCache.set('key1', 'value1');
+    shortCache.set('key2', 'value2');
+    await new Promise((r) => setTimeout(r, 20));
+    expect(shortCache.keys()).toHaveLength(0);
+    expect(shortCache.values()).toHaveLength(0);
+    expect(shortCache.entries()).toHaveLength(0);
+  });
 });

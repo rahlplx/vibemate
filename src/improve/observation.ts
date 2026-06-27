@@ -53,7 +53,7 @@ export function createObservationEngine(dbPath: string): ObservationEngine {
       const results = db
         .prepare('SELECT * FROM observations WHERE confidence >= ? ORDER BY confidence DESC')
         .all(minConfidence);
-      return results as Observation[];
+      return results as unknown as Observation[];
     },
 
     close() {

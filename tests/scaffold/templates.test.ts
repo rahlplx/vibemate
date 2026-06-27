@@ -48,5 +48,45 @@ describe('ScaffoldTemplates', () => {
       });
       expect(rendered[0].path).toBeTruthy();
     });
+
+    it('sanitizes path segments to prevent injection', () => {
+      const template: ScaffoldTemplate = {
+        name: 'test',
+        description: 'test',
+        variables: ['projectName'],
+        files: [{ path: '{{projectName}}/index.ts', content: 'const x = 1;' }],
+      };
+      const rendered = renderTemplate(template, {
+        projectName: '../evil',
+      });
+      expect(rendered[0].path).not.toContain('..');
+    });
+
+    it('sanitizes dangerous characters in file paths', () => {
+      const template: ScaffoldTemplate = {
+        name: 'test',
+        description: 'test',
+        variables: ['projectName'],
+        files: [{ path: '{{projectName}}.ts', content: 'const x = 1;' }],
+      };
+      const rendered = renderTemplate(template, {
+        projectName: 'my<app>',
+      });
+      expect(rendered[0].path).not.toContain('<');
+      expect(rendered[0].path).not.toContain('>');
+    });
+
+    it('does not sanitize content (only paths)', () => {
+      const template: ScaffoldTemplate = {
+        name: 'test',
+        description: 'test',
+        variables: ['projectName'],
+        files: [{ path: 'index.ts', content: 'console.log("{{projectName}}")' }],
+      };
+      const rendered = renderTemplate(template, {
+        projectName: 'my-app',
+      });
+      expect(rendered[0].content).toContain('my-app');
+    });
   });
 });
