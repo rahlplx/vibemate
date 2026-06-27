@@ -140,7 +140,7 @@ describe('Self-Improvement Loop', () => {
       it('should generate new rules when pool underperforms', async () => {
         const newRules = await evolveAgent.reflectAndEvolve({
           failureRate: 0.5,
-          averageReward: 0.2, // Below threshold
+          averageReward: 0.2,
           stuckDetections: 0
         });
 
@@ -151,11 +151,36 @@ describe('Self-Improvement Loop', () => {
       it('should not generate rules when pool performs well', async () => {
         const newRules = await evolveAgent.reflectAndEvolve({
           failureRate: 0.1,
-          averageReward: 0.8, // Above threshold
+          averageReward: 0.8,
           stuckDetections: 0
         });
 
         expect(newRules.length).toBe(0);
+      });
+
+      it('should generate targeted rules for high failure rates', async () => {
+        const newRules = await evolveAgent.reflectAndEvolve({
+          failureRate: 0.6,
+          averageReward: 0.2,
+          stuckDetections: 0
+        });
+
+        expect(newRules.length).toBeGreaterThan(0);
+        expect(newRules[0].condition).toContain('failure_rate > 0.5');
+      });
+
+      it('should create fix rules when consecutive failures detected', async () => {
+        // Generate multiple underperforming rules to trigger consecutive failure detection
+        for (let i = 0; i < 5; i++) {
+          await evolveAgent.reflectAndEvolve({
+            failureRate: 0.8,
+            averageReward: 0.1,
+            stuckDetections: 0
+          });
+        }
+
+        const stats = evolveAgent.getPoolStats();
+        expect(stats.totalRules).toBeGreaterThan(0);
       });
     });
 
@@ -185,6 +210,24 @@ describe('Self-Improvement Loop', () => {
         expect(task).toBeDefined();
         expect(typeof task).toBe('string');
         expect(task.length).toBeGreaterThan(0);
+      });
+
+      it('should return test-related task for test failure context', async () => {
+        const task = await learnAgent.selfQuestion('test failure in unit tests');
+
+        expect(task).toContain('test failure');
+      });
+
+      it('should return performance task for slow context', async () => {
+        const task = await learnAgent.selfQuestion('performance is slow');
+
+        expect(task).toContain('Profile');
+      });
+
+      it('should return error task for error context', async () => {
+        const task = await learnAgent.selfQuestion('error handling missing');
+
+        expect(task).toContain('error');
       });
     });
 

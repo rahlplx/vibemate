@@ -1,5 +1,9 @@
 // Vibemate Governance Module
 // Provides RBAC, audit logging, and policy enforcement
+import { randomUUID } from 'crypto';
+import { readFile, writeFile, mkdir } from 'fs/promises';
+import { existsSync } from 'fs';
+import { join } from 'path';
 
 export type Permission = 'read' | 'write' | 'execute' | 'admin';
 
@@ -41,13 +45,25 @@ export interface PolicyContext {
   timestamp: Date;
 }
 
+export interface GovernanceConfig {
+  persistPath?: string;
+  maxAuditEntries?: number;
+}
+
 export class GovernanceEngine {
   private roles: Map<string, Role> = new Map();
   private users: Map<string, User> = new Map();
   private auditLog: AuditEntry[] = [];
   private policies: Policy[] = [];
+  private config: GovernanceConfig;
+  private persistPath?: string;
 
-  constructor() {
+  constructor(config: GovernanceConfig = {}) {
+    this.config = {
+      maxAuditEntries: 10000,
+      ...config
+    };
+    this.persistPath = config.persistPath;
     this.initializeDefaultRoles();
   }
 
@@ -136,7 +152,7 @@ export class GovernanceEngine {
 
   private logAudit(userId: string, action: string, resource: string, success: boolean, reason?: string): void {
     const entry: AuditEntry = {
-      id: `audit-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
+      id: randomUUID(),
       userId,
       action,
       resource,
@@ -147,6 +163,55 @@ export class GovernanceEngine {
       entry.details = { reason };
     }
     this.auditLog.push(entry);
+
+    // Trim if exceeding max entries
+    if (this.auditLog.length > (this.config.maxAuditEntries || 10000)) {
+      this.auditLog = this.auditLog.slice(-Math.floor((this.config.maxAuditEntries || 10000) * 0.8));
+    }
+  }
+
+  async persist(): Promise<void> {
+    if (!this.persistPath) return;
+
+    const dir = this.persistPath;
+    if (!existsSync(dir)) {
+      await mkdir(dir, { recursive: true });
+    }
+
+    const data = {
+      roles: Array.from(this.roles.entries()),
+      users: Array.from(this.users.entries()),
+      auditLog: this.auditLog.slice(-1000), // Persist last 1000 entries
+    };
+
+    await writeFile(join(dir, 'governance.json'), JSON.stringify(data, null, 2));
+  }
+
+  async load(): Promise<void> {
+    if (!this.persistPath) return;
+
+    try {
+      const content = await readFile(join(this.persistPath, 'governance.json'), 'utf-8');
+      const data = JSON.parse(content);
+
+      if (data.roles) {
+        this.roles = new Map(data.roles);
+      }
+      if (data.users) {
+        this.users = new Map(data.users.map((u: [string, User]) => [
+          u[0],
+          { ...u[1], createdAt: new Date(u[1].createdAt), lastActive: new Date(u[1].lastActive) }
+        ]));
+      }
+      if (data.auditLog) {
+        this.auditLog = data.auditLog.map((e: AuditEntry) => ({
+          ...e,
+          timestamp: new Date(e.timestamp)
+        }));
+      }
+    } catch {
+      // No existing data, start fresh
+    }
   }
 
   getAuditLog(filters?: {

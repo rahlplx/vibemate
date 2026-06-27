@@ -163,11 +163,14 @@ export class RetroAgent {
   }
 
   private calculateRelevance(query: string, learning: RetroLearning): number {
-    // Simple keyword matching (in production, use embeddings)
     const queryWords = query.toLowerCase().split(' ');
     const learningWords = `${learning.description} ${learning.lesson}`.toLowerCase().split(' ');
     const overlap = queryWords.filter(w => learningWords.includes(w)).length;
     return overlap / queryWords.length;
+  }
+
+  getLearnings(): RetroLearning[] {
+    return this.learnings;
   }
 }
 
@@ -246,35 +249,86 @@ export class EvolveAgent {
   }
 
   private async generateNewRule(metrics: { failureRate: number; averageReward: number }): Promise<EvolveRule> {
+    const conditions: string[] = [];
+    const actions: string[] = [];
+
+    if (metrics.failureRate > 0.5) {
+      conditions.push('failure_rate > 0.5');
+      actions.push('escalate to more capable model and reduce context size');
+    } else if (metrics.failureRate > 0.3) {
+      conditions.push('failure_rate > 0.3');
+      actions.push('add retry logic with exponential backoff');
+    } else {
+      conditions.push('failure_rate > 0.1');
+      actions.push('log failure pattern for analysis');
+    }
+
+    if (metrics.averageReward < 0.3) {
+      conditions.push('average_reward < 0.3');
+      actions.push('switch to simpler approach');
+    }
+
     return {
       id: randomUUID(),
       name: `auto-rule-${Date.now()}`,
-      description: `Auto-generated rule to address high failure rate (${metrics.failureRate})`,
-      condition: 'failure_rate > 0.3',
-      action: 'escalate to more capable model',
-      qualityScore: 0.5,
+      description: `Auto-generated rule: failure=${(metrics.failureRate * 100).toFixed(0)}%, reward=${metrics.averageReward.toFixed(2)}`,
+      condition: conditions.join(' AND '),
+      action: actions.join('; '),
+      qualityScore: Math.max(0.3, 1 - metrics.failureRate),
       lastUsed: new Date().toISOString(),
       useCount: 0
     };
   }
 
   private countConsecutiveFailures(): number {
-    // Analyze recent rule usage
-    return 0;
+    let count = 0;
+    for (let i = this.rules.length - 1; i >= 0; i--) {
+      if (this.rules[i].qualityScore < this.config.slowTimescale.rewardThreshold) {
+        count++;
+      } else {
+        break;
+      }
+    }
+    return count;
   }
 
   private async diagnoseFailurePattern(): Promise<string> {
-    return 'High failure rate detected - likely context window overflow';
+    const recentRules = this.rules.slice(-5);
+    const avgQuality = recentRules.length > 0
+      ? recentRules.reduce((s, r) => s + r.qualityScore, 0) / recentRules.length
+      : 0;
+
+    if (avgQuality < 0.3) {
+      return 'Systemic quality degradation - rules are not addressing root causes';
+    }
+    if (recentRules.some(r => r.useCount === 0)) {
+      return 'Generated rules are not being applied - review trigger conditions';
+    }
+    return 'Intermittent failures - consider increasing retry thresholds';
   }
 
   private async createRuleFromDiagnosis(diagnosis: string): Promise<EvolveRule> {
+    let condition = 'true';
+    let action = 'review and adjust parameters';
+
+    if (diagnosis.includes('Systemic')) {
+      condition = 'average_quality < 0.4';
+      action = 'pause rule generation, consolidate existing rules';
+    } else if (diagnosis.includes('not being applied')) {
+      condition = 'rule_use_count == 0';
+      action = 'refine rule trigger conditions to match actual usage patterns';
+    } else if (diagnosis.includes('Intermittent')) {
+      condition = 'failure_streak >= 3';
+      action = 'increase timeout and add circuit breaker';
+    }
+
     return {
       id: randomUUID(),
       name: `fix-${Date.now()}`,
-      description: `Fix for: ${diagnosis}`,
-      condition: 'context_size > 8000',
-      action: 'compress context before sending',
-      qualityScore: 0.6,
+      description: diagnosis,
+      condition,
+      action,
+      qualityScore: 0.5,
       lastUsed: new Date().toISOString(),
       useCount: 0
     };
@@ -309,14 +363,34 @@ export class LearnAgent {
   }
 
   // AgentEvolver-style self-questioning
-  async selfQuestion(_environment: string): Promise<string> {
-    // Generate curiosity-driven task
+  async selfQuestion(environment: string): Promise<string> {
+    const envLower = environment.toLowerCase();
+
+    if (envLower.includes('test') && envLower.includes('fail')) {
+      return 'Analyze test failure patterns and identify root causes';
+    }
+    if (envLower.includes('performance') || envLower.includes('slow')) {
+      return 'Profile hot paths and identify optimization opportunities';
+    }
+    if (envLower.includes('error') || envLower.includes('exception')) {
+      return 'Review error handling patterns and add missing catch blocks';
+    }
+    if (envLower.includes('todo') || envLower.includes('fixme')) {
+      return 'Address accumulated technical debt items';
+    }
+    if (envLower.includes('security') || envLower.includes('vulnerability')) {
+      return 'Run security audit and fix identified issues';
+    }
+    if (envLower.includes('documentation') || envLower.includes('readme')) {
+      return 'Update documentation to reflect current implementation';
+    }
+
     const tasks = [
-      'Optimize database queries for performance',
-      'Add comprehensive error handling',
-      'Implement caching layer',
-      'Write integration tests',
-      'Refactor for better modularity'
+      'Analyze codebase for unused exports and dead code',
+      'Review dependency tree for outdated packages',
+      'Check test coverage gaps in critical paths',
+      'Evaluate error handling completeness',
+      'Assess modularity and coupling between components'
     ];
     return tasks[Math.floor(Math.random() * tasks.length)];
   }
@@ -471,7 +545,7 @@ export class SelfImprovementOrchestrator {
     learn: { totalPrinciples: number; averageEffectiveness: number };
   } {
     return {
-      retro: { totalLearnings: 0 }, // Would track in production
+      retro: { totalLearnings: this.retroAgent.getLearnings().length },
       evolve: this.evolveAgent.getPoolStats(),
       learn: this.learnAgent.getPoolStats()
     };

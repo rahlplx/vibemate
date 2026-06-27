@@ -3,6 +3,14 @@ import { Command } from 'commander';
 import { readFile } from 'fs/promises';
 import { join } from 'path';
 
+// Simple color helper
+const colors = {
+  cyan: (text: string) => `\x1b[36m${text}\x1b[0m`,
+  green: (text: string) => `\x1b[32m${text}\x1b[0m`,
+  yellow: (text: string) => `\x1b[33m${text}\x1b[0m`,
+  red: (text: string) => `\x1b[31m${text}\x1b[0m`
+};
+
 interface StatusOptions {
   detailed?: boolean;
 }
@@ -124,11 +132,3 @@ async function showStatus(options: StatusOptions): Promise<void> {
   console.log(`${colors.cyan('npx vibemate evolve')}    - Manage self-improvement`);
   console.log(`${colors.cyan('npx vibemate status')}    - View this status`);
 }
-
-// Simple color helper
-const colors = {
-  cyan: (text: string) => `\x1b[36m${text}\x1b[0m`,
-  green: (text: string) => `\x1b[32m${text}\x1b[0m`,
-  yellow: (text: string) => `\x1b[33m${text}\x1b[0m`,
-  red: (text: string) => `\x1b[31m${text}\x1b[0m`
-};
