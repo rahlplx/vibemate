@@ -151,7 +151,8 @@ auth
 
       const server = await oauth.startLocalServer(3456);
       console.log('Waiting for authentication...');
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      const AUTH_WAIT_MS = Number(process.env.VIBEMATE_AUTH_WAIT_MS) || 1000;
+      await new Promise((resolve) => setTimeout(resolve, AUTH_WAIT_MS));
       server.close();
       console.log('\nAuthentication complete. Run `vibemate auth status` to verify.');
     } catch (error) {
