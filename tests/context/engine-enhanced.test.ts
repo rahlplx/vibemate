@@ -18,7 +18,7 @@ describe('Enhanced Context Engine', () => {
   let testDir: string;
 
   beforeEach(async () => {
-    testDir = join(tmpdir(), `context-enhanced-${Date.now()}`);
+    testDir = join(tmpdir(), `context-enhanced-${crypto.randomUUID()}`);
     await mkdir(testDir, { recursive: true });
   });
 

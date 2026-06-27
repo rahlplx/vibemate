@@ -3,7 +3,10 @@ import * as path from 'path';
 
 function assertSafePath(baseDir: string, filePath: string): void {
   const resolvedBase = path.resolve(baseDir);
-  const fullPath = path.resolve(baseDir, filePath);
+  // Normalize backslashes before resolving — on Linux \ is a valid filename char,
+  // so path.resolve won't treat '..\\foo' as traversal without this step.
+  const normalizedInput = filePath.replace(/\\/g, '/');
+  const fullPath = path.resolve(baseDir, normalizedInput);
   const normalizedBase = resolvedBase.replace(/\\/g, '/');
   const normalizedFull = fullPath.replace(/\\/g, '/');
   if (!normalizedFull.startsWith(normalizedBase + '/') && normalizedFull !== normalizedBase) {
