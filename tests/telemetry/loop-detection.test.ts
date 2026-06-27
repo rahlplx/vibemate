@@ -75,31 +75,29 @@ describe('Loop Detection — Floyd Cycle Detection', () => {
   });
 
   it('loop with slow cadence (> 5s) classified as slow', () => {
-    // Manually craft spans with large time gaps
+    // The cycle window is 2*patLen spans. For A→B→A→B→A pattern, patLen=2 so cycle=last 4 spans.
+    // Set those 4 spans spread > 5s apart so the cycle window is clearly slow.
+    const spans = (collector as unknown as { spans: Array<{ spanId: string; startTime: number }> }).spans;
+
     const s1 = collector.startSpan('tool.call', undefined, { 'tool.name': 'search' });
     collector.endSpan(s1.spanId);
-    // Mutate startTime to simulate old span (6 seconds ago)
-    const spans = (collector as unknown as { spans: Array<{ spanId: string; startTime: number }> }).spans;
-    const last = spans[spans.length - 1];
-    if (last) last.startTime = Date.now() - 6000;
+    spans[spans.length - 1]!.startTime = Date.now() - 30000; // outside cycle window
 
     const s2 = collector.startSpan('tool.call', undefined, { 'tool.name': 'read' });
     collector.endSpan(s2.spanId);
-    const last2 = spans[spans.length - 1];
-    if (last2) last2.startTime = Date.now() - 5000;
+    spans[spans.length - 1]!.startTime = Date.now() - 12000; // cycle start
 
     const s3 = collector.startSpan('tool.call', undefined, { 'tool.name': 'search' });
     collector.endSpan(s3.spanId);
-    const last3 = spans[spans.length - 1];
-    if (last3) last3.startTime = Date.now() - 4000;
+    spans[spans.length - 1]!.startTime = Date.now() - 8000;
 
     const s4 = collector.startSpan('tool.call', undefined, { 'tool.name': 'read' });
     collector.endSpan(s4.spanId);
-    const last4 = spans[spans.length - 1];
-    if (last4) last4.startTime = Date.now() - 3000;
+    spans[spans.length - 1]!.startTime = Date.now() - 4000;
 
     const s5 = collector.startSpan('tool.call', undefined, { 'tool.name': 'search' });
     collector.endSpan(s5.spanId);
+    spans[spans.length - 1]!.startTime = Date.now() - 500; // cycle end — window ~11.5s
 
     const report = collector.detectLoop();
     expect(report.detected).toBe(true);

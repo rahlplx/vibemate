@@ -153,6 +153,8 @@ async function runAutoPipeline(description: string, options: AutoOptions): Promi
     if (state.telemetry) {
       const loopReport = telemetryCollector.detectLoop();
       const anomalies = telemetryCollector.getAnomalies();
+      // Clear window so the same anomalies don't re-trigger on the next phase
+      telemetryCollector.flushAnomalyWindow();
 
       if (loopReport.detected && loopReport.severity === 'rapid') {
         console.log(`\n⚠️  Telemetry: rapid tool loop detected (${loopReport.cycle.join('→')})`);

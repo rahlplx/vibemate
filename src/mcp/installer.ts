@@ -73,6 +73,48 @@ function isTomlPlatform(platform: Platform): boolean {
   return platform === 'openhands';
 }
 
+// Serialize a value to a valid TOML inline value
+function toTomlValue(v: unknown): string {
+  if (typeof v === 'string') return JSON.stringify(v);
+  if (typeof v === 'number' || typeof v === 'boolean') return String(v);
+  if (v === null) return '""';
+  if (Array.isArray(v)) return `[${v.map(toTomlValue).join(', ')}]`;
+  if (typeof v === 'object') {
+    const pairs = Object.entries(v as Record<string, unknown>)
+      .map(([k, val]) => `${k} = ${toTomlValue(val)}`);
+    return `{${pairs.join(', ')}}`;
+  }
+  return String(v);
+}
+
+function parseTOML(content: string): Record<string, unknown> {
+  // Guard for Node.js fallback runtime — Bun.TOML is Bun-only
+  if (typeof globalThis.Bun !== 'undefined') {
+    return (globalThis.Bun as { TOML: { parse(s: string): unknown } }).TOML.parse(content) as Record<string, unknown>;
+  }
+  // Minimal TOML parser for simple section/key=value structures (sufficient for MCP config)
+  const result: Record<string, unknown> = {};
+  let currentSection: Record<string, unknown> = result;
+  for (const line of content.split('\n')) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
+    const sectionMatch = trimmed.match(/^\[(.+)\]$/);
+    if (sectionMatch) {
+      const key = sectionMatch[1];
+      result[key] = {};
+      currentSection = result[key] as Record<string, unknown>;
+      continue;
+    }
+    const eqIdx = trimmed.indexOf(' = ');
+    if (eqIdx !== -1) {
+      const key = trimmed.slice(0, eqIdx);
+      const val = trimmed.slice(eqIdx + 3);
+      try { currentSection[key] = JSON.parse(val); } catch { currentSection[key] = val; }
+    }
+  }
+  return result;
+}
+
 export async function readConfig(platform: Platform): Promise<Record<string, unknown>> {
   const config = PLATFORMS[platform];
 
@@ -82,7 +124,7 @@ export async function readConfig(platform: Platform): Promise<Record<string, unk
 
   const content = await readFile(config.configPath, 'utf-8');
   if (isTomlPlatform(platform)) {
-    return Bun.TOML.parse(content) as Record<string, unknown>;
+    return parseTOML(content);
   }
   return JSON.parse(content);
 }
@@ -97,16 +139,16 @@ export async function writeConfig(platform: Platform, data: Record<string, unkno
   }
 
   if (isTomlPlatform(platform)) {
-    // Bun.TOML only has parse; serialize with a minimal key=value writer
+    // Serialize to valid TOML: top-level objects become [sections], scalars use inline values
     const lines: string[] = [];
     for (const [section, value] of Object.entries(data)) {
       if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
         lines.push(`[${section}]`);
         for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
-          lines.push(`${k} = ${JSON.stringify(v)}`);
+          lines.push(`${k} = ${toTomlValue(v)}`);
         }
       } else {
-        lines.push(`${section} = ${JSON.stringify(value)}`);
+        lines.push(`${section} = ${toTomlValue(value)}`);
       }
     }
     await writeFile(config.configPath, lines.join('\n') + '\n', 'utf-8');

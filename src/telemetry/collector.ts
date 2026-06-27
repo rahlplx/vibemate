@@ -55,9 +55,18 @@ class SpanRetentionPolicy {
 
     this.totalEvicted += toEvict.size;
 
-    // Prune traces Map — remove spans and clean up empty traces
-    for (const [traceId, traceSpans] of traces.entries()) {
-      const remaining = traceSpans.filter(s => !toEvict.has(s.spanId));
+    // Prune only affected traces by grouping evicted spans by traceId (O(evicted) vs O(all traces))
+    const evictedByTrace = new Map<string, Set<string>>();
+    for (const span of spans) {
+      if (!toEvict.has(span.spanId)) continue;
+      const ids = evictedByTrace.get(span.traceId) ?? new Set();
+      ids.add(span.spanId);
+      evictedByTrace.set(span.traceId, ids);
+    }
+    for (const [traceId, evictedIds] of evictedByTrace) {
+      const traceSpans = traces.get(traceId);
+      if (!traceSpans) continue;
+      const remaining = traceSpans.filter(ts => !evictedIds.has(ts.spanId));
       if (remaining.length === 0) {
         traces.delete(traceId);
       } else {
@@ -149,8 +158,18 @@ export class TelemetryCollector {
 
     this.spans = this.retentionPolicy.evictIfNeeded(this.spans, this.traces);
     this.spansSinceExport.push(span);
+    // Keep spansSinceExport bounded to the same limit as spans
+    const maxCount = this.retentionPolicy.getMaxSpanCount();
+    if (this.spansSinceExport.length > maxCount) {
+      this.spansSinceExport.splice(0, this.spansSinceExport.length - maxCount);
+    }
 
     return span;
+  }
+
+  // Clear the anomaly scan window without flushing to disk (call after each quality gate check)
+  flushAnomalyWindow(): void {
+    this.spansSinceExport = [];
   }
 
   getRetentionStats(): RetentionStats {
@@ -201,7 +220,9 @@ export class TelemetryCollector {
 
       const variance = b.count > 1 ? b.m2 / (b.count - 1) : 0;
       const stddev = Math.sqrt(variance);
-      if (stddev === 0) continue;
+      // Enforce minimum stddev floor to prevent false positives from near-zero variance
+      const MIN_STDDEV_MS = 10;
+      if (stddev < MIN_STDDEV_MS) continue;
 
       const zScore = (duration - b.mean) / stddev;
       if (Math.abs(zScore) > threshold) {
@@ -374,9 +395,10 @@ export class TelemetryCollector {
       return { detected: false, cycle: [], frequency: 0, severity: 'normal' };
     }
 
-    // Compute frequency and severity
-    const windowMs = toolCalls[toolCalls.length - 1].startTime - toolCalls[0].startTime;
-    const frequency = windowMs > 0 ? (toolCalls.length / windowMs) * 1000 : toolCalls.length;
+    // Use only the cycle window (last 2*patLen spans) for accurate severity — not full history
+    const cycleSpans = toolCalls.slice(-2 * detectedCycle.length);
+    const windowMs = cycleSpans[cycleSpans.length - 1].startTime - cycleSpans[0].startTime;
+    const frequency = windowMs > 0 ? (cycleSpans.length / windowMs) * 1000 : cycleSpans.length;
 
     let severity: 'rapid' | 'normal' | 'slow';
     if (windowMs < 500) {

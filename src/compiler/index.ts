@@ -300,7 +300,7 @@ export class HarnessCompiler {
   private generateContextMd(agentName: string, okfBundle: OKFBundle): string {
     const architectureDocs = okfBundle.concepts
       .filter(c => c.frontmatter.type === 'architecture-decision')
-      .map(c => `- **${c.frontmatter.title}**: ${c.frontmatter.description}`)
+      .map(c => `- **${c.frontmatter.title ?? 'Untitled'}**: ${c.frontmatter.description ?? 'No description'}`)
       .join('\n');
 
     return `# ${agentName} Context — Vibemate
@@ -316,7 +316,7 @@ ${okfBundle.root}
   private generateClaudeMd(okfBundle: OKFBundle): string {
     const architectureDocs = okfBundle.concepts
       .filter(c => c.frontmatter.type === 'architecture-decision')
-      .map(c => `- **${c.frontmatter.title}**: ${c.frontmatter.description}`)
+      .map(c => `- **${c.frontmatter.title ?? 'Untitled'}**: ${c.frontmatter.description ?? 'No description'}`)
       .join('\n');
 
     return `# Claude Code Context - Vibemate
@@ -356,7 +356,7 @@ All actions are logged to \`.vibe/telemetry/\` for retrospective analysis.
   private generateCursorRules(okfBundle: OKFBundle): string {
     const architectureDocs = okfBundle.concepts
       .filter(c => c.frontmatter.type === 'architecture-decision')
-      .map(c => `- ${c.frontmatter.title}: ${c.frontmatter.description}`)
+      .map(c => `- ${c.frontmatter.title ?? 'Untitled'}: ${c.frontmatter.description ?? 'No description'}`)
       .join('\n');
 
     return `# Cursor Rules - Vibemate
@@ -381,7 +381,7 @@ ${architectureDocs}
   private generateAgentsMd(okfBundle: OKFBundle): string {
     const architectureDocs = okfBundle.concepts
       .filter(c => c.frontmatter.type === 'architecture-decision')
-      .map(c => `## ${c.frontmatter.title}\n\n${c.frontmatter.description}\n\n${c.body}`)
+      .map(c => `## ${c.frontmatter.title ?? 'Untitled'}\n\n${c.frontmatter.description ?? 'No description'}\n\n${c.body}`)
       .join('\n\n');
 
     return `# AGENTS.md - Vibemate Context
