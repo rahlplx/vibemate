@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'bun:test';
-import { isBun, isNode, createSQLiteAdapter } from './factory.js';
+import { isBun, isNode, createSQLiteAdapter } from '../../src/state/factory.js';
 import { mkdtempSync, rmSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';

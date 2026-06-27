@@ -4,6 +4,7 @@ import { RetroLearning, EvolveRule, ExperiencePrinciple, OKFBundle } from '../ty
 import { OKFGenerator } from '../okf/generator.js';
 import { randomUUID } from 'crypto';
 import { createSeededRandom } from '../shared/random.js';
+import type { PersistenceManager } from '../shared/persistence.js';
 
 // RetroAgent-style dual intrinsic feedback
 export interface RetroFeedback {
@@ -179,8 +180,9 @@ export class EvolveAgent {
   private rules: EvolveRule[] = [];
   private config: AELConfig;
   private rng: ReturnType<typeof createSeededRandom>;
+  private persistence?: PersistenceManager;
 
-  constructor(_okfGenerator: OKFGenerator, config?: Partial<AELConfig>) {
+  constructor(_okfGenerator: OKFGenerator, config?: Partial<AELConfig> & { persistence?: PersistenceManager }) {
     this.config = {
       fastTimescale: {
         thompsonSampling: {
@@ -195,6 +197,7 @@ export class EvolveAgent {
       },
       ...config
     };
+    this.persistence = config?.persistence;
     this.rng = createSeededRandom();
   }
 
@@ -244,6 +247,17 @@ export class EvolveAgent {
       const rule = await this.createRuleFromDiagnosis(diagnosis);
       newRules.push(rule);
       this.rules.push(rule);
+    }
+
+    // Persist new rules if persistence is available
+    if (this.persistence && newRules.length > 0) {
+      const store = await this.persistence.getEvolveStore();
+      for (const rule of newRules) {
+        await store.saveRule({
+          ...rule,
+          lastUsed: new Date(rule.lastUsed),
+        });
+      }
     }
 
     return newRules;

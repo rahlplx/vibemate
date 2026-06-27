@@ -218,9 +218,9 @@ describe('TelemetryCollector', () => {
   });
 
   describe('getTrace', () => {
-    it('should retrieve trace by ID', () => {
+    it('should retrieve trace by ID', async () => {
       const span = collector.startSpan('test.span');
-      const trace = collector.getTrace(span.traceId);
+      const trace = await collector.getTrace(span.traceId);
 
       expect(trace.length).toBe(1);
       expect(trace[0].spanId).toBe(span.spanId);

@@ -110,7 +110,8 @@ export class WorkerPool {
           if (idx !== -1) this.taskQueue.splice(idx, 1);
           reject(new Error(`Task ${id} timeout`));
         }, this.config.taskTimeoutMs);
-        this.taskQueue.push({ id, data, resolve, reject, timeout });
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        this.taskQueue.push({ id, data, resolve: resolve as any, reject, timeout });
       });
     }
 

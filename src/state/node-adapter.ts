@@ -21,7 +21,11 @@ class NodePreparedStatement<T> implements PreparedStatement<T> {
   }
 
   run(...params: unknown[]): { changes: number; lastInsertRowid: number } {
-    const result = this.stmt.run(...params);
+    /* eslint-disable @typescript-eslint/no-explicit-any */
+    const result = params.length > 0
+      ? (this.stmt as any).run(...params)
+      : (this.stmt as any).run();
+    /* eslint-enable @typescript-eslint/no-explicit-any */
     return {
       changes: result.changes,
       lastInsertRowid: Number(result.lastInsertRowid),
@@ -29,11 +33,19 @@ class NodePreparedStatement<T> implements PreparedStatement<T> {
   }
 
   get(...params: unknown[]): T | undefined {
-    return this.stmt.get(...params) as T | undefined;
+    /* eslint-disable @typescript-eslint/no-explicit-any */
+    return (params.length > 0
+      ? (this.stmt as any).get(...params)
+      : (this.stmt as any).get()) as T | undefined;
+    /* eslint-enable @typescript-eslint/no-explicit-any */
   }
 
   all(...params: unknown[]): T[] {
-    return this.stmt.all(...params) as T[];
+    /* eslint-disable @typescript-eslint/no-explicit-any */
+    return (params.length > 0
+      ? (this.stmt as any).all(...params)
+      : (this.stmt as any).all()) as T[];
+    /* eslint-enable @typescript-eslint/no-explicit-any */
   }
 }
 

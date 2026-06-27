@@ -3,21 +3,25 @@ import { TelemetrySpan, AgentTurn, ToolCall, HandoffSpan, TelemetryMetrics } fro
 import { writeFile, readFile, mkdir, readdir } from 'fs/promises';
 import { join } from 'path';
 import { randomUUID } from 'crypto';
+import type { PersistenceManager } from '../shared/persistence.js';
 
 export interface TelemetryConfig {
   enabled: boolean;
   exportDir: string;
   serviceName: string;
   serviceVersion: string;
+  persistence?: PersistenceManager;
 }
 
 export class TelemetryCollector {
   private config: TelemetryConfig;
   private spans: TelemetrySpan[] = [];
   private traces: Map<string, TelemetrySpan[]> = new Map();
+  private persistence?: PersistenceManager;
 
   constructor(config: TelemetryConfig) {
     this.config = config;
+    this.persistence = config.persistence;
   }
 
   // Start a new span
@@ -42,6 +46,23 @@ export class TelemetryCollector {
     const traceSpans = this.traces.get(span.traceId) || [];
     traceSpans.push(span);
     this.traces.set(span.traceId, traceSpans);
+
+    // Persist if available
+    if (this.persistence) {
+      this.persistence.getTelemetryStore().then(store => {
+        store.saveSpan({
+          spanId: span.spanId,
+          traceId: span.traceId,
+          parentSpanId: span.parentSpanId,
+          name: span.name,
+          startTime: span.startTime,
+          status: span.status,
+          attributes: span.attributes,
+          serviceName: this.config.serviceName,
+          serviceVersion: this.config.serviceVersion,
+        });
+      });
+    }
 
     return span;
   }
@@ -237,7 +258,12 @@ export class TelemetryCollector {
   }
 
   // Get trace by ID
-  getTrace(traceId: string): TelemetrySpan[] {
+  async getTrace(traceId: string): Promise<TelemetrySpan[]> {
+    if (this.persistence) {
+      const store = await this.persistence.getTelemetryStore();
+      const spans = await store.getTrace(traceId);
+      return spans.map(s => ({ ...s, status: s.status as "ok" | "error" }));
+    }
     return this.traces.get(traceId) || [];
   }
 

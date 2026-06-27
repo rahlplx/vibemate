@@ -35,6 +35,6 @@ export function createSeededRandom(seed?: string): SeededRandom {
   };
 }
 
-export function generateDeterministicId(input: string): string {
+export function generateDeterministicId(_input: string): string {
   return randomUUID();
 }

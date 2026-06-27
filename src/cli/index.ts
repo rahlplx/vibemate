@@ -146,7 +146,7 @@ auth
             ? `open "${url}"`
             : `xdg-open "${url}"`;
         const { execSync } = await import('child_process');
-        execSync(cmd, { shell: true } as any);
+        execSync(cmd, { shell: true } as { shell: boolean });
       } catch {
         console.log('Could not open browser. Visit the URL above manually.');
       }

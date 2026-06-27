@@ -9,6 +9,7 @@ interface Symbol {
   line: number;
   imports: string[];
   exports: string[];
+  score?: number;
 }
 
 interface Ranking {
@@ -180,7 +181,7 @@ export class RepoMap {
     for (const [name, score] of scores) {
       const symbol = this.symbols.get(name);
       if (symbol) {
-        (symbol as any).score = score;
+        symbol.score = score;
       }
     }
   }
@@ -191,7 +192,7 @@ export class RepoMap {
     for (const [name, symbol] of this.symbols) {
       rankings.push({
         name,
-        score: (symbol as any).score || 0,
+        score: symbol.score || 0,
         file: symbol.file,
         kind: symbol.kind
       });

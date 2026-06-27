@@ -1,9 +1,5 @@
-import type { SQLiteAdapter, PreparedStatement } from '../state/adapter.js';
+import type { SQLiteAdapter } from '../state/adapter.js';
 import { createSQLiteAdapter } from '../state/factory.js';
-import { readFile, writeFile, mkdir } from 'fs/promises';
-import { existsSync } from 'fs';
-import { join } from 'path';
-import { randomUUID } from 'crypto';
 
 export interface PersistenceConfig {
   dbPath: string;
@@ -127,7 +123,7 @@ export class PersistenceManager {
 
   private async getAdapter(): Promise<SQLiteAdapter> {
     if (!this.adapter) {
-      this.adapter = await createSQLiteAdapter();
+      this.adapter = createSQLiteAdapter(this.config.dbPath);
       if (this.config.enableWAL) {
         this.adapter.exec('PRAGMA journal_mode = WAL');
         this.adapter.exec('PRAGMA synchronous = NORMAL');
@@ -159,10 +155,9 @@ export class PersistenceManager {
     for (const migration of MIGRATIONS) {
       if (!appliedVersions.has(migration.version)) {
         adapter.exec(migration.up);
-        adapter.exec(
-          'INSERT INTO migrations (version, name, applied_at) VALUES (?, ?, ?)',
-          [migration.version, migration.name, new Date().toISOString()]
-        );
+        adapter.prepare(
+          'INSERT INTO migrations (version, name, applied_at) VALUES (?, ?, ?)'
+        ).run(migration.version, migration.name, new Date().toISOString());
       }
     }
 
@@ -197,45 +192,45 @@ export class GovernanceStore {
   constructor(private adapter: SQLiteAdapter) {}
 
   async saveRole(role: { name: string; permissions: string[]; description: string }): Promise<void> {
-    this.adapter.exec(
-      'INSERT OR REPLACE INTO governance_roles (name, permissions, description) VALUES (?, ?, ?)',
-      [role.name, JSON.stringify(role.permissions), role.description]
-    );
+    this.adapter.prepare(
+      'INSERT OR REPLACE INTO governance_roles (name, permissions, description) VALUES (?, ?, ?)'
+    ).run(role.name, JSON.stringify(role.permissions), role.description);
   }
 
   async getRole(name: string): Promise<{ name: string; permissions: string[]; description: string } | undefined> {
-    const row = this.adapter.get<{ name: string; permissions: string; description: string }>(
+    const rows = this.adapter.query<{ name: string; permissions: string; description: string }>(
       'SELECT * FROM governance_roles WHERE name = ?',
       [name]
     );
+    const row = rows[0];
     if (!row) return undefined;
     return { ...row, permissions: JSON.parse(row.permissions) };
   }
 
   async getAllRoles(): Promise<Array<{ name: string; permissions: string[]; description: string }>> {
-    const rows = this.adapter.all<{ name: string; permissions: string; description: string }>(
+    const rows = this.adapter.query<{ name: string; permissions: string; description: string }>(
       'SELECT * FROM governance_roles'
     );
     return rows.map((row) => ({ ...row, permissions: JSON.parse(row.permissions) }));
   }
 
   async deleteRole(name: string): Promise<boolean> {
-    const result = this.adapter.exec('DELETE FROM governance_roles WHERE name = ?', [name]);
+    const result = this.adapter.prepare('DELETE FROM governance_roles WHERE name = ?').run(name);
     return result.changes > 0;
   }
 
   async saveUser(user: { id: string; name: string; roles: string[]; createdAt: Date; lastActive: Date }): Promise<void> {
-    this.adapter.exec(
-      'INSERT OR REPLACE INTO governance_users (id, name, roles, created_at, last_active) VALUES (?, ?, ?, ?, ?)',
-      [user.id, user.name, JSON.stringify(user.roles), user.createdAt.toISOString(), user.lastActive.toISOString()]
-    );
+    this.adapter.prepare(
+      'INSERT OR REPLACE INTO governance_users (id, name, roles, created_at, last_active) VALUES (?, ?, ?, ?, ?)'
+    ).run(user.id, user.name, JSON.stringify(user.roles), user.createdAt.toISOString(), user.lastActive.toISOString());
   }
 
   async getUser(id: string): Promise<{ id: string; name: string; roles: string[]; createdAt: Date; lastActive: Date } | undefined> {
-    const row = this.adapter.get<{ id: string; name: string; roles: string; created_at: string; last_active: string }>(
+    const rows = this.adapter.query<{ id: string; name: string; roles: string; created_at: string; last_active: string }>(
       'SELECT * FROM governance_users WHERE id = ?',
       [id]
     );
+    const row = rows[0];
     if (!row) return undefined;
     return {
       ...row,
@@ -246,7 +241,7 @@ export class GovernanceStore {
   }
 
   async deleteUser(id: string): Promise<boolean> {
-    const result = this.adapter.exec('DELETE FROM governance_users WHERE id = ?', [id]);
+    const result = this.adapter.prepare('DELETE FROM governance_users WHERE id = ?').run(id);
     return result.changes > 0;
   }
 
@@ -259,10 +254,9 @@ export class GovernanceStore {
     success: boolean;
     details?: Record<string, unknown>;
   }): Promise<void> {
-    this.adapter.exec(
-      'INSERT INTO governance_audit_log (id, user_id, action, resource, timestamp, success, details) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [entry.id, entry.userId, entry.action, entry.resource, entry.timestamp.toISOString(), entry.success ? 1 : 0, entry.details ? JSON.stringify(entry.details) : null]
-    );
+    this.adapter.prepare(
+      'INSERT INTO governance_audit_log (id, user_id, action, resource, timestamp, success, details) VALUES (?, ?, ?, ?, ?, ?, ?)'
+    ).run(entry.id, entry.userId, entry.action, entry.resource, entry.timestamp.toISOString(), entry.success ? 1 : 0, entry.details ? JSON.stringify(entry.details) : null);
   }
 
   async getAuditLog(filters?: { userId?: string; startDate?: Date; endDate?: Date; success?: boolean }): Promise<Array<{
@@ -296,7 +290,7 @@ export class GovernanceStore {
 
     sql += ' ORDER BY timestamp DESC';
 
-    const rows = this.adapter.all<{
+    const rows = this.adapter.query<{
       id: string;
       user_id: string;
       action: string;
@@ -333,20 +327,19 @@ export class TelemetryStore {
     serviceName: string;
     serviceVersion: string;
   }): Promise<void> {
-    this.adapter.exec(
-      'INSERT OR REPLACE INTO telemetry_spans (span_id, trace_id, parent_span_id, name, start_time, end_time, status, attributes, service_name, service_version) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [
-        span.spanId,
-        span.traceId,
-        span.parentSpanId || null,
-        span.name,
-        span.startTime,
-        span.endTime || null,
-        span.status,
-        JSON.stringify(span.attributes),
-        span.serviceName,
-        span.serviceVersion,
-      ]
+    this.adapter.prepare(
+      'INSERT OR REPLACE INTO telemetry_spans (span_id, trace_id, parent_span_id, name, start_time, end_time, status, attributes, service_name, service_version) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+    ).run(
+      span.spanId,
+      span.traceId,
+      span.parentSpanId || null,
+      span.name,
+      span.startTime,
+      span.endTime || null,
+      span.status,
+      JSON.stringify(span.attributes),
+      span.serviceName,
+      span.serviceVersion
     );
   }
 
@@ -362,7 +355,7 @@ export class TelemetryStore {
     serviceName: string;
     serviceVersion: string;
   } | undefined> {
-    const row = this.adapter.get<{
+    const rows = this.adapter.query<{
       span_id: string;
       trace_id: string;
       parent_span_id: string | null;
@@ -375,6 +368,7 @@ export class TelemetryStore {
       service_version: string;
     }>('SELECT * FROM telemetry_spans WHERE span_id = ?', [spanId]);
 
+    const row = rows[0];
     if (!row) return undefined;
 
     return {
@@ -403,7 +397,7 @@ export class TelemetryStore {
     serviceName: string;
     serviceVersion: string;
   }>> {
-    const rows = this.adapter.all<{
+    const rows = this.adapter.query<{
       span_id: string;
       trace_id: string;
       parent_span_id: string | null;
@@ -432,7 +426,7 @@ export class TelemetryStore {
 
   async deleteOldSpans(maxAgeMs: number = 3600000): Promise<number> {
     const cutoff = Date.now() - maxAgeMs;
-    const result = this.adapter.exec('DELETE FROM telemetry_spans WHERE start_time < ?', [cutoff]);
+    const result = this.adapter.prepare('DELETE FROM telemetry_spans WHERE start_time < ?').run(cutoff);
     return result.changes;
   }
 }
@@ -450,10 +444,9 @@ export class EvolveStore {
     lastUsed: Date;
     useCount: number;
   }): Promise<void> {
-    this.adapter.exec(
-      'INSERT OR REPLACE INTO evolve_rules (id, name, description, condition, action, quality_score, last_used, use_count) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-      [rule.id, rule.name, rule.description, rule.condition, rule.action, rule.qualityScore, rule.lastUsed.toISOString(), rule.useCount]
-    );
+    this.adapter.prepare(
+      'INSERT OR REPLACE INTO evolve_rules (id, name, description, condition, action, quality_score, last_used, use_count) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+    ).run(rule.id, rule.name, rule.description, rule.condition, rule.action, rule.qualityScore, rule.lastUsed.toISOString(), rule.useCount);
   }
 
   async getRule(id: string): Promise<{
@@ -466,7 +459,7 @@ export class EvolveStore {
     lastUsed: Date;
     useCount: number;
   } | undefined> {
-    const row = this.adapter.get<{
+    const rows = this.adapter.query<{
       id: string;
       name: string;
       description: string;
@@ -477,6 +470,7 @@ export class EvolveStore {
       use_count: number;
     }>('SELECT * FROM evolve_rules WHERE id = ?', [id]);
 
+    const row = rows[0];
     if (!row) return undefined;
 
     return {
@@ -501,7 +495,7 @@ export class EvolveStore {
     lastUsed: Date;
     useCount: number;
   }>> {
-    const rows = this.adapter.all<{
+    const rows = this.adapter.query<{
       id: string;
       name: string;
       description: string;
@@ -525,7 +519,7 @@ export class EvolveStore {
   }
 
   async deleteRule(id: string): Promise<boolean> {
-    const result = this.adapter.exec('DELETE FROM evolve_rules WHERE id = ?', [id]);
+    const result = this.adapter.prepare('DELETE FROM evolve_rules WHERE id = ?').run(id);
     return result.changes > 0;
   }
 
@@ -537,10 +531,9 @@ export class EvolveStore {
     usageCount: number;
     lastUsed: Date;
   }): Promise<void> {
-    this.adapter.exec(
-      'INSERT OR REPLACE INTO evolve_principles (id, principle, context, effectiveness, usage_count, last_used) VALUES (?, ?, ?, ?, ?, ?)',
-      [principle.id, principle.principle, principle.context, principle.effectiveness, principle.usageCount, principle.lastUsed.toISOString()]
-    );
+    this.adapter.prepare(
+      'INSERT OR REPLACE INTO evolve_principles (id, principle, context, effectiveness, usage_count, last_used) VALUES (?, ?, ?, ?, ?, ?)'
+    ).run(principle.id, principle.principle, principle.context, principle.effectiveness, principle.usageCount, principle.lastUsed.toISOString());
   }
 
   async getPrinciple(id: string): Promise<{
@@ -551,7 +544,7 @@ export class EvolveStore {
     usageCount: number;
     lastUsed: Date;
   } | undefined> {
-    const row = this.adapter.get<{
+    const rows = this.adapter.query<{
       id: string;
       principle: string;
       context: string;
@@ -560,6 +553,7 @@ export class EvolveStore {
       last_used: string;
     }>('SELECT * FROM evolve_principles WHERE id = ?', [id]);
 
+    const row = rows[0];
     if (!row) return undefined;
 
     return {
@@ -580,7 +574,7 @@ export class EvolveStore {
     usageCount: number;
     lastUsed: Date;
   }>> {
-    const rows = this.adapter.all<{
+    const rows = this.adapter.query<{
       id: string;
       principle: string;
       context: string;
@@ -600,7 +594,7 @@ export class EvolveStore {
   }
 
   async deletePrinciple(id: string): Promise<boolean> {
-    const result = this.adapter.exec('DELETE FROM evolve_principles WHERE id = ?', [id]);
+    const result = this.adapter.prepare('DELETE FROM evolve_principles WHERE id = ?').run(id);
     return result.changes > 0;
   }
 
@@ -613,10 +607,9 @@ export class EvolveStore {
     tags: string[];
     utilityScore: number;
   }): Promise<void> {
-    this.adapter.exec(
-      'INSERT OR REPLACE INTO evolve_learnings (id, timestamp, type, description, lesson, tags, utility_score) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [learning.id, learning.timestamp.toISOString(), learning.type, learning.description, learning.lesson, JSON.stringify(learning.tags), learning.utilityScore]
-    );
+    this.adapter.prepare(
+      'INSERT OR REPLACE INTO evolve_learnings (id, timestamp, type, description, lesson, tags, utility_score) VALUES (?, ?, ?, ?, ?, ?, ?)'
+    ).run(learning.id, learning.timestamp.toISOString(), learning.type, learning.description, learning.lesson, JSON.stringify(learning.tags), learning.utilityScore);
   }
 
   async getLearning(id: string): Promise<{
@@ -628,7 +621,7 @@ export class EvolveStore {
     tags: string[];
     utilityScore: number;
   } | undefined> {
-    const row = this.adapter.get<{
+    const rows = this.adapter.query<{
       id: string;
       timestamp: string;
       type: string;
@@ -638,6 +631,7 @@ export class EvolveStore {
       utility_score: number;
     }>('SELECT * FROM evolve_learnings WHERE id = ?', [id]);
 
+    const row = rows[0];
     if (!row) return undefined;
 
     return {
@@ -660,7 +654,7 @@ export class EvolveStore {
     tags: string[];
     utilityScore: number;
   }>> {
-    const rows = this.adapter.all<{
+    const rows = this.adapter.query<{
       id: string;
       timestamp: string;
       type: string;
@@ -670,7 +664,15 @@ export class EvolveStore {
       utility_score: number;
     }>('SELECT * FROM evolve_learnings ORDER BY timestamp DESC');
 
-    return rows.map((row) => ({
+    return rows.map((row: {
+      id: string;
+      timestamp: string;
+      type: string;
+      description: string;
+      lesson: string;
+      tags: string;
+      utility_score: number;
+    }) => ({
       id: row.id,
       timestamp: new Date(row.timestamp),
       type: row.type,
@@ -682,7 +684,7 @@ export class EvolveStore {
   }
 
   async deleteLearning(id: string): Promise<boolean> {
-    const result = this.adapter.exec('DELETE FROM evolve_learnings WHERE id = ?', [id]);
+    const result = this.adapter.prepare('DELETE FROM evolve_learnings WHERE id = ?').run(id);
     return result.changes > 0;
   }
 }

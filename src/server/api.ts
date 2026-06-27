@@ -43,6 +43,17 @@ function rateLimiter(windowMs: number = 15 * 60 * 1000, max: number = 100) {
 
 app.use('*', rateLimiter());
 
+const rateLimitCleanupInterval = setInterval(() => {
+  const now = Date.now();
+  for (const [ip, record] of rateLimitStore.entries()) {
+    if (now > record.resetTime) {
+      rateLimitStore.delete(ip);
+    }
+  }
+}, 5 * 60 * 1000);
+
+export { rateLimitCleanupInterval };
+
 const ROOT = process.cwd();
 const DB_PATH = path.join(ROOT, '.vibe', 'state.db');
 fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
