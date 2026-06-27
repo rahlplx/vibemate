@@ -1,4 +1,4 @@
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach } from 'bun:test';
 import { runMigrations, getMigrationVersion } from '../../src/state/migrations.js';
 import { createConnection, closeConnection, type DatabaseConnection } from '../../src/state/connection.js';
 import * as fs from 'fs';

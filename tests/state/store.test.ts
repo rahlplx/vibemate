@@ -1,4 +1,4 @@
-import { describe, it, expect, afterEach, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach , afterEach} from 'bun:test';
 import { createStore, type StateStore } from '../../src/state/store.js';
 import { createConnection, closeConnection, type DatabaseConnection } from '../../src/state/connection.js';
 import { runMigrations } from '../../src/state/migrations.js';

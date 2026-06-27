@@ -1,17 +1,16 @@
-import Database from 'better-sqlite3';
+import { BunSQLiteDatabase } from './bun-sqlite.js';
 
 export interface DatabaseConnection {
-  db: Database.Database;
+  db: BunSQLiteDatabase;
   path: string;
 }
 
 export function createConnection(dbPath: string): DatabaseConnection {
-  const db = new Database(dbPath);
+  const db = new BunSQLiteDatabase(dbPath);
 
-  // Enable WAL mode for concurrent reads during writes
   db.pragma('journal_mode = WAL');
   db.pragma('synchronous = NORMAL');
-  db.pragma('cache_size = -64000'); // 64MB cache
+  db.pragma('cache_size = -64000');
   db.pragma('temp_store = MEMORY');
 
   return { db, path: dbPath };

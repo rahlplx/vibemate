@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, afterEach , beforeEach} from 'bun:test';
 import { discoverCommand } from '../../src/cli/discover.js';
 import * as fs from 'fs';
 import * as path from 'path';

@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'bun:test';
 import databases from '../../src/decision/data/databases.json';
 import runtimes from '../../src/decision/data/runtimes.json';
 import frameworks from '../../src/decision/data/frameworks.json';

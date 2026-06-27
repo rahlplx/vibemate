@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach } from 'bun:test';
 import { AutoScaler } from '../../src/scaling/auto-scaler';
 
 describe('AutoScaler', () => {

@@ -1,14 +1,19 @@
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach } from 'bun:test';
 import { createConnection, closeConnection, type DatabaseConnection } from '../../src/state/connection.js';
 import * as fs from 'fs';
 import * as path from 'path';
 
 const TEST_DB_DIR = path.join(process.cwd(), '.test-state');
 
-afterEach(() => {
-  // Clean up test databases
+afterEach(async () => {
+  // Allow bun:sqlite WAL files to release
+  await new Promise(resolve => setTimeout(resolve, 50));
   if (fs.existsSync(TEST_DB_DIR)) {
-    fs.rmSync(TEST_DB_DIR, { recursive: true, force: true });
+    try {
+      fs.rmSync(TEST_DB_DIR, { recursive: true, force: true });
+    } catch {
+      // WAL file may still be locked - ignore
+    }
   }
 });
 

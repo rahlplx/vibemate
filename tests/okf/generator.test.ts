@@ -1,5 +1,5 @@
 // TDD Tests for OKF Generator
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, afterEach , beforeEach} from 'bun:test';
 import { OKFGenerator } from '../../src/okf/generator.js';
 import { mkdir, rm, readFile, readdir } from 'fs/promises';
 import { join } from 'path';

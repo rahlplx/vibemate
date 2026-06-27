@@ -1,5 +1,5 @@
 // TDD Tests for Self-Improvement Loop
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, afterEach , beforeEach} from 'bun:test';
 import { 
   SelfImprovementOrchestrator,
   RetroAgent,

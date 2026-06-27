@@ -1,5 +1,5 @@
 // TDD Tests for Context Pipeline
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, afterEach , beforeEach} from 'bun:test';
 import { ContextPipeline } from '../../src/context/pipeline.js';
 import { mkdir, rm, writeFile, readFile } from 'fs/promises';
 import { join } from 'path';

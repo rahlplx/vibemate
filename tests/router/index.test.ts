@@ -1,5 +1,5 @@
 // TDD Tests for Cost-Aware Router
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach } from 'bun:test';
 import { CostAwareRouter, FallbackManager } from '../../src/router/index.js';
 
 describe('CostAwareRouter', () => {

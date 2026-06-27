@@ -1,5 +1,5 @@
 // TDD Tests for MCP Config Generator
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, afterEach , beforeEach} from 'bun:test';
 import { MCPConfigGenerator } from '../../src/mcp/config.js';
 import { mkdir, rm, readFile } from 'fs/promises';
 import { join } from 'path';
