@@ -1,6 +1,7 @@
 import { createConnection, closeConnection } from '../state/connection.js';
 import { runMigrations } from '../state/migrations.js';
 import { createStore, type Task } from '../state/store.js';
+import { generateDeterministicId } from '../shared/random.js';
 
 export interface Dispatcher {
   dispatch(
@@ -27,7 +28,7 @@ export function createDispatcher(dbPath: string): Dispatcher {
 
   return {
     dispatch(_projectId, sessionId, task) {
-      const id = `task-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      const id = generateDeterministicId(`task-${task.title}-${sessionId}-${Date.now()}-${Math.random().toString(36).slice(2)}`);
       store.createTask({
         id,
         sessionId,

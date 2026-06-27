@@ -1,6 +1,8 @@
 // Vibemate Performance Monitoring Module
 // Provides metrics collection, alerting, and optimization
 
+import { generateDeterministicId } from '../shared/random';
+
 export interface MetricValue {
   name: string;
   value: number;
@@ -128,7 +130,7 @@ export class PerformanceMonitor {
     severity: Alert['severity']
   ): void {
     const alert: Alert = {
-      id: `alert-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      id: generateDeterministicId(`alert-${metric}-${Date.now()}-${Math.random().toString(36).slice(2)}`),
       metric,
       threshold,
       currentValue,

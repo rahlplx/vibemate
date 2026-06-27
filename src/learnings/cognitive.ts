@@ -1,4 +1,5 @@
 import type { ExtractedData, AuditFinding, RLSignal, MetaLearning } from "./types"
+import { generateDeterministicId } from '../shared/random'
 
 /**
  * Cognitive adaptivity module.
@@ -345,7 +346,7 @@ export function applyConfidenceDecay(
 
 export function createMemoryEntry(finding: string, confidence: number, cycle: number): MemoryEntry {
   return {
-    id: `mem-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    id: generateDeterministicId(`mem-${finding}-${cycle}-${Date.now()}-${Math.random().toString(36).slice(2)}`),
     finding,
     initialConfidence: confidence,
     currentConfidence: confidence,

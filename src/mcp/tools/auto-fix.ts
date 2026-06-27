@@ -183,11 +183,16 @@ function buildCommonChecks(root: string) {
       apply: async () => {
         const tsconfigPath = join(root, 'tsconfig.json');
         const content = await readFile(tsconfigPath, 'utf-8');
-        const parsed = JSON.parse(content);
+        let parsed: Record<string, unknown>;
+        try {
+          parsed = JSON.parse(content);
+        } catch {
+          parsed = {};
+        }
         if (!parsed.compilerOptions) {
           parsed.compilerOptions = {};
         }
-        parsed.compilerOptions.strict = true;
+        (parsed.compilerOptions as Record<string, unknown>).strict = true;
         await writeFile(tsconfigPath, JSON.stringify(parsed, null, 2), 'utf-8');
       },
     },

@@ -26,7 +26,12 @@ function createDefaultState(): PipelineState {
 }
 
 export function createStateManager(json?: string) {
-  let state: PipelineState = json ? JSON.parse(json) : createDefaultState()
+  let state: PipelineState;
+  try {
+    state = json ? JSON.parse(json) : createDefaultState();
+  } catch {
+    state = createDefaultState();
+  }
 
   function markUpdated() {
     state.lastUpdate = new Date().toISOString()

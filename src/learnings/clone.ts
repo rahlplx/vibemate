@@ -1,5 +1,5 @@
 import { execSync } from "child_process"
-import { readFileSync } from "fs"
+import { readFileSync, readdirSync, existsSync } from "fs"
 import { join } from "path"
 import type { RepoConfig, CloneResult } from "./types"
 
@@ -13,7 +13,7 @@ async function execAsync(cmd: string, opts: { timeout?: number } = {}): Promise<
 function countFiles(dir: string): number {
   let count = 0
   try {
-    for (const entry of require("fs").readdirSync(dir, { withFileTypes: true })) {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
       if (entry.name === "node_modules" || entry.name === ".git") continue
       const full = join(dir, entry.name)
       if (entry.isDirectory()) count += countFiles(full)
@@ -39,7 +39,7 @@ function detectLanguages(dir: string): Record<string, number> {
 
   function walk(d: string) {
     try {
-      for (const entry of require("fs").readdirSync(d, { withFileTypes: true })) {
+      for (const entry of readdirSync(d, { withFileTypes: true })) {
         if (entry.name === "node_modules" || entry.name === ".git") continue
         const full = join(d, entry.name)
         if (entry.isDirectory()) { walk(full); continue }
@@ -56,13 +56,13 @@ function detectLanguages(dir: string): Record<string, number> {
 }
 
 function detectPackageManager(dir: string): string | null {
-  if (require("fs").existsSync(join(dir, "bun.lockb")) || require("fs").existsSync(join(dir, "bun.lock"))) return "bun"
-  if (require("fs").existsSync(join(dir, "pnpm-lock.yaml"))) return "pnpm"
-  if (require("fs").existsSync(join(dir, "yarn.lock"))) return "yarn"
-  if (require("fs").existsSync(join(dir, "package-lock.json"))) return "npm"
-  if (require("fs").existsSync(join(dir, "Cargo.toml"))) return "cargo"
-  if (require("fs").existsSync(join(dir, "go.mod"))) return "go"
-  if (require("fs").existsSync(join(dir, "requirements.txt")) || require("fs").existsSync(join(dir, "pyproject.toml"))) return "pip"
+  if (existsSync(join(dir, "bun.lockb")) || existsSync(join(dir, "bun.lock"))) return "bun"
+  if (existsSync(join(dir, "pnpm-lock.yaml"))) return "pnpm"
+  if (existsSync(join(dir, "yarn.lock"))) return "yarn"
+  if (existsSync(join(dir, "package-lock.json"))) return "npm"
+  if (existsSync(join(dir, "Cargo.toml"))) return "cargo"
+  if (existsSync(join(dir, "go.mod"))) return "go"
+  if (existsSync(join(dir, "requirements.txt")) || existsSync(join(dir, "pyproject.toml"))) return "pip"
   return null
 }
 
@@ -77,8 +77,8 @@ function hasTests(dir: string): boolean {
 }
 
 function hasCI(dir: string): boolean {
-  return require("fs").existsSync(join(dir, ".github", "workflows")) ||
-    require("fs").existsSync(join(dir, ".gitlab-ci.yml"))
+  return existsSync(join(dir, ".github", "workflows")) ||
+    existsSync(join(dir, ".gitlab-ci.yml"))
 }
 
 export async function cloneRepo(config: RepoConfig, workDir: string): Promise<CloneResult> {

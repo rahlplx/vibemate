@@ -1,6 +1,7 @@
 import { createConnection, closeConnection } from '../state/connection.js';
 import { runMigrations } from '../state/migrations.js';
 import { createStore, type Observation } from '../state/store.js';
+import { generateDeterministicId } from '../shared/random.js';
 
 export interface ObservationEngine {
   recordObservation(
@@ -27,7 +28,7 @@ export function createObservationEngine(dbPath: string): ObservationEngine {
 
   return {
     recordObservation(sessionId, data) {
-      const id = `obs-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      const id = generateDeterministicId(`obs-${data.type}-${sessionId}-${Date.now()}-${Math.random().toString(36).slice(2)}`);
       store.createObservation({
         id,
         sessionId,

@@ -78,8 +78,18 @@ User request: "${input}"`,
         }
       }
 
-      const parsed = JSON.parse(jsonMatch[0])
-      return IntentSchema.parse(parsed)
+      try {
+        const parsed = JSON.parse(jsonMatch[0])
+        return IntentSchema.parse(parsed)
+      } catch {
+        return {
+          action: "unknown",
+          target: input.slice(0, 100),
+          confidence: 0.1,
+          reasoning: "Invalid JSON in LLM response",
+          context: { urgency: "low", scope: "file", complexity: "simple" },
+        }
+      }
     },
   }
 }

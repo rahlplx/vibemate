@@ -3,6 +3,7 @@ import { runMigrations } from '../state/migrations.js';
 import { createStore } from '../state/store.js';
 import { buildTree, getNextQuestion, type QuestionTree, type TreeAnswer } from './tree.js';
 import { calculateAmbiguityScore, type AmbiguityResult } from './scoring.js';
+import { generateDeterministicId } from '../shared/random.js';
 
 export interface DiscoveryResult {
   sessionId: string;
@@ -49,7 +50,7 @@ export function createDiscoveryEngine(dbPath: string): DiscoveryEngine {
       }
 
       const session = store.createSession({
-        id: `disc-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        id: generateDeterministicId(`disc-${type}-${projectId}-${Date.now()}-${Math.random().toString(36).slice(2)}`),
         projectId,
         phase: 'discovery',
       });

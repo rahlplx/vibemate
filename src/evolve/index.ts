@@ -407,7 +407,7 @@ export class LearnAgent {
       'Evaluate error handling completeness',
       'Assess modularity and coupling between components'
     ];
-    return tasks[Math.floor(Math.random() * tasks.length)];
+    return createSeededRandom().pick(tasks);
   }
 
   // AgentEvolver-style self-navigating

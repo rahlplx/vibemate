@@ -21,6 +21,15 @@ class ConsoleSink implements LogSink {
   }
 }
 
+const VALID_LOG_LEVELS: LogLevel[] = ['debug', 'info', 'warn', 'error'];
+
+function parseLogLevel(value: string): LogLevel {
+  if (VALID_LOG_LEVELS.includes(value as LogLevel)) {
+    return value as LogLevel;
+  }
+  return 'info';
+}
+
 export class StructuredLogger {
   private level: LogLevel = 'info';
   private sinks: LogSink[] = [new ConsoleSink()];
@@ -29,7 +38,7 @@ export class StructuredLogger {
     if (config?.level) {
       this.level = config.level;
     } else if (process.env.VIBEMATE_LOG_LEVEL) {
-      this.level = process.env.VIBEMATE_LOG_LEVEL as LogLevel;
+      this.level = parseLogLevel(process.env.VIBEMATE_LOG_LEVEL);
     }
     if (config?.sinks) {
       this.sinks = config.sinks;
