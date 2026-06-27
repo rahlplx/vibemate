@@ -55,3 +55,11 @@ Vibemate is an ambitious AI-native product platform with a solid architectural f
 ### Low Priority (Optimization)
 1. **Advanced Loop Detection**: Implement multi-step circular dependency detection.
 2. **Cost-Aware Tuning**: Connect real token costs from the Router to the Telemetry Collector.
+
+### 6. CLI & Competitive Landscape (PM/UX)
+*   **Orphaned Commands**: The primary CLI entry point (`src/cli/index.ts`) registers only 5 of the 12+ available commands. Core "moat" features like `auto` (autonomous pipeline), `init` (setup), and `sync` (agent context compilation) are currently "dark" and inaccessible to most users.
+*   **UX Friction**: There is no cohesive "happy path" in the CLI. The transition from `spec` generation to `auto` building requires manual context switching and "hidden knowledge" of the CLI structure.
+*   **Competitive Moat**: Compared to **OpenHands** (standalone agent platform) or **Antigravity** (workflow speed), Vibemate's competitive edge is its **MCP-native architecture** and **OKF (Open Knowledge Format) context layer**. It allows the agent's "learned principles" to travel with the developer across different IDEs and tools.
+*   **Missing "Doctor"**: The complex dependencies (like the recent `glob` issue) and the variety of supported agent environments (Claude, Cursor, etc.) create a high support burden. There is no automated health check (`vibemate doctor`) to verify the environment.
+
+---
