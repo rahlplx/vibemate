@@ -179,7 +179,8 @@ dist/
       if (!existing.includes('.vibe/telemetry/')) {
         await writeFile(join(root, '.gitignore'), existing + gitignore);
       }
-    } catch {
+    } catch (error) {
+      console.error(`[Init] Failed to read .gitignore: ${error instanceof Error ? error.message : 'Unknown error'}`);
       await writeFile(join(root, '.gitignore'), gitignore);
     }
   };

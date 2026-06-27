@@ -32,10 +32,14 @@ function collectAllCode(dir: string): CollectedFile[] {
         try {
           const content = readFileSync(full, "utf-8")
           files.push({ path: full, content, isTest: isTestFile(full) })
-        } catch { /* ignore */ }
+        } catch (error) {
+          console.error(`[Extract] Failed to read file ${full}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
       }
     }
-  } catch { /* ignore */ }
+  } catch (error) {
+    console.error(`[Extract] Failed to walk directory ${dir}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
   return files
 }
 
@@ -49,10 +53,14 @@ function walkCode(dir: string, cb: (path: string, content: string) => void) {
         try {
           const content = readFileSync(full, "utf-8")
           cb(full, content)
-        } catch { /* ignore */ }
+        } catch (error) {
+          console.error(`[Extract] Failed to read file ${full}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
       }
     }
-  } catch { /* ignore */ }
+  } catch (error) {
+    console.error(`[Extract] Failed to walk directory ${dir}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
 }
 
 // GAP 1: Monorepo detection
@@ -77,7 +85,9 @@ function detectMonorepo(dir: string): MonorepoInfo {
         result.packages = pkg.workspaces.packages
       }
     }
-  } catch { /* ignore */ }
+  } catch (error) {
+    console.error(`[Extract] Failed to read package.json for monorepo detection: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
 
   // Detect tool
   if (existsSync(join(dir, "turbo.json"))) result.tool = "turborepo"
@@ -99,7 +109,9 @@ function detectMonorepo(dir: string): MonorepoInfo {
               result.packageCount++
             }
           }
-        } catch { /* ignore */ }
+        } catch (error) {
+          console.error(`[Extract] Failed to read package directory ${pkgDir}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
       }
     }
   }
@@ -115,7 +127,9 @@ function detectInlineConfigs(dir: string): string[] {
     if (pkg.prettier) configs.push("prettier")
     if (pkg.eslintConfig || pkg.eslintConfigOverride) configs.push("eslint")
     if (pkg.stylelint) configs.push("stylelint")
-  } catch { /* ignore */ }
+  } catch (error) {
+    console.error(`[Extract] Failed to read package.json for inline config detection: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
   return configs
 }
 
@@ -255,10 +269,14 @@ function analyzeTestOrganization(dir: string): TestOrganization {
           try {
             const stat = require("fs").statSync(full)
             totalTestSize += stat.size
-          } catch { /* ignore */ }
+          } catch (error) {
+            console.error(`[Extract] Failed to stat test file ${full}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+          }
         }
       }
-    } catch { /* ignore */ }
+    } catch (error) {
+      console.error(`[Extract] Failed to walk test directory ${d}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   }
   walkTests(dir)
 
@@ -274,7 +292,9 @@ function analyzeTestOrganization(dir: string): TestOrganization {
     else if (deps.jest) result.testFramework = "jest"
     else if (deps.mocha) result.testFramework = "mocha"
     else if (deps["bun:test"] || deps["@types/bun"]) result.testFramework = "bun"
-  } catch { /* ignore */ }
+  } catch (error) {
+    console.error(`[Extract] Failed to read package.json for test framework detection: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
 
   return result
 }
@@ -414,7 +434,9 @@ function extractEntryPoints(dir: string): string[] {
         })
       }
     }
-  } catch { /* ignore */ }
+  } catch (error) {
+    console.error(`[Extract] Failed to read package.json for entry points: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
 
   const commonEntries = ["src/index.ts", "src/index.js", "src/main.ts", "src/main.js", "index.ts", "index.js", "main.ts", "main.js"]
   for (const entry of commonEntries) {
@@ -453,7 +475,9 @@ function extractDependencyData(dir: string) {
     for (const [name, version] of Object.entries(pkg.devDependencies || {})) {
       dev.push({ name, version: version as string, license: "unknown", size: null })
     }
-  } catch { /* ignore */ }
+  } catch (error) {
+    console.error(`[Extract] Failed to read package.json for dependency data: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
 
   const usedDeps = new Set<string>()
   walkCode(dir, (_path, content) => {

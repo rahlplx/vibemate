@@ -12,7 +12,8 @@ app.get('/', (c) => {
   try {
     const html = fs.readFileSync(htmlPath, 'utf-8');
     return c.html(html);
-  } catch {
+  } catch (error) {
+    console.error(`[Server] Dashboard not found at ${htmlPath}: ${error instanceof Error ? error.message : 'Unknown error'}`);
     return c.json({ error: 'Dashboard not found' }, 404);
   }
 });
@@ -28,9 +29,9 @@ app.onError((err, c) => {
 
 const port = parseInt(process.env.PORT || '3777');
 
-console.log(`\n  Vibemate v1.0.0`);
-console.log(`  Dashboard: http://localhost:${port}`);
-console.log(`  API:       http://localhost:${port}/api\n`);
+console.error(`\n  Vibemate v1.0.0`);
+console.error(`  Dashboard: http://localhost:${port}`);
+console.error(`  API:       http://localhost:${port}/api\n`);
 
 export default {
   port,

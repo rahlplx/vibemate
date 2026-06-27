@@ -5,6 +5,7 @@ import { readFile, writeFile, mkdir } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join } from 'path';
 import type { PersistenceManager } from '../shared/persistence.js';
+import { classifyFailure } from '../shared/failure-classification.js';
 
 export type Permission = 'read' | 'write' | 'execute' | 'admin';
 
@@ -248,7 +249,8 @@ export class GovernanceEngine {
         }));
       }
     } catch (error) {
-      console.error(`[GovernanceEngine] Load failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      const failure = classifyFailure(error);
+      console.error(`[GovernanceEngine] Load failed: [${failure.kind}] ${failure.reason} — ${failure.nextStep}`);
     }
   }
 

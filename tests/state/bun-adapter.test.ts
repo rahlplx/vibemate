@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
-import { BunSQLiteAdapter } from '../../src/state/bun-adapter.js';
+import { BunSQLiteAdapter } from './bun-adapter.js';
 import { mkdtempSync, rmSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';

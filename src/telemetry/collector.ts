@@ -4,6 +4,7 @@ import { writeFile, readFile, mkdir, readdir } from 'fs/promises';
 import { join } from 'path';
 import { randomUUID } from 'crypto';
 import type { PersistenceManager } from '../shared/persistence.js';
+import { classifyFailure } from '../shared/failure-classification.js';
 
 export interface TelemetryConfig {
   enabled: boolean;
@@ -252,7 +253,8 @@ export class TelemetryCollector {
       
       return metrics;
     } catch (error) {
-      console.error(`[TelemetryCollector] Load history failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      const failure = classifyFailure(error);
+      console.error(`[TelemetryCollector] Load history failed: [${failure.kind}] ${failure.reason} — ${failure.nextStep}`);
       return [];
     }
   }

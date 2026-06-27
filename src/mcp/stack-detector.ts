@@ -86,8 +86,8 @@ export class StackDetector {
               foundFiles.push(f);
             }
           }
-        } catch {
-          // File not found, continue
+        } catch (error) {
+          console.error(`[StackDetector] Failed to scan for ${file}: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
       }
     }
@@ -101,8 +101,8 @@ export class StackDetector {
             lockFiles.push(f);
           }
         }
-      } catch {
-        // Ignore
+      } catch (error) {
+        console.error(`[StackDetector] Failed to scan for lock file ${lockFile}: ${error instanceof Error ? error.message : 'Unknown error'}`);
       }
     }
 
@@ -113,8 +113,8 @@ export class StackDetector {
       if (!foundFiles.includes('package.json')) {
         foundFiles.push('package.json');
       }
-    } catch {
-      // No package.json
+    } catch (error) {
+      console.error(`[StackDetector] Failed to read package.json: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
 
     // Read pyproject.toml
@@ -123,8 +123,8 @@ export class StackDetector {
       if (!foundFiles.includes('pyproject.toml')) {
         foundFiles.push('pyproject.toml');
       }
-    } catch {
-      // Ignore
+    } catch (error) {
+      console.error(`[StackDetector] Failed to read pyproject.toml: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
 
     // Read composer.json
@@ -134,8 +134,8 @@ export class StackDetector {
       if (!foundFiles.includes('composer.json')) {
         foundFiles.push('composer.json');
       }
-    } catch {
-      // Ignore
+    } catch (error) {
+      console.error(`[StackDetector] Failed to read composer.json: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
 
     return { foundFiles, packageJson, pyprojectToml, composerJson, lockFiles };

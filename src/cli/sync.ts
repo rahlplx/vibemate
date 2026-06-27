@@ -80,7 +80,8 @@ async function syncArtifacts(options: SyncOptions): Promise<void> {
     const { writeFile } = await import('fs/promises');
     await writeFile(statePath, JSON.stringify(state, null, 2));
     console.log('   ✓ State updated\n');
-  } catch {
+  } catch (error) {
+    console.error(`[Sync] Failed to update state.json: ${error instanceof Error ? error.message : 'Unknown error'}`);
     console.log('   ⚠️  Could not update state.json\n');
   }
 
@@ -103,22 +104,30 @@ async function detectAgent(root: string): Promise<AgentType> {
   try {
     await readFile(join(root, '.cursorrules'));
     return 'cursor';
-  } catch {}
+  } catch (error) {
+    console.error(`[Sync] .cursorrules check failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
 
   try {
     await readFile(join(root, 'CLAUDE.md'));
     return 'claude-code';
-  } catch {}
+  } catch (error) {
+    console.error(`[Sync] CLAUDE.md check failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
 
   try {
     await readFile(join(root, 'opencode.json'));
     return 'opencode';
-  } catch {}
+  } catch (error) {
+    console.error(`[Sync] opencode.json check failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
 
   try {
     await readFile(join(root, 'AGENTS.md'));
     return 'codex';
-  } catch {}
+  } catch (error) {
+    console.error(`[Sync] AGENTS.md check failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
 
   // Default to claude-code
   return 'claude-code';
@@ -151,8 +160,8 @@ async function loadBundle(root: string) {
         }
       }
     }
-  } catch {
-    // Bundle doesn't exist yet
+  } catch (error) {
+    console.error(`[Sync] Failed to read OKF bundle: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 
   return {

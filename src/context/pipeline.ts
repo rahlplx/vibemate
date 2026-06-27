@@ -3,6 +3,7 @@ import { ASTExtraction, CompressionResult, DLPMask, CacheEntry } from '../types.
 import { readFile, writeFile } from 'fs/promises';
 import { join } from 'path';
 import { createHash } from 'crypto';
+import { classifyFailure } from '../shared/failure-classification.js';
 
 // DLP Patterns for sensitive data masking (ordered for correct matching)
 const DLP_PATTERNS: DLPMask[] = [
@@ -193,7 +194,8 @@ export class ContextPipeline {
       const cacheObj = Object.fromEntries(this.cache);
       await writeFile(cacheFile, JSON.stringify(cacheObj, null, 2));
     } catch (error) {
-      console.error(`[ContextPipeline] Cache persistence failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      const failure = classifyFailure(error);
+      console.error(`[ContextPipeline] Cache persistence failed: [${failure.kind}] ${failure.reason} — ${failure.nextStep}`);
     }
   }
 
@@ -205,7 +207,8 @@ export class ContextPipeline {
       const cacheObj = JSON.parse(content);
       this.cache = new Map(Object.entries(cacheObj));
     } catch (error) {
-      console.error(`[ContextPipeline] Cache load failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      const failure = classifyFailure(error);
+      console.error(`[ContextPipeline] Cache load failed: [${failure.kind}] ${failure.reason} — ${failure.nextStep}`);
     }
   }
 

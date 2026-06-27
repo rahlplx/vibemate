@@ -4,7 +4,7 @@ import {
   autoFixToolDefinition,
   autoFixToolHandler,
   type FixIssue,
-} from '../../src/mcp/tools/auto-fix.js';
+} from './auto-fix.js';
 
 describe('createAutoFix', () => {
   it('returns an auto-fix instance', () => {

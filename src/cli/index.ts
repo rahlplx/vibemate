@@ -147,7 +147,8 @@ auth
             : `xdg-open "${url}"`;
         const { execSync } = await import('child_process');
         execSync(cmd, { shell: true } as { shell: boolean });
-      } catch {
+      } catch (error) {
+        console.error(`[CLI] Failed to open browser: ${error instanceof Error ? error.message : 'Unknown error'}`);
         console.log('Could not open browser. Visit the URL above manually.');
       }
 

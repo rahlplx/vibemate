@@ -150,7 +150,8 @@ export class MCPConfigGenerator {
       const configPath = join(this.root, '.mcp.json');
       const content = await readFile(configPath, 'utf-8');
       return JSON.parse(content) as MCPConfig;
-    } catch {
+    } catch (error) {
+      console.error(`[MCPConfig] Failed to read config: ${error instanceof Error ? error.message : 'Unknown error'}`);
       return null;
     }
   }

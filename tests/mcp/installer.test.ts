@@ -6,7 +6,7 @@ import {
   createVibemateEntry,
   addServerToConfig,
   type Platform,
-} from '../../src/mcp/installer.js';
+} from './installer.js';
 
 describe('PLATFORMS', () => {
   it('has 5 platforms', () => {

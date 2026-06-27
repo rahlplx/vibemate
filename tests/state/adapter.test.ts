@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'bun:test';
-import type { SQLiteAdapter, PreparedStatement } from '../../src/state/adapter.js';
+import type { SQLiteAdapter, PreparedStatement } from './adapter.js';
 
 describe('SQLiteAdapter interface', () => {
   it('defines correct method signatures', () => {

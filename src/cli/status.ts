@@ -36,7 +36,8 @@ async function showStatus(options: StatusOptions): Promise<void> {
   try {
     const content = await readFile(statePath, 'utf-8');
     state = JSON.parse(content);
-  } catch {
+  } catch (error) {
+    console.error(`[Status] Failed to read state.json: ${error instanceof Error ? error.message : 'Unknown error'}`);
     console.log('❌ Vibemate not initialized.');
     console.log(`\nRun ${colors.cyan('npx vibemate init')} to get started.`);
     return;
@@ -75,7 +76,8 @@ async function showStatus(options: StatusOptions): Promise<void> {
     try {
       await readFile(join(okfPath, 'index.md'));
       console.log('✅ OKF Bundle: Present');
-    } catch {
+    } catch (error) {
+      console.error(`[Status] OKF bundle check failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
       console.log('❌ OKF Bundle: Missing');
     }
 
@@ -86,7 +88,8 @@ async function showStatus(options: StatusOptions): Promise<void> {
       const mcpConfig = JSON.parse(mcpContent);
       const serverCount = Object.keys(mcpConfig.mcpServers || {}).length;
       console.log(`✅ MCP Config: ${serverCount} servers configured`);
-    } catch {
+    } catch (error) {
+      console.error(`[Status] MCP config check failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
       console.log('❌ MCP Config: Missing');
     }
 
@@ -97,7 +100,8 @@ async function showStatus(options: StatusOptions): Promise<void> {
       const files = await readdir(telemetryPath);
       const telemetryFiles = files.filter(f => f.startsWith('telemetry-') && f.endsWith('.json'));
       console.log(`✅ Telemetry: ${telemetryFiles.length} files`);
-    } catch {
+    } catch (error) {
+      console.error(`[Status] Telemetry check failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
       console.log('⚠️  Telemetry: No data yet');
     }
 
@@ -107,7 +111,8 @@ async function showStatus(options: StatusOptions): Promise<void> {
       const content = await readFile(evolutionPath, 'utf-8');
       const evolution = JSON.parse(content);
       console.log(`✅ Evolution: ${evolution.learnings?.length || 0} learnings, ${evolution.principles?.length || 0} principles`);
-    } catch {
+    } catch (error) {
+      console.error(`[Status] Evolution check failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
       console.log('⚠️  Evolution: No data yet');
     }
 
@@ -116,7 +121,8 @@ async function showStatus(options: StatusOptions): Promise<void> {
     try {
       await readFile(handoffPath);
       console.log('✅ Handoff: Present');
-    } catch {
+    } catch (error) {
+      console.error(`[Status] Handoff check failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
       console.log('⚠️  Handoff: Missing');
     }
   }

@@ -341,13 +341,15 @@ Read OKF bundle at \`.agents/okf-bundle/\` for project-specific context.
         try {
           const files = await readdir(dir);
           if (files.length === 0) missing.push(file);
-        } catch {
+        } catch (error) {
+          console.error(`[Compiler] Failed to read directory for ${file}: ${error instanceof Error ? error.message : 'Unknown error'}`);
           missing.push(file);
         }
       } else {
         try {
           await readFile(join(this.root, file));
-        } catch {
+        } catch (error) {
+          console.error(`[Compiler] Missing config file ${file}: ${error instanceof Error ? error.message : 'Unknown error'}`);
           missing.push(file);
         }
       }

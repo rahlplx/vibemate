@@ -92,7 +92,8 @@ export function getMigrationVersion(conn: DatabaseConnection): number {
       .prepare('SELECT COALESCE(MAX(version), 0) as v FROM _migrations')
       .get() as { v: number };
     return result.v;
-  } catch {
+  } catch (error) {
+    console.error(`[Migrations] Failed to get migration version: ${error instanceof Error ? error.message : 'Unknown error'}`);
     return 0;
   }
 }

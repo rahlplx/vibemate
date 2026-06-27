@@ -125,8 +125,8 @@ export class RepoMap {
           currentExports = [];
         }
       }
-    } catch {
-      // Skip files that can't be read
+    } catch (error) {
+      console.error(`[RepoMap] Failed to parse file ${filePath}: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 

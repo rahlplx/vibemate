@@ -169,7 +169,9 @@ export class WorkerPool {
       Promise.race([
         info.worker.terminate(),
         new Promise<void>((resolve) => setTimeout(() => {
-          try { info.worker.terminate(); } catch { /* already terminated */ }
+          try { info.worker.terminate(); } catch (error) {
+            console.error(`[WorkerPool] Worker ${info.id} already terminated: ${error instanceof Error ? error.message : 'Unknown error'}`);
+          }
           resolve();
         }, timeoutMs)),
       ])
