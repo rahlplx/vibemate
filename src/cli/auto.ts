@@ -9,8 +9,8 @@ import { writeFile, readFile, mkdir } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join } from 'path';
 import { execFileSync } from 'child_process';
-import { AutoPhase, CircuitBreaker, AutoState, HarnessCheck, HarnessReport } from '../types.js';
-import { applyAmbiguityGate, checkGovernancePermission, handleHarnessFailure } from './auto-helpers.js';
+import { AutoPhase, CircuitBreaker, AutoState, HarnessCheck, HarnessReport, PhaseObservation } from '../types.js';
+import { applyAmbiguityGate, checkGovernancePermission, handleHarnessFailure, computeObservationScore } from './auto-helpers.js';
 import { createObservationEngine } from '../improve/observation.js';
 
 interface AutoOptions {
@@ -139,6 +139,20 @@ async function runAutoPipeline(description: string, options: AutoOptions): Promi
     console.log(`🔧 Skill: ${phaseInfo.skill || 'N/A'}`);
     console.log(`${'='.repeat(60)}\n`);
 
+    // Route: select model tier for this phase using phase default + previous observation score
+    const prevObsScore = state.observations?.at(-1)?.observationScore;
+    const routingDecision = router.route({
+      filesImplicated: 2,
+      requiresReasoning: state.phase === 'think' || state.phase === 'review',
+      testOutputSize: 0,
+      hasDependencies: false,
+      isRefactoring: false,
+      requiresSecurity: false,
+      phase: state.phase,
+      observationScore: prevObsScore,
+    });
+    console.log(`🤖 Model tier: ${routingDecision.level} (${routingDecision.model}) — ${routingDecision.reason}`);
+
     const startTime = performance.now();
     const result = await executePhase(state.phase, state, {
       description,
@@ -147,7 +161,8 @@ async function runAutoPipeline(description: string, options: AutoOptions): Promi
       telemetryCollector,
       selfImprovement,
       router,
-      circuitBreaker
+      circuitBreaker,
+      routingDecision,
     });
     const duration = Math.round(performance.now() - startTime);
 
@@ -190,6 +205,34 @@ async function runAutoPipeline(description: string, options: AutoOptions): Promi
         circuitBreaker.consecutiveFailures++;
       }
     }
+
+    // M3: Capture per-phase observation and feed score into next routing decision
+    const phaseErrorCount = result.allChecksPassed === false ? 1 : 0;
+    const observationScore = computeObservationScore(phaseErrorCount, duration, circuitBreaker.consecutiveFailures);
+    const obsSessionId = state.sessionId ?? `auto-${justCompleted}`;
+    const observationId = observationEngine.recordObservation(obsSessionId, {
+      type: phaseErrorCount > 0 ? 'failure' : 'success',
+      description: `Phase ${justCompleted} completed in ${duration}ms`,
+      lesson: phaseErrorCount > 0 ? `Phase ${justCompleted} had errors; consider escalating model tier` : `Phase ${justCompleted} succeeded`,
+      tags: ['phase-observation', justCompleted],
+      confidence: observationScore,
+    });
+    const phaseObservation: PhaseObservation = {
+      phase: justCompleted,
+      durationMs: duration,
+      tokenCost: 0,
+      errorCount: phaseErrorCount,
+      circuitBreakerState: {
+        consecutiveFailures: circuitBreaker.consecutiveFailures,
+        dispatchCount: circuitBreaker.dispatchCount,
+        totalCost: circuitBreaker.totalCost,
+      },
+      observationScore,
+      timestamp: new Date().toISOString(),
+      observationId,
+    };
+    if (!state.observations) state.observations = [];
+    state.observations.push(phaseObservation);
 
     const transition = PHASE_TRANSITIONS[state.phase];
     if (transition.next) {
@@ -243,6 +286,7 @@ async function executePhase(
     selfImprovement: SelfImprovementOrchestrator;
     router: CostAwareRouter;
     circuitBreaker: CircuitBreaker;
+    routingDecision?: import('../types.js').RoutingDecision;
   }
 ): Promise<{ artifact?: string; hasMoreTasks?: boolean; allChecksPassed?: boolean; ambiguity?: import('../discovery/scoring.js').AmbiguityResult }> {
   const { root, selfImprovement, circuitBreaker } = context;
