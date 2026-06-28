@@ -3,6 +3,8 @@ import { mkdtempSync, rmSync, writeFileSync, mkdirSync, existsSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { mineRepo, type RepoMineOptions } from '../../src/learnings/repo-miner.js';
+import { createConnection, closeConnection } from '../../src/state/connection.js';
+import { runMigrations } from '../../src/state/migrations.js';
 
 // Mock git operations so tests don't clone real repos
 function createFakeRepo(dir: string): string {
@@ -100,5 +102,25 @@ describe('mineRepo', () => {
 
     expect(result.analysis.languages).toBeDefined();
     expect(typeof result.analysis.languages).toBe('object');
+  });
+
+  it('inserts row into repo_analyses when db option provided', async () => {
+    const dbPath = join(tmpDir, 'test.db');
+    const conn = createConnection(dbPath);
+    runMigrations(conn);
+
+    const result = await mineRepo('file://' + repoPath, {
+      vibeDir,
+      skipClone: true,
+      localPath: repoPath,
+      db: conn,
+    });
+
+    const row = conn.db.prepare('SELECT * FROM repo_analyses WHERE id = ?').get(result.dbId) as Record<string, unknown> | undefined;
+    expect(row).toBeDefined();
+    expect(row!.url).toBe('file://' + repoPath);
+    expect(row!.file_count).toBeGreaterThan(0);
+    expect(JSON.parse(row!.languages as string)).toBeDefined();
+    closeConnection(conn);
   });
 });

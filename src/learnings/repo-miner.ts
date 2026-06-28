@@ -3,6 +3,7 @@ import { readdirSync, existsSync } from 'fs';
 import { join } from 'path';
 import { randomUUID } from 'crypto';
 import { execSync } from 'child_process';
+import type { DatabaseConnection } from '../state/connection.js';
 
 export interface RepoAnalysis {
   url: string;
@@ -33,6 +34,8 @@ export interface RepoMineOptions {
   /** Skip git clone — use localPath directly (for tests) */
   skipClone?: boolean;
   localPath?: string;
+  /** Optional DB connection to persist result to repo_analyses table */
+  db?: DatabaseConnection;
 }
 
 function detectLanguages(dir: string): Record<string, number> {
@@ -147,7 +150,7 @@ function urlToSlug(url: string): string {
 }
 
 export async function mineRepo(url: string, options: RepoMineOptions = {}): Promise<RepoMineResult> {
-  const { depth = 100, vibeDir = '.vibe', dryRun = false, skipClone = false, localPath } = options;
+  const { depth = 100, vibeDir = '.vibe', dryRun = false, skipClone = false, localPath, db } = options;
   const dbId = randomUUID();
   const clonedAt = new Date().toISOString();
 
@@ -257,6 +260,33 @@ ${topContributors.slice(0, 5).map(c => `- ${c.author} (${c.count} commits)`).joi
     };
     await appendFile(jsonlPath, JSON.stringify(record) + '\n', 'utf-8');
     jsonlRecordsWritten = 1;
+
+    // Persist to repo_analyses SQLite table if a DB connection was provided
+    if (db) {
+      db.db.prepare(`
+        INSERT OR REPLACE INTO repo_analyses
+          (id, url, cloned_at, languages, folder_structure, commit_count,
+           top_contributors, architecture_patterns, file_count, has_tests,
+           has_ci, package_manager, okf_path, jsonl_path, metadata)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        dbId,
+        url,
+        clonedAt,
+        JSON.stringify(analysis.languages),
+        JSON.stringify({}),
+        analysis.commitCount,
+        JSON.stringify(analysis.topContributors),
+        JSON.stringify(analysis.detectedPatterns),
+        analysis.fileCount,
+        analysis.hasTests ? 1 : 0,
+        analysis.hasCI ? 1 : 0,
+        analysis.packageManager,
+        okfPath,
+        jsonlPath,
+        JSON.stringify({ configFiles: analysis.configFiles }),
+      );
+    }
   }
 
   return { url, dbId, analysis, okfPath, jsonlRecordsWritten };
