@@ -77,27 +77,27 @@ describe('Loop Detection — Floyd Cycle Detection', () => {
   it('loop with slow cadence (> 5s) classified as slow', () => {
     // The cycle window is 2*patLen spans. For A→B→A→B→A pattern, patLen=2 so cycle=last 4 spans.
     // Set those 4 spans spread > 5s apart so the cycle window is clearly slow.
-    const spans = (collector as unknown as { spans: Array<{ spanId: string; startTime: number }> }).spans;
+    const spanMap = (collector as unknown as { spanMap: Map<string, { spanId: string; startTime: number }> }).spanMap;
 
     const s1 = collector.startSpan('tool.call', undefined, { 'tool.name': 'search' });
     collector.endSpan(s1.spanId);
-    spans[spans.length - 1]!.startTime = Date.now() - 30000; // outside cycle window
+    spanMap.get(s1.spanId)!.startTime = Date.now() - 30000; // outside cycle window
 
     const s2 = collector.startSpan('tool.call', undefined, { 'tool.name': 'read' });
     collector.endSpan(s2.spanId);
-    spans[spans.length - 1]!.startTime = Date.now() - 12000; // cycle start
+    spanMap.get(s2.spanId)!.startTime = Date.now() - 12000; // cycle start
 
     const s3 = collector.startSpan('tool.call', undefined, { 'tool.name': 'search' });
     collector.endSpan(s3.spanId);
-    spans[spans.length - 1]!.startTime = Date.now() - 8000;
+    spanMap.get(s3.spanId)!.startTime = Date.now() - 8000;
 
     const s4 = collector.startSpan('tool.call', undefined, { 'tool.name': 'read' });
     collector.endSpan(s4.spanId);
-    spans[spans.length - 1]!.startTime = Date.now() - 4000;
+    spanMap.get(s4.spanId)!.startTime = Date.now() - 4000;
 
     const s5 = collector.startSpan('tool.call', undefined, { 'tool.name': 'search' });
     collector.endSpan(s5.spanId);
-    spans[spans.length - 1]!.startTime = Date.now() - 500; // cycle end — window ~11.5s
+    spanMap.get(s5.spanId)!.startTime = Date.now() - 500; // cycle end — window ~11.5s
 
     const report = collector.detectLoop();
     expect(report.detected).toBe(true);

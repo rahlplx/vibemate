@@ -22,18 +22,15 @@ describe('Anomaly Detection — Welford Baseline + Z-score', () => {
     // Establish baseline: 10 spans averaging ~100ms
     for (let i = 0; i < 10; i++) {
       const span = collector.startSpan('agent.turn');
-      // Simulate 100ms duration by backdating startTime
-      const spans = (collector as unknown as { spans: Array<{ spanId: string; startTime: number }> }).spans;
-      const last = spans[spans.length - 1];
-      if (last) last.startTime = Date.now() - 100;
+      const spanObj = collector.getSpan(span.spanId);
+      if (spanObj) spanObj.startTime = Date.now() - 100;
       collector.endSpan(span.spanId, 'ok');
     }
 
     // Now add a spike at 800ms
     const spikeSpan = collector.startSpan('agent.turn');
-    const spans = (collector as unknown as { spans: Array<{ spanId: string; startTime: number }> }).spans;
-    const last = spans[spans.length - 1];
-    if (last) last.startTime = Date.now() - 800;
+    const spikeObj = collector.getSpan(spikeSpan.spanId);
+    if (spikeObj) spikeObj.startTime = Date.now() - 800;
     collector.endSpan(spikeSpan.spanId, 'ok');
 
     const anomalies = collector.getAnomalies();
@@ -72,15 +69,13 @@ describe('Anomaly Detection — Welford Baseline + Z-score', () => {
     // Create a spike
     for (let i = 0; i < 10; i++) {
       const span = collector.startSpan('agent.turn');
-      const spans = (collector as unknown as { spans: Array<{ spanId: string; startTime: number }> }).spans;
-      const last = spans[spans.length - 1];
-      if (last) last.startTime = Date.now() - 100;
+      const spanObj = collector.getSpan(span.spanId);
+      if (spanObj) spanObj.startTime = Date.now() - 100;
       collector.endSpan(span.spanId, 'ok');
     }
     const spikeSpan = collector.startSpan('agent.turn');
-    const spans = (collector as unknown as { spans: Array<{ spanId: string; startTime: number }> }).spans;
-    const last = spans[spans.length - 1];
-    if (last) last.startTime = Date.now() - 900;
+    const spikeObj = collector.getSpan(spikeSpan.spanId);
+    if (spikeObj) spikeObj.startTime = Date.now() - 900;
     collector.endSpan(spikeSpan.spanId, 'ok');
 
     const anomalies = collector.getAnomalies();
@@ -102,9 +97,8 @@ describe('Anomaly Detection — Welford Baseline + Z-score', () => {
   it('returns no anomalies with uniform data', () => {
     for (let i = 0; i < 20; i++) {
       const span = collector.startSpan('agent.turn');
-      const spans = (collector as unknown as { spans: Array<{ spanId: string; startTime: number }> }).spans;
-      const last = spans[spans.length - 1];
-      if (last) last.startTime = Date.now() - 100;
+      const spanObj = collector.getSpan(span.spanId);
+      if (spanObj) spanObj.startTime = Date.now() - 100;
       collector.endSpan(span.spanId, 'ok');
     }
 
@@ -117,9 +111,8 @@ describe('Anomaly Detection — Welford Baseline + Z-score', () => {
     // Create spike baseline, export, then add uniform spans
     for (let i = 0; i < 10; i++) {
       const span = collector.startSpan('agent.turn');
-      const spans = (collector as unknown as { spans: Array<{ spanId: string; startTime: number }> }).spans;
-      const last = spans[spans.length - 1];
-      if (last) last.startTime = Date.now() - (i < 9 ? 100 : 5000);
+      const spanObj = collector.getSpan(span.spanId);
+      if (spanObj) spanObj.startTime = Date.now() - (i < 9 ? 100 : 5000);
       collector.endSpan(span.spanId, 'ok');
     }
 
@@ -128,9 +121,8 @@ describe('Anomaly Detection — Welford Baseline + Z-score', () => {
     // After export, add uniform spans — no baseline to compare against
     for (let i = 0; i < 5; i++) {
       const span = collector.startSpan('agent.turn');
-      const spans = (collector as unknown as { spans: Array<{ spanId: string; startTime: number }> }).spans;
-      const last = spans[spans.length - 1];
-      if (last) last.startTime = Date.now() - 100;
+      const spanObj = collector.getSpan(span.spanId);
+      if (spanObj) spanObj.startTime = Date.now() - 100;
       collector.endSpan(span.spanId, 'ok');
     }
 

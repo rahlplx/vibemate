@@ -98,7 +98,7 @@ interface WelfordBaseline {
 
 export class TelemetryCollector {
   private config: TelemetryConfig;
-  private spans: TelemetrySpan[] = [];
+  private spanMap: Map<string, TelemetrySpan> = new Map();
   private traces: Map<string, TelemetrySpan[]> = new Map();
   private persistence?: PersistenceManager;
   private retentionPolicy: SpanRetentionPolicy;
@@ -132,8 +132,8 @@ export class TelemetryCollector {
       status: 'ok'
     };
 
-    this.spans.push(span);
-    
+    this.spanMap.set(span.spanId, span);
+
     // Add to trace
     const traceSpans = this.traces.get(span.traceId) || [];
     traceSpans.push(span);
@@ -156,7 +156,14 @@ export class TelemetryCollector {
       });
     }
 
-    this.spans = this.retentionPolicy.evictIfNeeded(this.spans, this.traces);
+    const spansArray = Array.from(this.spanMap.values());
+    const kept = this.retentionPolicy.evictIfNeeded(spansArray, this.traces);
+    if (kept.length < spansArray.length) {
+      const keptIds = new Set(kept.map(s => s.spanId));
+      for (const id of this.spanMap.keys()) {
+        if (!keptIds.has(id)) this.spanMap.delete(id);
+      }
+    }
     this.spansSinceExport.push(span);
     // Keep spansSinceExport bounded to the same limit as spans
     const maxCount = this.retentionPolicy.getMaxSpanCount();
@@ -174,7 +181,7 @@ export class TelemetryCollector {
 
   getRetentionStats(): RetentionStats {
     return {
-      currentCount: this.spans.length,
+      currentCount: this.spanMap.size,
       totalEvicted: this.retentionPolicy.getTotalEvicted(),
       maxSpanCount: this.retentionPolicy.getMaxSpanCount(),
     };
@@ -182,7 +189,7 @@ export class TelemetryCollector {
 
   // End a span
   endSpan(spanId: string, status: 'ok' | 'error' = 'ok'): void {
-    const span = this.spans.find(s => s.spanId === spanId);
+    const span = this.spanMap.get(spanId);
     if (span) {
       span.endTime = Date.now();
       span.status = status;
@@ -282,11 +289,8 @@ export class TelemetryCollector {
       cost
     };
 
-    // Update the span in this.spans with the full turn object
-    const index = this.spans.findIndex(s => s.spanId === span.spanId);
-    if (index !== -1) {
-      this.spans[index] = turn;
-    }
+    // Update the span in spanMap with the full turn object
+    this.spanMap.set(span.spanId, turn);
 
     this.endSpan(span.spanId);
     return turn;
@@ -366,7 +370,7 @@ export class TelemetryCollector {
   detectLoop(traceId?: string): LoopReport {
     const sourceSpans = traceId
       ? (this.traces.get(traceId) || [])
-      : this.spans;
+      : Array.from(this.spanMap.values());
 
     const toolCalls = sourceSpans
       .filter(s => s.name === 'tool.call')
@@ -416,7 +420,7 @@ export class TelemetryCollector {
 
   // Deprecated — use detectLoop() instead
   detectStuckLoop(toolName: string, threshold: number = 5): boolean {
-    const recentCalls = this.spans
+    const recentCalls = Array.from(this.spanMap.values())
       .filter(s => s.name === 'tool.call' && s.attributes['tool.name'] === toolName)
       .slice(-threshold);
 
@@ -426,18 +430,19 @@ export class TelemetryCollector {
 
   // Get metrics
   getMetrics(): TelemetryMetrics {
-    const agentTurns = this.spans.filter(s => s.name === 'agent.turn') as AgentTurn[];
-    const toolCalls = this.spans.filter(s => s.name === 'tool.call') as ToolCall[];
-    
+    const allSpans = Array.from(this.spanMap.values());
+    const agentTurns = allSpans.filter(s => s.name === 'agent.turn') as AgentTurn[];
+    const toolCalls = allSpans.filter(s => s.name === 'tool.call') as ToolCall[];
+
     const totalTokens = agentTurns.reduce((sum, t) => sum + t.inputTokens + t.outputTokens, 0);
     const totalCost = agentTurns.reduce((sum, t) => sum + t.cost, 0);
-    
+
     const latencies = agentTurns.map(t => (t.endTime || t.startTime) - t.startTime);
     const averageLatency = latencies.length > 0 ? latencies.reduce((a, b) => a + b, 0) / latencies.length : 0;
-    
-    const errors = this.spans.filter(s => s.status === 'error').length;
-    const errorRate = this.spans.length > 0 ? errors / this.spans.length : 0;
-    
+
+    const errors = allSpans.filter(s => s.status === 'error').length;
+    const errorRate = allSpans.length > 0 ? errors / allSpans.length : 0;
+
     const toolFailures = toolCalls.filter(t => t.status === 'error').length;
     const toolFailureRate = toolCalls.length > 0 ? toolFailures / toolCalls.length : 0;
 
@@ -466,14 +471,14 @@ export class TelemetryCollector {
       serviceName: this.config.serviceName,
       serviceVersion: this.config.serviceVersion,
       exportTime: new Date().toISOString(),
-      spans: this.spans,
+      spans: Array.from(this.spanMap.values()),
       metrics: this.getMetrics(),
       traces: Object.fromEntries(this.traces)
     };
 
     await writeFile(exportFile, JSON.stringify(exportData, null, 2));
 
-    this.spans = [];
+    this.spanMap.clear();
     this.traces.clear();
     this.spansSinceExport = [];
     this.baseline.clear();
@@ -512,18 +517,25 @@ export class TelemetryCollector {
 
   // Get span by ID
   getSpan(spanId: string): TelemetrySpan | undefined {
-    return this.spans.find(s => s.spanId === spanId);
+    return this.spanMap.get(spanId);
   }
 
   private getTraceId(spanId: string): string {
-    const span = this.spans.find(s => s.spanId === spanId);
+    const span = this.spanMap.get(spanId);
     return span?.traceId || randomUUID();
   }
 
   // Clear old spans (for memory management)
   clearOldSpans(maxAgeMs: number = 3600000): void {
     const cutoff = Date.now() - maxAgeMs;
-    this.spans = this.spans.filter(s => s.startTime > cutoff);
+    for (const [spanId, span] of this.spanMap) {
+      if (span.startTime <= cutoff) this.spanMap.delete(spanId);
+    }
+    for (const [traceId, traceSpans] of this.traces) {
+      const remaining = traceSpans.filter(s => s.startTime > cutoff);
+      if (remaining.length === 0) this.traces.delete(traceId);
+      else this.traces.set(traceId, remaining);
+    }
   }
 }
 

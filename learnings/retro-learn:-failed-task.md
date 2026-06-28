@@ -3,7 +3,7 @@ type: retro-learning
 title: "Learn: failed-task"
 description: "Learning from failure"
 tags: [learned-principle]
-timestamp: "2026-06-28T00:38:43.384Z"
+timestamp: "2026-06-28T04:07:35.990Z"
 learningType: "failure"
 ---
 
