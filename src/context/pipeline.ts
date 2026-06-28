@@ -1,6 +1,7 @@
-// Context Engineering Pipeline - AST extraction, LLMLingua, DLP, Cache
+// Context Engineering Pipeline - AST extraction, LLMLingua, DLP, Cache, RAG
 import { ASTExtraction, CompressionResult, DLPMask, CacheEntry } from '../types.js';
 import { readFile, writeFile } from 'fs/promises';
+import { EmbeddingStore, type RetrievalResult } from './embeddings.js';
 import { join } from 'path';
 import { createHash } from 'crypto';
 import { classifyFailure } from '../shared/failure-classification.js';
@@ -227,31 +228,27 @@ export class ContextPipeline {
     }
   }
 
-  // Full pipeline: extract -> compress -> sanitize -> cache
-  async process(filePath: string, targetFunction?: string): Promise<{
+  // Full pipeline: extract -> compress -> sanitize -> cache -> optional RAG injection
+  async process(filePath: string, targetFunction?: string, ragQuery?: string): Promise<{
     extracted: ASTExtraction;
     compressed: CompressionResult;
     sanitized: string;
     cacheKey: string;
+    ragChunks?: RetrievalResult[];
   }> {
-    // Extract relevant code
     const extracted = await this.extractRelevant(filePath, targetFunction);
-    
-    // Compress
     const compressed = this.compress(extracted.relevantCode);
-    
-    // Sanitize
     const sanitized = this.sanitize(compressed.compressed);
-    
-    // Cache
     const cacheKey = await this.cacheContext([filePath]);
-    
-    return {
-      extracted,
-      compressed,
-      sanitized,
-      cacheKey
-    };
+
+    if (!ragQuery) return { extracted, compressed, sanitized, cacheKey };
+
+    const store = new EmbeddingStore(this.root);
+    const loaded = await store.load();
+    if (!loaded) return { extracted, compressed, sanitized, cacheKey };
+
+    const ragChunks = await store.retrieve(ragQuery);
+    return { extracted, compressed, sanitized, cacheKey, ragChunks };
   }
 
   // Get token estimate (rough: 1 token ≈ 4 chars)

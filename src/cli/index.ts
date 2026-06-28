@@ -6,8 +6,9 @@ import { createSpecGenerator } from '../mcp/tools/spec-generator.js';
 import { createAuthManager, createOAuthClient, type OAuthConfig } from '../mcp/auth.js';
 import { createAutoFix } from '../mcp/tools/auto-fix.js';
 import { generateTests } from '../sdd/test-generator.js';
+import { EmbeddingStore } from '../context/embeddings.js';
 import { writeFileSync, mkdirSync } from 'fs';
-import { dirname, resolve } from 'path';
+import { dirname, resolve, join } from 'path';
 
 const VIBEMATE_OAUTH: OAuthConfig = {
   clientId: 'vibemate-cli',
@@ -460,6 +461,34 @@ program
       if (result.jsonlRecordsWritten) console.log(`   JSONL records: ${result.jsonlRecordsWritten}`);
     } catch (error) {
       console.error('Mine failed:', error instanceof Error ? error.message : error);
+      process.exit(1);
+    }
+  });
+
+program
+  .command('context:embed')
+  .description('Pre-warm the RAG embedding cache from OKF knowledge files in .vibe/')
+  .option('--dir <path>', 'Project root containing .vibe/ directory', process.cwd())
+  .option('--dry-run', 'Show what would be embedded without writing')
+  .action(async (options) => {
+    const vibeDir = join(options.dir, '.vibe');
+    const store = new EmbeddingStore(vibeDir);
+    try {
+      console.log(`Embedding OKF chunks from ${vibeDir}...`);
+      const chunks = await store.embedOKFChunks(vibeDir);
+      if (chunks.length === 0) {
+        console.log('No markdown files found in .vibe/ — nothing to embed.');
+        return;
+      }
+      if (options.dryRun) {
+        console.log(`[dry-run] Would embed ${chunks.length} chunk(s) — skipping write.`);
+        for (const c of chunks) console.log(`  ${c.source} (${c.content.length} chars)`);
+        return;
+      }
+      await store.save();
+      console.log(`Embedded ${chunks.length} chunk(s) → ${vibeDir}/embeddings/chunks.json`);
+    } catch (error) {
+      console.error('Embedding failed:', error instanceof Error ? error.message : error);
       process.exit(1);
     }
   });
