@@ -3,13 +3,13 @@ type: retro-learning
 title: "Retro: auth-task"
 description: "Task auth-task: success"
 tags: [security]
-timestamp: "2026-06-28T09:25:16.117Z"
+timestamp: "2026-06-28T11:11:20.095Z"
 learningType: "success"
 ---
 
 ## Learning
 
-Successfully completed task auth-task. Key pattern: modular design
+Successfully completed task auth-task. Key pattern: TDD approach
 
 ## Context
 
