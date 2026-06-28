@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test"
-import { IntentSchema, createMockIntentExtractor, type Intent } from "../../src/shared/intent-extractor"
+import { IntentSchema, createMockIntentExtractor, createIntentExtractor, type Intent } from "../../src/shared/intent-extractor"
 
 describe("Intent Extractor", () => {
   it("validates intent schema", () => {
@@ -82,5 +82,14 @@ describe("Intent Extractor", () => {
     await extractor.extract("first")
     const second = await extractor.extract("second")
     expect(second.action).toBe("create")
+  })
+})
+
+describe("createIntentExtractor factory", () => {
+  it("createIntentExtractor returns an IntentExtractor with an extract method", () => {
+    // Cover lines 38-40 (function entry + Anthropic client creation)
+    // Without calling extract, we don't need a real API key to just create the instance
+    const extractor = createIntentExtractor('fake-key-for-test')
+    expect(typeof extractor.extract).toBe('function')
   })
 })
