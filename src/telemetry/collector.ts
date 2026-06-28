@@ -123,6 +123,15 @@ export class TelemetryCollector {
     );
   }
 
+  // Restore in-memory contentSpanIds from disk after a process restart.
+  // Call once after construction when a ContentStore is configured.
+  async init(): Promise<void> {
+    if (this.contentStore) {
+      const ids = await this.contentStore.listAll();
+      for (const id of ids) this.contentSpanIds.add(id);
+    }
+  }
+
   // Start a new span
   startSpan(name: string, parentSpanId?: string, attributes: Record<string, unknown> = {}): TelemetrySpan {
     const span: TelemetrySpan = {

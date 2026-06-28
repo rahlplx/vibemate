@@ -82,7 +82,8 @@ async function runAutoPipeline(description: string, options: AutoOptions): Promi
     serviceName: 'vibemate-auto',
     serviceVersion: '1.0.0'
   });
-  const selfImprovement = new SelfImprovementOrchestrator(okfGenerator);
+  const selfImprovement = new SelfImprovementOrchestrator(okfGenerator, { vibeDir });
+  await selfImprovement.init();
   const observationEngine = createObservationEngine(join(vibeDir, 'state.db'));
   const router = new CostAwareRouter([], parseFloat(String(options.budget || '10')), undefined, observationEngine);
 

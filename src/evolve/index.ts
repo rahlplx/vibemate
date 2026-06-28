@@ -5,6 +5,8 @@ import { OKFGenerator } from '../okf/generator.js';
 import { randomUUID } from 'crypto';
 import { createSeededRandom } from '../shared/random.js';
 import type { PersistenceManager } from '../shared/persistence.js';
+import { readFile, writeFile, mkdir } from 'fs/promises';
+import { join } from 'path';
 
 // RetroAgent-style dual intrinsic feedback
 export interface RetroFeedback {
@@ -349,6 +351,23 @@ export class EvolveAgent {
     };
   }
 
+  // Restore rules from persistence on startup so they survive process restarts
+  async loadRules(): Promise<void> {
+    if (!this.persistence) return;
+    const store = await this.persistence.getEvolveStore();
+    const rows = await store.getAllRules();
+    this.rules = rows.map(r => ({
+      id: r.id,
+      name: r.name,
+      description: r.description,
+      condition: r.condition,
+      action: r.action,
+      qualityScore: r.qualityScore,
+      lastUsed: r.lastUsed.toISOString(),
+      useCount: r.useCount,
+    }));
+  }
+
   // Get rule pool stats
   getPoolStats(): {
     totalRules: number;
@@ -507,11 +526,41 @@ export class SelfImprovementOrchestrator {
   private evolveAgent: EvolveAgent;
   private learnAgent: LearnAgent;
   private lastReflection: number = 0;
+  private vibeDir: string | null;
 
-  constructor(okfGenerator: OKFGenerator) {
+  constructor(okfGenerator: OKFGenerator, options?: { persistence?: PersistenceManager; vibeDir?: string }) {
     this.retroAgent = new RetroAgent(okfGenerator);
-    this.evolveAgent = new EvolveAgent(okfGenerator);
+    this.evolveAgent = new EvolveAgent(okfGenerator, options);
     this.learnAgent = new LearnAgent(okfGenerator);
+    this.vibeDir = options?.vibeDir ?? null;
+  }
+
+  // Restore durable state (rules + lastReflection) from disk/DB after a process restart.
+  // Call once after construction before the first improve() call.
+  async init(): Promise<void> {
+    await this.evolveAgent.loadRules();
+    if (this.vibeDir) {
+      await this.restoreLastReflection();
+    }
+  }
+
+  private async restoreLastReflection(): Promise<void> {
+    if (!this.vibeDir) return;
+    try {
+      const raw = await readFile(join(this.vibeDir, 'evolution-state.json'), 'utf-8');
+      const data = JSON.parse(raw) as { lastReflection?: number };
+      this.lastReflection = data.lastReflection ?? 0;
+    } catch { /* first run — starts from zero */ }
+  }
+
+  private async persistLastReflection(): Promise<void> {
+    if (!this.vibeDir) return;
+    await mkdir(this.vibeDir, { recursive: true });
+    await writeFile(
+      join(this.vibeDir, 'evolution-state.json'),
+      JSON.stringify({ lastReflection: this.lastReflection }),
+      'utf-8'
+    );
   }
 
   // Main improvement loop
@@ -544,6 +593,7 @@ export class SelfImprovementOrchestrator {
         newRules = await this.evolveAgent.reflectAndEvolve(trajectory.telemetryMetrics);
       }
       this.lastReflection = now;
+      await this.persistLastReflection();
     }
 
     return {

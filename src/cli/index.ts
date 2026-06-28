@@ -373,8 +373,10 @@ program
       const { join } = await import('path');
 
       const root = process.cwd();
+      const vibeDir = join(root, '.vibe');
       const okf = new OKFGenerator(root);
-      const orchestrator = new SelfImprovementOrchestrator(okf);
+      const orchestrator = new SelfImprovementOrchestrator(okf, { vibeDir });
+      await orchestrator.init();
       const config = loadConfig(root);
 
       if (options.cron) {

@@ -1,15 +1,19 @@
 // TDD Tests for Self-Improvement Loop
 import { describe, it, expect, afterEach , beforeEach} from 'bun:test';
-import { 
+import {
   SelfImprovementOrchestrator,
   RetroAgent,
   EvolveAgent,
   LearnAgent
 } from '../../src/evolve/index.js';
 import { OKFGenerator } from '../../src/okf/generator.js';
-import { mkdir, rm } from 'fs/promises';
+import { mkdir, rm, readFile, existsSync } from 'fs/promises';
+import { existsSync as existsSync2 } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
+import { PersistenceManager } from '../../src/shared/persistence.js';
+import { createConnection, closeConnection } from '../../src/state/connection.js';
+import { runMigrations } from '../../src/state/migrations.js';
 
 describe('Self-Improvement Loop', () => {
   let testDir: string;
@@ -353,5 +357,140 @@ describe('Self-Improvement Loop', () => {
         expect(stats.learn).toBeDefined();
       });
     });
+  });
+});
+
+describe('EvolveAgent.loadRules() — restart recovery', () => {
+  let tmpDir: string;
+  let dbPath: string;
+  let persistence: PersistenceManager;
+
+  beforeEach(async () => {
+    tmpDir = join(tmpdir(), `evolve-rules-${Date.now()}`);
+    await mkdir(tmpDir, { recursive: true });
+    dbPath = join(tmpDir, 'state.db');
+    const conn = createConnection(dbPath);
+    runMigrations(conn);
+    closeConnection(conn);
+    persistence = new PersistenceManager(dbPath);
+  });
+
+  afterEach(async () => {
+    await rm(tmpDir, { recursive: true, force: true });
+  });
+
+  it('starts with empty rules when persistence has none', async () => {
+    const okf = new OKFGenerator(tmpDir);
+    const agent = new EvolveAgent(okf, { persistence });
+    await agent.loadRules();
+    expect(agent.getPoolStats().totalRules).toBe(0);
+  });
+
+  it('restores persisted rules from DB on loadRules()', async () => {
+    // Simulate previous session saving a rule
+    const store = await persistence.getEvolveStore();
+    await store.saveRule({
+      id: 'rule-1',
+      name: 'retry-on-failure',
+      description: 'Retry logic rule',
+      condition: 'failure_rate > 0.3',
+      action: 'add exponential backoff',
+      qualityScore: 0.75,
+      lastUsed: new Date(),
+      useCount: 3,
+    });
+
+    // New agent instance — simulates restart
+    const okf = new OKFGenerator(tmpDir);
+    const agent = new EvolveAgent(okf, { persistence });
+    expect(agent.getPoolStats().totalRules).toBe(0); // before load
+
+    await agent.loadRules();
+    expect(agent.getPoolStats().totalRules).toBe(1);
+    expect(agent.getPoolStats().averageQuality).toBeCloseTo(0.75);
+  });
+
+  it('selectSkill uses restored rule from previous session', async () => {
+    const store = await persistence.getEvolveStore();
+    await store.saveRule({
+      id: 'rule-best',
+      name: 'high-quality-rule',
+      description: 'A great rule',
+      condition: 'always',
+      action: 'use best approach',
+      qualityScore: 0.95,
+      lastUsed: new Date(),
+      useCount: 10,
+    });
+
+    const okf = new OKFGenerator(tmpDir);
+    const agent = new EvolveAgent(okf, { persistence });
+    await agent.loadRules();
+
+    const selected = agent.selectSkill('some context');
+    expect(selected.name).toBe('high-quality-rule');
+    expect(selected.qualityScore).toBe(0.95);
+  });
+});
+
+describe('SelfImprovementOrchestrator.init() — lastReflection persistence', () => {
+  let tmpDir: string;
+  let vibeDir: string;
+
+  beforeEach(async () => {
+    tmpDir = join(tmpdir(), `orchestrator-init-${Date.now()}`);
+    vibeDir = join(tmpDir, '.vibe');
+    await mkdir(vibeDir, { recursive: true });
+  });
+
+  afterEach(async () => {
+    await rm(tmpDir, { recursive: true, force: true });
+  });
+
+  it('init() is safe when evolution-state.json does not exist', async () => {
+    const okf = new OKFGenerator(tmpDir);
+    const orchestrator = new SelfImprovementOrchestrator(okf, { vibeDir });
+    await expect(orchestrator.init()).resolves.toBeUndefined();
+  });
+
+  it('persists lastReflection to disk after weekly evolution fires', async () => {
+    const okf = new OKFGenerator(tmpDir);
+    const orchestrator = new SelfImprovementOrchestrator(okf, { vibeDir });
+    await orchestrator.init();
+
+    // Force a time-zero lastReflection so the weekly guard passes immediately
+    await orchestrator.improve({
+      taskId: 'test-task',
+      steps: ['step1'],
+      outcome: 'success',
+      telemetryMetrics: { failureRate: 0.1, averageReward: 0.9, stuckDetections: 0 },
+    });
+
+    const statePath = join(vibeDir, 'evolution-state.json');
+    expect(existsSync2(statePath)).toBe(true);
+    const data = JSON.parse(await readFile(statePath, 'utf-8') as string) as { lastReflection: number };
+    expect(data.lastReflection).toBeGreaterThan(0);
+    expect(data.lastReflection).toBeLessThanOrEqual(Date.now());
+  });
+
+  it('restores lastReflection and suppresses weekly evolution within 7 days', async () => {
+    const statePath = join(vibeDir, 'evolution-state.json');
+    // Pre-write a very recent lastReflection (1 second ago)
+    const recentTs = Date.now() - 1000;
+    await (await import('fs/promises')).writeFile(statePath, JSON.stringify({ lastReflection: recentTs }));
+
+    const okf = new OKFGenerator(tmpDir);
+    const orchestrator = new SelfImprovementOrchestrator(okf, { vibeDir });
+    await orchestrator.init();
+
+    const result = await orchestrator.improve({
+      taskId: 'test-task',
+      steps: ['step1'],
+      outcome: 'success',
+      telemetryMetrics: { failureRate: 0.8, averageReward: 0.1, stuckDetections: 2 },
+    });
+
+    // Weekly evolution should be suppressed — newRules stays empty
+    expect(result.newRules).toHaveLength(0);
   });
 });
