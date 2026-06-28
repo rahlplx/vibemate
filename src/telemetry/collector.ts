@@ -112,6 +112,8 @@ export class TelemetryCollector {
   private baseline: Map<string, WelfordBaseline> = new Map();
   // Spans added since last export (for anomaly scanning)
   private spansSinceExport: TelemetrySpan[] = [];
+  // SSE subscribers: called whenever a new span is added
+  private spanListeners: Set<(span: TelemetrySpan) => void> = new Set();
 
   constructor(config: TelemetryConfig) {
     this.config = config;
@@ -187,7 +189,16 @@ export class TelemetryCollector {
       this.spansSinceExport.splice(0, this.spansSinceExport.length - maxCount);
     }
 
+    // Notify SSE subscribers
+    for (const fn of this.spanListeners) fn(span);
+
     return span;
+  }
+
+  // Subscribe to new span events. Returns an unsubscribe function.
+  subscribe(fn: (span: TelemetrySpan) => void): () => void {
+    this.spanListeners.add(fn);
+    return () => this.spanListeners.delete(fn);
   }
 
   // Clear the anomaly scan window without flushing to disk (call after each quality gate check)
