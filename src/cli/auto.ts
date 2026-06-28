@@ -11,6 +11,7 @@ import { join } from 'path';
 import { execFileSync } from 'child_process';
 import { AutoPhase, CircuitBreaker, AutoState, HarnessCheck, HarnessReport } from '../types.js';
 import { applyAmbiguityGate, checkGovernancePermission, handleHarnessFailure } from './auto-helpers.js';
+import { createObservationEngine } from '../improve/observation.js';
 
 interface AutoOptions {
   budget?: number;
@@ -82,7 +83,8 @@ async function runAutoPipeline(description: string, options: AutoOptions): Promi
     serviceVersion: '1.0.0'
   });
   const selfImprovement = new SelfImprovementOrchestrator(okfGenerator);
-  const router = new CostAwareRouter([], parseFloat(String(options.budget || '10')));
+  const observationEngine = createObservationEngine(join(vibeDir, 'state.db'));
+  const router = new CostAwareRouter([], parseFloat(String(options.budget || '10')), undefined, observationEngine);
 
   const circuitBreaker: CircuitBreaker = {
     consecutiveFailures: 0,
