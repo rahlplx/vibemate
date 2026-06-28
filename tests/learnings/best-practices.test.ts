@@ -119,8 +119,8 @@ describe('mergeBestPractices()', () => {
   });
 
   it('merges from multiple repos into one list', () => {
-    const r1 = extractBestPractices(makeResult({ url: 'https://github.com/a/repo1' } as any));
-    const r2 = extractBestPractices(makeResult({ url: 'https://github.com/b/repo2' } as any));
+    const r1 = extractBestPractices(makeResult({ url: 'https://github.com/a/repo1' }));
+    const r2 = extractBestPractices(makeResult({ url: 'https://github.com/b/repo2' }));
     const merged = mergeBestPractices([r1, r2]);
     const sources = new Set(merged.map(p => p.sourceRepo));
     expect(sources.size).toBeGreaterThanOrEqual(1);

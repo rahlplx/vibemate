@@ -16,8 +16,8 @@ services:
     volumes:
       # Mount the current project so vibemate can analyse and modify it
       - .:/workspace
-      # Persist SQLite state and learnings across container runs
-      - vibemate-state:/app/.vibe
+      # Persist SQLite state and learnings across container runs (written to /workspace/.vibe)
+      - vibemate-state:/workspace/.vibe
     working_dir: /workspace
 
   vibemate-mcp:
@@ -32,12 +32,12 @@ services:
         required: false
     environment:
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
-      JWT_SECRET: ${JWT_SECRET:-changeme-in-production}
+      JWT_SECRET: ${JWT_SECRET}
       VIBEMATE_LOG_LEVEL: ${VIBEMATE_LOG_LEVEL:-info}
       PORT: ${PORT:-3000}
     volumes:
       - .:/workspace
-      - vibemate-state:/app/.vibe
+      - vibemate-state:/workspace/.vibe
     working_dir: /workspace
     stdin_open: true
     tty: false

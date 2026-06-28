@@ -21,10 +21,10 @@ COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/skills ./skills
 COPY --from=builder /app/package.json ./package.json
 
-# .vibe/ holds SQLite state and learnings — mount as a volume for persistence
-RUN mkdir -p /app/.vibe /workspace
+# /workspace is bind-mounted to the host project; .vibe/ lives inside it
+RUN mkdir -p /workspace
 
-VOLUME ["/workspace", "/app/.vibe"]
+VOLUME ["/workspace"]
 
 WORKDIR /workspace
 
