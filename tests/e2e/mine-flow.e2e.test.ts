@@ -11,6 +11,7 @@ function runCLI(args: string[], cwd?: string): { stdout: string; stderr: string;
     timeout: 15_000,
     env: { ...process.env, CI: '1', NO_COLOR: '1' },
   });
+  if (result.error) throw result.error;
   return {
     stdout: result.stdout ?? '',
     stderr: result.stderr ?? '',

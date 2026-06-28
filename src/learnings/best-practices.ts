@@ -159,5 +159,5 @@ export function mergeBestPractices(reports: BestPracticesReport[]): BestPractice
 }
 
 function slugify(s: string): string {
-  return s.replace(/[^a-z0-9]/gi, '-').toLowerCase().replace(/-+/g, '-').slice(0, 40);
+  return s.replace(/[^a-z0-9]/gi, '-').toLowerCase().replace(/-+/g, '-').slice(0, 100);
 }

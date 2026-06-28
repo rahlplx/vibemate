@@ -13,6 +13,7 @@ function runCLI(args: string[], cwd: string): { stdout: string; stderr: string; 
     timeout: 30_000,
     env: { ...process.env, CI: '1', NO_COLOR: '1' },
   });
+  if (result.error) throw result.error;
   return {
     stdout: result.stdout ?? '',
     stderr: result.stderr ?? '',
@@ -22,7 +23,8 @@ function runCLI(args: string[], cwd: string): { stdout: string; stderr: string; 
 
 const tmpDirs: string[] = [];
 function makeTmpDir(): string {
-  const dir = join(tmpdir(), `vibemate-e2e-${Date.now()}`);
+  const uniqueId = Math.random().toString(36).slice(2, 10);
+  const dir = join(tmpdir(), `vibemate-e2e-${Date.now()}-${uniqueId}`);
   mkdirSync(dir, { recursive: true });
   tmpDirs.push(dir);
   return dir;
@@ -58,7 +60,6 @@ describe('learn command E2E', () => {
 
   it('vibemate learn audit runs on current project without crash', () => {
     const { stdout, stderr, exitCode } = runCLI(['learn', 'audit'], process.cwd());
-    // Accept any exit code — this runs analysis which may warn; just must not hang
     expect(typeof exitCode).toBe('number');
     expect((stdout + stderr).length).toBeGreaterThan(0);
   });
