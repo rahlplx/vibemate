@@ -1,6 +1,7 @@
 // Cost-Aware Dynamic Routing - Route tasks to optimal model based on complexity
 import { ComplexityLevel, RoutingDecision, CloudProvider } from '../types.js';
 import { VibemateExtendedConfig } from '../shared/config.js';
+import { ObservationEngine } from '../improve/observation.js';
 
 // Model configurations with pricing (June 2026)
 const MODEL_CONFIGS: Record<string, {
@@ -103,9 +104,11 @@ export class CostAwareRouter {
   private budget: number;
   private totalCost: number = 0;
   private modelConfigs: typeof MODEL_CONFIGS;
+  private observationEngine?: ObservationEngine;
 
-  constructor(_providers: CloudProvider[], budget: number, config?: VibemateExtendedConfig) {
+  constructor(_providers: CloudProvider[], budget: number, config?: VibemateExtendedConfig, observationEngine?: ObservationEngine) {
     this.budget = budget;
+    this.observationEngine = observationEngine;
     // Deep-copy so per-instance overrides don't pollute the shared module constant
     this.modelConfigs = Object.fromEntries(
       Object.entries(MODEL_CONFIGS).map(([k, v]) => [k, { ...v }])
@@ -160,7 +163,16 @@ export class CostAwareRouter {
   // Route task to optimal model
   route(criteria: ComplexityCriteria): RoutingDecision {
     const score = this.calculateComplexity(criteria);
-    const level = this.getComplexityLevel(score);
+    let level = this.getComplexityLevel(score);
+
+    // Escalate if ObservationEngine reports 3+ recent high-confidence failures
+    if (level === 'low' && this.observationEngine) {
+      const recentFailures = this.observationEngine.getInsights(0.9)
+        .filter(o => o.type === 'failure').length;
+      if (recentFailures >= 3) {
+        level = 'medium';
+      }
+    }
     
     // Select model based on complexity
     let selectedModel: string;
