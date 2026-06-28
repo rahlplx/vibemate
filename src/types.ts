@@ -318,6 +318,41 @@ export interface RoutingDecision {
   observationScore?: number;
 }
 
+// ─── Prompt System Types ──────────────────────────────────────────────────────
+
+export type PromptCategory = 'role' | 'domain' | 'framework' | 'security' | 'testing' | 'evolved' | 'org';
+export type PromptSource = 'built-in' | 'user' | 'org' | 'mined' | 'evolved';
+
+export interface PromptTemplate {
+  id: string;
+  name: string;
+  category: PromptCategory;
+  content: string;
+  version: string;
+  source: PromptSource;
+  confidence: number;      // 0-1; evolved prompts start at 0.5
+  tags: string[];
+  usageCount: number;
+  successRate: number;     // 0-1; updated by evolver from phase observations
+  minedFrom?: string;      // source URL when source='mined'
+  evolvedFrom?: string;    // parent template id when source='evolved'
+}
+
+export interface PromptOutcome {
+  templateId: string;
+  phase: string;
+  outcome: 'success' | 'failure';
+  retryCount: number;
+  durationMs: number;
+  timestamp: string;
+}
+
+export interface ComposedPrompt {
+  systemPrompt: string;
+  activeTemplateIds: string[];
+  phaseOverride?: string;
+}
+
 // Harness Types
 export type HarnessCheckStatus = 'pass' | 'fail' | 'warn' | 'skip';
 

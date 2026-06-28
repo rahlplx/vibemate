@@ -23,6 +23,19 @@ export interface VibemateExtendedConfig {
   llmProviders: LLMProviderConfig[];
   mineRepos?: string[];
   mineDepth?: number;
+  // ─── Prompt System ───────────────────────────────────────────────────────────
+  /** Global system prompt prepended to every phase */
+  systemPrompt?: string;
+  /** Per-phase system prompt overrides (keys: think, plan, build, harness, …) */
+  phasePrompts?: Record<string, string>;
+  /** IDs of built-in registry prompts to activate (e.g. ['typescript-engineer','tdd-practitioner']) */
+  promptRoles?: string[];
+  /** Enable auto-evolution of prompts based on telemetry outcomes */
+  promptAutoEvolve?: boolean;
+  /** How often to run prompt evolution (default: weekly, matching evolutionCadence) */
+  promptEvolveCadence?: 'daily' | 'weekly' | 'monthly';
+  /** HTTPS URL to a JSON file containing org-shared prompt templates */
+  orgPromptUrl?: string;
 }
 
 type ConfigOverrides = Partial<VibemateExtendedConfig>;
@@ -39,6 +52,9 @@ const DEFAULT_CONFIG: VibemateExtendedConfig = {
   llmProviders: [],
   mineRepos: [],
   mineDepth: 100,
+  promptRoles: [],
+  promptAutoEvolve: false,
+  promptEvolveCadence: 'weekly',
 };
 
 export function createDefaultConfig(overrides?: ConfigOverrides): VibemateExtendedConfig {

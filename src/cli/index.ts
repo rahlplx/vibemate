@@ -493,4 +493,140 @@ program
     }
   });
 
+// ─── vibemate prompts ─────────────────────────────────────────────────────────
+import { PromptRegistry } from '../prompts/registry.js';
+import { PromptEvolver } from '../prompts/evolver.js';
+import { PromptMiner } from '../prompts/miner.js';
+import { loadConfig } from '../shared/config.js';
+import { createNodeAdapter } from '../context/embeddings.js';
+
+const prompts = program.command('prompts').description('Manage system prompts and auto-evolution');
+
+prompts
+  .command('list')
+  .description('List all prompt templates in the registry')
+  .option('--category <cat>', 'Filter by category (role, domain, framework, security, testing, evolved, org)')
+  .option('--json', 'Output as JSON')
+  .action((options) => {
+    const registry = new PromptRegistry();
+    const list = registry.list(options.category);
+    if (options.json) {
+      console.log(JSON.stringify(list, null, 2));
+      return;
+    }
+    console.log(`\nPrompt Templates (${list.length})\n`);
+    for (const t of list) {
+      const usage = t.usageCount > 0 ? ` | ${Math.round(t.successRate * 100)}% success over ${t.usageCount} uses` : '';
+      console.log(`  ${t.id.padEnd(32)} [${t.category}] conf=${t.confidence.toFixed(2)}${usage}`);
+      console.log(`  "${t.content.slice(0, 80)}${t.content.length > 80 ? '…' : ''}"`);
+      console.log();
+    }
+  });
+
+prompts
+  .command('compose')
+  .description('Preview the composed system prompt for a phase')
+  .option('--phase <phase>', 'Phase to preview (think, plan, build, …)')
+  .option('--dir <path>', 'Project root', process.cwd())
+  .action((options) => {
+    const config = loadConfig(options.dir);
+    const registry = new PromptRegistry();
+    const composed = registry.compose({
+      activeRoleIds: config.promptRoles ?? [],
+      systemPrompt: config.systemPrompt,
+      phasePrompts: config.phasePrompts,
+      phase: options.phase,
+    });
+    console.log('\n── Composed System Prompt ──────────────────────────────────────');
+    console.log(composed.systemPrompt);
+    console.log('\n── Active template IDs ─────────────────────────────────────────');
+    console.log(composed.activeTemplateIds.length ? composed.activeTemplateIds.join(', ') : '(none)');
+    if (composed.phaseOverride) {
+      console.log('\n── Phase override ──────────────────────────────────────────────');
+      console.log(composed.phaseOverride);
+    }
+  });
+
+prompts
+  .command('evolve')
+  .description('Run one evolution pass over low-performing prompts (requires telemetry data)')
+  .option('--dir <path>', 'Project root', process.cwd())
+  .option('--apply', 'Auto-apply evolved prompts (otherwise stored as low-confidence candidates)')
+  .option('--dry-run', 'Show which prompts would be evolved without changing them')
+  .action(async (options) => {
+    const vibeDir = join(options.dir, '.vibe');
+    const adapter = createNodeAdapter();
+    const evolver = new PromptEvolver({ adapter });
+    const storeKey = join(vibeDir, 'prompts', 'registry.json');
+
+    // Load persisted registry or start with built-ins
+    const registry = (await evolver.load(storeKey)) ?? new PromptRegistry();
+    const outcomes = registry.getOutcomes();
+    const candidates = registry.list().filter(t => evolver.shouldEvolve(t, outcomes));
+
+    if (options.dryRun) {
+      if (candidates.length === 0) {
+        console.log('No prompts qualify for evolution (need ≥10 samples and <70% success rate).');
+      } else {
+        console.log(`\nWould evolve ${candidates.length} prompt(s):`);
+        for (const t of candidates) {
+          const rel = outcomes.filter(o => o.templateId === t.id);
+          const sr = rel.filter(o => o.outcome === 'success').length / rel.length;
+          console.log(`  ${t.id} — ${rel.length} samples, ${Math.round(sr * 100)}% success`);
+        }
+      }
+      return;
+    }
+
+    const count = await evolver.run(registry, { autoApply: options.apply });
+    if (count === 0) {
+      console.log('No prompts evolved — all are performing well or have insufficient data.');
+    } else {
+      console.log(`Evolved ${count} prompt(s).${options.apply ? ' Applied.' : ' Stored as candidates (use --apply to activate).'}`);
+      await evolver.persist(registry, storeKey);
+    }
+  });
+
+prompts
+  .command('mine')
+  .description('Learn from external prompt repositories and score against project tech stack')
+  .option('--tech <stack>', 'Comma-separated tech stack (e.g. typescript,bun,react)', 'typescript')
+  .option('--min-relevance <n>', 'Minimum BM25 relevance score to include (default: 0)', '0')
+  .option('--max <n>', 'Maximum results to return (default: 10)', '10')
+  .option('--apply', 'Add mined prompts to the local registry')
+  .option('--dir <path>', 'Project root', process.cwd())
+  .option('--json', 'Output as JSON')
+  .action(async (options) => {
+    const miner = new PromptMiner();
+    const techStack = (options.tech as string).split(',').map(t => t.trim()).filter(Boolean);
+    const results = await miner.mine({
+      techStack,
+      minRelevance: parseFloat(options.minRelevance),
+      maxResults: parseInt(options.max, 10),
+    });
+
+    if (options.json) {
+      console.log(JSON.stringify(results, null, 2));
+    } else {
+      console.log(`\nMined ${results.length} prompt(s) for stack: ${techStack.join(', ')}\n`);
+      for (const r of results) {
+        console.log(`  [score=${r.relevanceScore.toFixed(3)}] ${r.template.name}`);
+        console.log(`  "${r.template.content.slice(0, 100)}${r.template.content.length > 100 ? '…' : ''}"`);
+        if (r.sourceUrl) console.log(`  source: ${r.sourceUrl}`);
+        console.log();
+      }
+    }
+
+    if (options.apply && results.length > 0) {
+      const vibeDir = join(options.dir, '.vibe');
+      const adapter = createNodeAdapter();
+      const evolver = new PromptEvolver({ adapter });
+      const storeKey = join(vibeDir, 'prompts', 'registry.json');
+      const registry = (await evolver.load(storeKey)) ?? new PromptRegistry();
+      for (const r of results) registry.add(r.template);
+      await evolver.persist(registry, storeKey);
+      console.log(`Applied ${results.length} mined prompt(s) to registry.`);
+    }
+  });
+
 program.parse();

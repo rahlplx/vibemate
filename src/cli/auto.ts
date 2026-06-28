@@ -14,6 +14,9 @@ import { applyAmbiguityGate, checkGovernancePermission, handleHarnessFailure, co
 import { tokenBudgetGate, dlpGate, passRateGate } from './harness-gates.js';
 import { buildCritiqueReport } from './critique-engine.js';
 import { createObservationEngine } from '../improve/observation.js';
+import { PromptRegistry } from '../prompts/registry.js';
+import { loadConfig } from '../shared/config.js';
+import type { ComposedPrompt } from '../types.js';
 
 interface AutoOptions {
   budget?: number;
@@ -111,6 +114,21 @@ async function runAutoPipeline(description: string, options: AutoOptions): Promi
     artifacts: {}
   };
 
+  // ─── Prompt composition ──────────────────────────────────────────────────────
+  const vmConfig = loadConfig(root);
+  const promptRegistry = new PromptRegistry();
+  const composedPrompt = promptRegistry.compose({
+    activeRoleIds: vmConfig.promptRoles ?? [],
+    systemPrompt: vmConfig.systemPrompt,
+    phasePrompts: vmConfig.phasePrompts,
+  });
+  if (composedPrompt.activeTemplateIds.length > 0) {
+    console.log(`🧠 Active prompt roles: ${composedPrompt.activeTemplateIds.join(', ')}`);
+  }
+  // Persist composed prompt so skill files and handoffs can read it
+  await mkdir(join(vibeDir, 'prompts'), { recursive: true });
+  await writeFile(join(vibeDir, 'prompts', 'active.json'), JSON.stringify(composedPrompt, null, 2));
+
   const statePath = join(vibeDir, 'state.json');
   try {
     const existingState = await readFile(statePath, 'utf-8');
@@ -158,6 +176,13 @@ async function runAutoPipeline(description: string, options: AutoOptions): Promi
     console.log(`🤖 Model tier: ${routingDecision.level} (${routingDecision.model}) — ${routingDecision.reason}`);
 
     const startTime = performance.now();
+    // Build phase-specific composed prompt
+    const phaseComposed = promptRegistry.compose({
+      activeRoleIds: vmConfig.promptRoles ?? [],
+      systemPrompt: vmConfig.systemPrompt,
+      phasePrompts: vmConfig.phasePrompts,
+      phase: state.phase,
+    });
     const result = await executePhase(state.phase, state, {
       description,
       root,
@@ -167,12 +192,17 @@ async function runAutoPipeline(description: string, options: AutoOptions): Promi
       router,
       circuitBreaker,
       routingDecision,
+      composedPrompt: phaseComposed,
     });
     const duration = Math.round(performance.now() - startTime);
 
     const justCompleted = state.phase;
     state.completed.push(state.phase);
     state.artifacts[state.phase] = result.artifact || '';
+
+    // Record prompt outcome for evolver
+    const phaseOutcome = result.allChecksPassed === false ? 'failure' : 'success';
+    promptRegistry.recordOutcome(phaseComposed.activeTemplateIds, justCompleted, phaseOutcome, duration);
 
     // Ambiguity gate: after BREAK, check if task scope is clear enough to proceed
     if (justCompleted === 'break' && result.ambiguity) {
@@ -294,6 +324,7 @@ async function executePhase(
     router: CostAwareRouter;
     circuitBreaker: CircuitBreaker;
     routingDecision?: import('../types.js').RoutingDecision;
+    composedPrompt?: ComposedPrompt;
   }
 ): Promise<{ artifact?: string; hasMoreTasks?: boolean; allChecksPassed?: boolean; ambiguity?: import('../discovery/scoring.js').AmbiguityResult }> {
   const { root, selfImprovement, circuitBreaker } = context;
@@ -309,11 +340,15 @@ async function executePhase(
         ? `\n## Past Learnings Advisory\n${advisory.guidance}\n`
         : '';
 
+      const systemPromptSection = context.composedPrompt?.systemPrompt
+        ? `\n## Active System Context\n> ${context.composedPrompt.systemPrompt.replace(/\n/g, '\n> ')}\n`
+        : '';
+
       const designDoc = `# Design Document
 
 ## Task
 ${context.description}
-${guidanceSection}
+${guidanceSection}${systemPromptSection}
 ## Requirements
 - [ ] Core functionality implemented
 - [ ] Error handling comprehensive
