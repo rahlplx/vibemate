@@ -3,7 +3,7 @@ type: retro-learning
 title: "Learn: integration-test"
 description: "Learning from success"
 tags: [learned-principle]
-timestamp: "2026-06-28T05:55:51.302Z"
+timestamp: "2026-06-28T05:58:51.013Z"
 learningType: "success"
 ---
 
