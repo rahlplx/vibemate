@@ -210,13 +210,20 @@ app.get('/events', (_c) => {
       unsubscribe = telemetry.subscribe((span) => {
         try {
           controller.enqueue(enc.encode(`event: telemetry_span\ndata: ${JSON.stringify(span)}\n\n`));
-        } catch { /* client disconnected */ }
+        } catch {
+          unsubscribe?.();
+        }
       });
 
       stateInterval = setInterval(async () => {
         try {
           const raw = await fs.promises.readFile(statePath, 'utf-8');
-          controller.enqueue(enc.encode(`event: pipeline_state\ndata: ${raw.trim()}\n\n`));
+          try {
+            controller.enqueue(enc.encode(`event: pipeline_state\ndata: ${raw.trim()}\n\n`));
+          } catch {
+            if (stateInterval) clearInterval(stateInterval);
+            unsubscribe?.();
+          }
         } catch { /* no state file yet — skip */ }
       }, 1000);
     },
@@ -264,8 +271,18 @@ app.get('/api/doctor', async (c) => {
       return { name: 'router', ok: true, detail: remaining };
     }),
     fs.promises.readFile(statePath, 'utf-8')
-      .then(raw => ({ name: 'pipeline', ok: true, detail: `phase: ${(JSON.parse(raw) as { phase?: string }).phase ?? 'unknown'}` }))
-      .catch(() => ({ name: 'pipeline', ok: true, detail: 'idle (no state file)' })),
+      .then(raw => {
+        try {
+          const parsed = JSON.parse(raw) as { phase?: string };
+          return { name: 'pipeline', ok: true, detail: `phase: ${parsed.phase ?? 'unknown'}` };
+        } catch (err) {
+          return { name: 'pipeline', ok: false, detail: `Malformed state file: ${err instanceof Error ? err.message : String(err)}` };
+        }
+      })
+      .catch((err: NodeJS.ErrnoException) => {
+        if (err.code === 'ENOENT') return { name: 'pipeline', ok: true, detail: 'idle (no state file)' };
+        return { name: 'pipeline', ok: false, detail: `Failed to read state file: ${err.message}` };
+      }),
   ]);
 
   const results = checks.map(r =>

@@ -190,7 +190,13 @@ export class TelemetryCollector {
     }
 
     // Notify SSE subscribers
-    for (const fn of this.spanListeners) fn(span);
+    for (const fn of this.spanListeners) {
+      try {
+        fn(span);
+      } catch (err) {
+        console.error('[TelemetryCollector] Error in subscriber callback:', err);
+      }
+    }
 
     return span;
   }

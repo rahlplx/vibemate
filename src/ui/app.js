@@ -332,6 +332,12 @@ function renderSettings() {
   `;
 }
 
+function escapeHTML(str) {
+  return String(str).replace(/[&<>'"\/]/g,
+    tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;', '/': '&#x2F;' }[tag] || tag)
+  );
+}
+
 async function runDoctor() {
   const el = $('#doctor-result');
   if (el) el.innerHTML = '<p class="card-subtitle">Checking...</p>';
@@ -339,16 +345,16 @@ async function runDoctor() {
   if (!data || !el) return toast('Health check failed');
   const statusClass = data.status === 'healthy' ? 'success' : 'warning';
   const icon = data.status === 'healthy' ? '✓' : '⚠';
-  el.innerHTML = `
-    <div style="margin-bottom:12px">
-      <span class="badge badge-${statusClass}">${icon} ${(data.status || 'unknown').toUpperCase()}</span>
-    </div>
-    ${(data.checks || []).map(ch => `
-      <div class="metric-row">
-        <span class="metric-label">${ch.name}</span>
-        <span class="badge badge-${ch.ok ? 'success' : 'danger'}">${ch.detail}</span>
-      </div>`).join('')}
-  `;
+  el.innerHTML =
+    '<div style="margin-bottom:12px">' +
+    '  <span class="badge badge-' + statusClass + '">' + icon + ' ' + escapeHTML((data.status || 'unknown').toUpperCase()) + '</span>' +
+    '</div>' +
+    (data.checks || []).map(ch =>
+      '<div class="metric-row">' +
+      '  <span class="metric-label">' + escapeHTML(ch.name) + '</span>' +
+      '  <span class="badge badge-' + (ch.ok ? 'success' : 'danger') + '">' + escapeHTML(ch.detail) + '</span>' +
+      '</div>'
+    ).join('');
 }
 
 async function clearCache() {
