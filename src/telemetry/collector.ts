@@ -462,6 +462,70 @@ export class TelemetryCollector {
     return call;
   }
 
+  // Record a failed LLM API call or agent task failure with full model context
+  async recordFailure(
+    agentId: string,
+    model: string,
+    error: Error | string,
+    context?: {
+      phase?: string;
+      prompt?: LLMPrompt;
+      agentType?: string;
+      inputTokens?: number;
+      cost?: number;
+    }
+  ): Promise<TelemetrySpan> {
+    const modelInfo = resolveModel(model);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorKind = error instanceof Error ? error.constructor.name : 'Error';
+
+    const span = this.startSpan('agent.failure', undefined, {
+      'agent.id': agentId,
+      'gen_ai.model': model,
+      'gen_ai.provider': modelInfo.provider,
+      'gen_ai.model_family': modelInfo.family,
+      'agent.type': resolveAgentType(context?.agentType),
+      'error.kind': errorKind,
+      'error.message': errorMessage.substring(0, 500),
+      ...(context?.phase && { 'agent.phase': context.phase }),
+    });
+
+    this.endSpan(span.spanId, 'error');
+
+    if (this.contentStore) {
+      const spanContent: SpanContent = {
+        spanId: span.spanId,
+        traceId: span.traceId,
+        name: 'agent.failure',
+        timestamp: new Date(span.startTime).toISOString(),
+        prompt: context?.prompt,
+        toolCalls: [],
+        subAgents: [],
+        metadata: {
+          agentId,
+          model,
+          provider: modelInfo.provider,
+          modelFamily: modelInfo.family,
+          agentType: resolveAgentType(context?.agentType),
+          phase: context?.phase,
+          inputTokens: context?.inputTokens,
+          cost: context?.cost,
+          errorKind,
+          errorMessage,
+          success: false,
+        },
+      };
+      try {
+        await this.contentStore.save(span.spanId, spanContent);
+        this.contentSpanIds.add(span.spanId);
+      } catch (err) {
+        console.warn(`[Telemetry] Failed to save failure content: ${err instanceof Error ? err.message : err}`);
+      }
+    }
+
+    return span;
+  }
+
   // Record a handoff between agents (ATSC semantic conventions)
   recordHandoff(fromAgent: string, toAgent: string, contextSize: number): HandoffSpan {
     const span = this.startSpan('agent.handoff', undefined, {
@@ -610,10 +674,25 @@ export class TelemetryCollector {
         const content = await this.contentStore.load(spanId);
         if (!content) continue;
         const span = this.spanMap.get(spanId);
+        const isBashTool = content.name === 'tool.call' && content.toolCalls.length > 0 &&
+          /^(bash|shell|terminal|run_bash|execute)$/i.test(content.toolCalls[0].name);
+
         const type: DeepLearningRecord['type'] =
           content.name === 'agent.turn' ? 'agent_turn' :
           content.name === 'agent.sub_agent' ? 'sub_agent' :
+          content.name === 'agent.failure' ? 'failure' :
+          isBashTool ? 'bash_execution' :
           content.name === 'tool.call' ? 'tool_call' : 'handoff';
+
+        const bashMeta: Record<string, unknown> = {};
+        if (isBashTool) {
+          const tc = content.toolCalls[0];
+          const inputStr = typeof tc.input === 'object' && tc.input !== null
+            ? (tc.input as Record<string, unknown>).command ?? JSON.stringify(tc.input)
+            : String(tc.input);
+          bashMeta.command = inputStr;
+          bashMeta.exitCode = tc.success ? 0 : 1;
+        }
 
         const record: DeepLearningRecord = {
           id: spanId,
@@ -626,6 +705,7 @@ export class TelemetryCollector {
           subAgents: content.subAgents.length ? content.subAgents : undefined,
           metadata: {
             ...content.metadata,
+            ...bashMeta,
             traceId: content.traceId,
             success: span?.status === 'ok'
           }

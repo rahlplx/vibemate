@@ -116,6 +116,58 @@ describe('Deep-learning content capture', () => {
     expect(typeof first.metadata.inputTokens).toBe('number');
   });
 
+  it('bash tool call emits bash_execution type in JSONL', async () => {
+    const { collector } = makeCollector();
+
+    await collector.recordToolCall('bash', { command: 'ls -la' }, { stdout: 'file.ts\n' }, 20, true);
+
+    const outPath = `${EXPORT_DIR}/bash.jsonl`;
+    const count = await collector.exportDeepLearning(outPath);
+    expect(count).toBe(1);
+
+    const text = await Bun.file(outPath).text();
+    const record: DeepLearningRecord = JSON.parse(text.trim());
+    expect(record.type).toBe('bash_execution');
+    expect(record.metadata.command).toBeDefined();
+    expect(record.metadata.exitCode).toBe(0);
+  });
+
+  it('failed bash call emits exitCode 1', async () => {
+    const { collector } = makeCollector();
+
+    await collector.recordToolCall('execute', { command: 'bad-cmd' }, { error: 'not found' }, 5, false);
+
+    const outPath = `${EXPORT_DIR}/bash-fail.jsonl`;
+    await collector.exportDeepLearning(outPath);
+
+    const text = await Bun.file(outPath).text();
+    const record: DeepLearningRecord = JSON.parse(text.trim());
+    expect(record.type).toBe('bash_execution');
+    expect(record.metadata.exitCode).toBe(1);
+  });
+
+  it('recordFailure emits failure type in JSONL with model info', async () => {
+    const { collector } = makeCollector();
+
+    await collector.recordFailure('agent-1', 'claude-sonnet-4-6', new Error('LLM timeout'), {
+      phase: 'build',
+      prompt: { messages: [{ role: 'user', content: 'Build the thing' }] },
+    });
+
+    const outPath = `${EXPORT_DIR}/failure.jsonl`;
+    const count = await collector.exportDeepLearning(outPath);
+    expect(count).toBe(1);
+
+    const text = await Bun.file(outPath).text();
+    const record: DeepLearningRecord = JSON.parse(text.trim());
+    expect(record.type).toBe('failure');
+    expect(record.metadata.errorKind).toBe('Error');
+    expect(record.metadata.errorMessage).toBe('LLM timeout');
+    expect(record.metadata.provider).toBe('anthropic');
+    expect(record.metadata.modelFamily).toBe('claude-4');
+    expect(record.metadata.success).toBe(false);
+  });
+
   it('exportDeepLearning without contentStore falls back to span attributes only', async () => {
     const collector = new TelemetryCollector({
       enabled: true,

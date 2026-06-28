@@ -252,6 +252,39 @@ describe('TelemetryCollector', () => {
     });
   });
 
+  describe('recordFailure', () => {
+    it('should record a failure span with error kind and message', async () => {
+      const span = await collector.recordFailure('agent-1', 'claude-sonnet-4-6', new Error('timeout'));
+
+      expect(span).toBeDefined();
+      expect(span.name).toBe('agent.failure');
+      expect(span.status).toBe('error');
+      expect(span.attributes['error.kind']).toBe('Error');
+      expect(span.attributes['error.message']).toBe('timeout');
+      expect(span.attributes['gen_ai.model']).toBe('claude-sonnet-4-6');
+      expect(span.attributes['gen_ai.provider']).toBe('anthropic');
+    });
+
+    it('should record a failure from a plain string error', async () => {
+      const span = await collector.recordFailure('agent-2', 'gpt-4o', 'rate limit exceeded');
+
+      expect(span.status).toBe('error');
+      expect(span.attributes['error.message']).toBe('rate limit exceeded');
+      expect(span.attributes['error.kind']).toBe('Error');
+      expect(span.attributes['gen_ai.provider']).toBe('openai');
+    });
+
+    it('should include phase and agent type in attributes when provided', async () => {
+      const span = await collector.recordFailure('agent-3', 'claude-haiku-4-5-20251001', 'failed', {
+        phase: 'build',
+        agentType: 'cursor-agent',
+      });
+
+      expect(span.attributes['agent.phase']).toBe('build');
+      expect(span.attributes['agent.type']).toBe('cursor');
+    });
+  });
+
   describe('loadHistory', () => {
     it('returns empty array when export dir has no telemetry files', async () => {
       const history = await collector.loadHistory();

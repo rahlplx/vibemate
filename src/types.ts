@@ -158,7 +158,7 @@ export interface SpanContent {
 export interface DeepLearningRecord {
   id: string;
   timestamp: string;
-  type: 'agent_turn' | 'sub_agent' | 'tool_call' | 'handoff';
+  type: 'agent_turn' | 'sub_agent' | 'tool_call' | 'handoff' | 'bash_execution' | 'failure';
   prompt?: LLMPrompt;
   response?: LLMResponse;
   inferenceParams?: InferenceParams;
@@ -181,6 +181,12 @@ export interface DeepLearningRecord {
     latencyMs?: number;
     cacheReadTokens?: number;
     cacheCreationTokens?: number;
+    // bash_execution fields
+    command?: string;
+    exitCode?: number;
+    // failure fields
+    errorKind?: string;
+    errorMessage?: string;
     [key: string]: unknown;
   };
 }
