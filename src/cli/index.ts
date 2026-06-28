@@ -359,4 +359,31 @@ learn
     }
   });
 
+program
+  .command('evolve')
+  .description('Run the EvolveAgent self-improvement cycle')
+  .option('--cron', 'Trigger weekly reflection if interval has elapsed (safe to call daily via CI cron)')
+  .action(async (options) => {
+    try {
+      const { SelfImprovementOrchestrator } = await import('../evolve/index.js');
+      const { OKFGenerator } = await import('../okf/generator.js');
+      const { runEvolveCron } = await import('./evolve-helpers.js');
+
+      const root = process.cwd();
+      const okf = new OKFGenerator(root);
+      const orchestrator = new SelfImprovementOrchestrator(okf);
+
+      if (options.cron) {
+        console.log('🔄 Vibemate EvolveAgent — cron run');
+        await runEvolveCron(orchestrator);
+        console.log('✅ EvolveAgent cron complete.');
+      } else {
+        console.log('Run with --cron to trigger the weekly reflection cycle.');
+      }
+    } catch (error) {
+      console.error('Evolve failed:', error instanceof Error ? error.message : error);
+      process.exit(1);
+    }
+  });
+
 program.parse();

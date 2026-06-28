@@ -24,6 +24,9 @@ bun test tests/shared/errors.test.ts  # Run a single file
 bun run build           # Build CLI + MCP server
 bun run typecheck       # tsc --noEmit
 bun run clean           # Remove dist/
+
+# EvolveAgent — call daily via CI cron; internally guards to weekly cadence
+vibemate evolve --cron
 ```
 
 Prefer `bun test` over `npm test`. Tests use Bun's native test runner (configured via `bunfig.toml`). `tsconfig.json` excludes `tests/` from compilation — type-check only runs over `src/`.
