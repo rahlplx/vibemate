@@ -9,9 +9,12 @@ import {
   localEmbedFn,
   cosineSimilarity,
   createOpenAICompatibleEmbedFn,
+  createMemoryAdapter,
+  createNodeAdapter,
   type EmbeddingChunk,
   type RetrievalResult,
   type BM25Chunk,
+  type StorageAdapter,
 } from '../../src/context/embeddings.js';
 
 const TEMP_DIR = join(tmpdir(), `vibemate-embed-test-${Date.now()}`);
@@ -446,5 +449,122 @@ describe('createOpenAICompatibleEmbedFn()', () => {
     await expect(fn('text')).rejects.toThrow('401');
 
     global.fetch = orig;
+  });
+});
+
+describe('createMemoryAdapter()', () => {
+  it('reads a seeded key', async () => {
+    const adapter = createMemoryAdapter({ 'docs/a.md': '# Hello\n\nworld' });
+    expect(await adapter.read('docs/a.md')).toBe('# Hello\n\nworld');
+  });
+
+  it('throws ENOENT for missing key', async () => {
+    const adapter = createMemoryAdapter();
+    await expect(adapter.read('missing.md')).rejects.toMatchObject({ code: 'ENOENT' });
+  });
+
+  it('write() stores a value that can then be read', async () => {
+    const adapter = createMemoryAdapter();
+    await adapter.write('key.md', 'value');
+    expect(await adapter.read('key.md')).toBe('value');
+  });
+
+  it('ensureDir() is a no-op and does not throw', async () => {
+    const adapter = createMemoryAdapter();
+    await expect(adapter.ensureDir('some/dir')).resolves.toBeUndefined();
+  });
+
+  it('listMdFiles() returns only .md files under the given dir prefix', async () => {
+    const adapter = createMemoryAdapter({
+      'docs/a.md': '# A\n\ncontent',
+      'docs/b.md': '# B\n\ncontent',
+      'docs/ignore.txt': 'not md',
+      'other/c.md': '# C\n\ncontent',
+    });
+    const files = await adapter.listMdFiles('docs');
+    expect(files.map(f => f.source).sort()).toEqual(['a.md', 'b.md']);
+  });
+
+  it('listMdFiles() normalizes path separators in source', async () => {
+    const adapter = createMemoryAdapter({ 'docs/sub/deep.md': '# D\n\ncontent' });
+    const files = await adapter.listMdFiles('docs');
+    expect(files.some(f => f.source.includes('\\'))).toBe(false);
+  });
+
+  it('listMdFiles() returns key for read() and relative source', async () => {
+    const adapter = createMemoryAdapter({ 'docs/x.md': '# X\n\ncontent' });
+    const [file] = await adapter.listMdFiles('docs');
+    expect(file.key).toBe('docs/x.md');
+    expect(file.source).toBe('x.md');
+  });
+
+  it('EmbeddingStore + memory adapter round-trips without Node I/O', async () => {
+    const adapter = createMemoryAdapter();
+    const store = new EmbeddingStore('vibe', localEmbedFn, adapter);
+    const chunk = await store.embedChunk('edge-safe content', 'edge.md');
+    store.addChunks([chunk]);
+    await store.save();
+
+    const store2 = new EmbeddingStore('vibe', localEmbedFn, adapter);
+    const loaded = await store2.load();
+    expect(loaded).toBe(true);
+    expect(store2.getChunks()[0].content).toBe('edge-safe content');
+  });
+
+  it('BM25Store + memory adapter indexes and retrieves without Node I/O', async () => {
+    const adapter = createMemoryAdapter({
+      'docs/ts.md': '# TypeScript\n\nTypescript configuration and setup guide for modern projects.',
+    });
+    const store = new BM25Store(adapter);
+    const count = await store.indexDir('docs');
+    expect(count).toBeGreaterThan(0);
+    const results = store.retrieve('TypeScript configuration');
+    expect(results.length).toBeGreaterThan(0);
+  });
+});
+
+describe('createNodeAdapter()', () => {
+  it('returns an object with the StorageAdapter interface', () => {
+    const adapter = createNodeAdapter();
+    expect(typeof adapter.read).toBe('function');
+    expect(typeof adapter.write).toBe('function');
+    expect(typeof adapter.ensureDir).toBe('function');
+    expect(typeof adapter.listMdFiles).toBe('function');
+  });
+
+  it('write() + read() round-trips a file on disk', async () => {
+    const adapter = createNodeAdapter();
+    const key = join(TEMP_DIR, `node-adapter-${Date.now()}.txt`);
+    await adapter.write(key, 'node-written');
+    expect(await adapter.read(key)).toBe('node-written');
+  });
+
+  it('read() throws for a missing file', async () => {
+    const adapter = createNodeAdapter();
+    await expect(adapter.read('/tmp/vibemate-nonexistent-xyz.txt')).rejects.toThrow();
+  });
+
+  it('ensureDir() creates the directory recursively', async () => {
+    const adapter = createNodeAdapter();
+    const dir = join(TEMP_DIR, `node-ensure-${Date.now()}`, 'nested');
+    await adapter.ensureDir(dir);
+    const { stat } = await import('fs/promises');
+    const s = await stat(dir);
+    expect(s.isDirectory()).toBe(true);
+  });
+
+  it('listMdFiles() finds .md files recursively and normalizes separators', async () => {
+    const adapter = createNodeAdapter();
+    const dir = join(TEMP_DIR, `node-list-${Date.now()}`);
+    const { mkdir, writeFile: wf } = await import('fs/promises');
+    await mkdir(join(dir, 'sub'), { recursive: true });
+    await wf(join(dir, 'a.md'), '# A\n\ncontent', 'utf-8');
+    await wf(join(dir, 'sub', 'b.md'), '# B\n\ncontent', 'utf-8');
+    await wf(join(dir, 'ignore.txt'), 'not md', 'utf-8');
+
+    const files = await adapter.listMdFiles(dir);
+    const sources = files.map(f => f.source).sort();
+    expect(sources).toEqual(['a.md', 'sub/b.md']);
+    expect(files.some(f => f.source.includes('\\'))).toBe(false);
   });
 });
