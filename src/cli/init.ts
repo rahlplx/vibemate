@@ -96,7 +96,7 @@ async function initVibemate(description: string | undefined, options: InitOption
   const mcpGenerator = new MCPConfigGenerator({
     projectRoot: root,
     includeVibemateServers: true,
-    enabledServers: ['context7', 'github', 'playwright', 'filesystem', 'vibemate-telemetry', 'vibemate-okf']
+    enabledServers: ['context7', 'github', 'playwright', 'filesystem', 'memory', 'sequentialthinking', 'vibemate-telemetry', 'vibemate-okf']
   });
   const mcpConfigPath = await mcpGenerator.writeConfig();
   console.log(`   ✓ Created ${mcpConfigPath}`);

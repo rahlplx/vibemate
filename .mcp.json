@@ -1,0 +1,50 @@
+{
+  "mcpServers": {
+    "context7": {
+      "command": "npx",
+      "args": ["-y", "@upstash/context7-mcp@latest"]
+    },
+    "filesystem": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem@latest", "/home/user/vibemate"]
+    },
+    "memory": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-memory@latest"]
+    },
+    "sequential-thinking": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-sequential-thinking@latest"]
+    },
+    "fetch": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-fetch@latest"]
+    },
+    "sqlite": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-sqlite@latest", ".vibe/state.db"]
+    },
+    "github": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github@latest"]
+    },
+    "playwright": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-playwright@latest"]
+    },
+    "vibemate-telemetry": {
+      "command": "npx",
+      "args": ["-y", "vibemate-mcp"],
+      "env": {
+        "VIBEMATE_MODE": "telemetry"
+      }
+    },
+    "vibemate-okf": {
+      "command": "npx",
+      "args": ["-y", "vibemate-mcp"],
+      "env": {
+        "VIBEMATE_MODE": "okf"
+      }
+    }
+  }
+}
