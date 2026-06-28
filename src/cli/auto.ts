@@ -10,6 +10,7 @@ import { existsSync } from 'fs';
 import { join } from 'path';
 import { execFileSync } from 'child_process';
 import { AutoPhase, CircuitBreaker, AutoState, HarnessCheck, HarnessReport } from '../types.js';
+import { applyAmbiguityGate, checkGovernancePermission, handleHarnessFailure } from './auto-helpers.js';
 
 interface AutoOptions {
   budget?: number;
@@ -121,6 +122,13 @@ async function runAutoPipeline(description: string, options: AutoOptions): Promi
       break;
     }
 
+    // Governance gate: check permission before executing each phase
+    const agentRole = state.agentId ?? 'developer';
+    if (!checkGovernancePermission(agentRole, state.phase)) {
+      console.error(`\n🚫 Governance: execution of phase "${state.phase}" denied by policy`);
+      break;
+    }
+
     const phaseInfo = PHASE_EXECUTION[state.phase];
     console.log(`\n${'='.repeat(60)}`);
     console.log(`🚀 Phase: ${state.phase.toUpperCase()}`);
@@ -140,10 +148,22 @@ async function runAutoPipeline(description: string, options: AutoOptions): Promi
     });
     const duration = Math.round(performance.now() - startTime);
 
+    const justCompleted = state.phase;
     state.completed.push(state.phase);
     state.artifacts[state.phase] = result.artifact || '';
 
-    if (result.allChecksPassed === false) {
+    // Ambiguity gate: after BREAK, check if task scope is clear enough to proceed
+    if (justCompleted === 'break' && result.ambiguity) {
+      applyAmbiguityGate(result.ambiguity, circuitBreaker);
+    }
+
+    if (result.allChecksPassed === false && state.phase === 'harness') {
+      const shouldRetry = handleHarnessFailure(state, circuitBreaker);
+      if (shouldRetry) {
+        console.log('⚠️  HARNESS failed — retrying with simpler model');
+        continue;
+      }
+    } else if (result.allChecksPassed === false) {
       circuitBreaker.consecutiveFailures++;
     } else {
       circuitBreaker.consecutiveFailures = 0;
@@ -166,8 +186,6 @@ async function runAutoPipeline(description: string, options: AutoOptions): Promi
       }
     }
 
-    const completedPhase = state.phase;
-
     const transition = PHASE_TRANSITIONS[state.phase];
     if (transition.next) {
       if (transition.condition === 'has_ui' && !state.hasUI) {
@@ -186,12 +204,12 @@ async function runAutoPipeline(description: string, options: AutoOptions): Promi
     }
 
     await writeFile(statePath, JSON.stringify(state, null, 2));
-    await writeHandoff(root, state, completedPhase);
+    await writeHandoff(root, state, justCompleted);
     circuitBreaker.dispatchCount++;
 
     if (state.telemetry) {
       telemetryCollector.recordAgentTurn(
-        `auto-${completedPhase}`,
+        `auto-${justCompleted}`,
         'vibemate',
         0,
         0,
@@ -199,7 +217,7 @@ async function runAutoPipeline(description: string, options: AutoOptions): Promi
       );
     }
 
-    console.log(`\n⏱️  Phase ${completedPhase} completed in ${duration}ms`);
+    console.log(`\n⏱️  Phase ${justCompleted} completed in ${duration}ms`);
   }
 
   console.log('\n' + '='.repeat(60));
@@ -220,7 +238,7 @@ async function executePhase(
     router: CostAwareRouter;
     circuitBreaker: CircuitBreaker;
   }
-): Promise<{ artifact?: string; hasMoreTasks?: boolean; allChecksPassed?: boolean }> {
+): Promise<{ artifact?: string; hasMoreTasks?: boolean; allChecksPassed?: boolean; ambiguity?: import('../discovery/scoring.js').AmbiguityResult }> {
   const { root, selfImprovement, circuitBreaker } = context;
   const vibeDir = join(root, '.vibe');
 
@@ -695,12 +713,12 @@ function printCircuitBreakerSummary(cb: CircuitBreaker): void {
   console.log(`   Total cost: $${cb.totalCost.toFixed(2)}/$${cb.maxBudget.toFixed(2)}`);
 }
 
-async function writeHandoff(root: string, state: AutoState, completedPhase: AutoPhase): Promise<void> {
+async function writeHandoff(root: string, state: AutoState, justCompleted: AutoPhase): Promise<void> {
   const nextPhase = state.phase;
   const handoff = `# Handoff Document
 
 ## Current State
-- Completed Phase: ${completedPhase}
+- Completed Phase: ${justCompleted}
 - Current Phase: ${nextPhase}
 - All Completed: ${state.completed.join(', ')}
 

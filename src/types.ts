@@ -161,6 +161,10 @@ export interface AutoState {
   mode: 'guided' | 'auto' | 'quick';
   telemetry: boolean;
   artifacts: Record<string, string>;
+  sessionId?: string;
+  agentId?: string;
+  harnessRetried?: boolean;
+  routerDowngrade?: boolean;
 }
 
 export interface CircuitBreaker {
