@@ -243,7 +243,7 @@ export class ContextPipeline {
 
     if (!ragQuery) return { extracted, compressed, sanitized, cacheKey };
 
-    const store = new EmbeddingStore(this.root);
+    const store = new EmbeddingStore(join(this.root, '.vibe'));
     const loaded = await store.load();
     if (!loaded) return { extracted, compressed, sanitized, cacheKey };
 

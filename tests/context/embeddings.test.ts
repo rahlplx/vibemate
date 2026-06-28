@@ -5,10 +5,13 @@ import { join } from 'path';
 import { tmpdir } from 'os';
 import {
   EmbeddingStore,
+  BM25Store,
   localEmbedFn,
   cosineSimilarity,
+  createOpenAICompatibleEmbedFn,
   type EmbeddingChunk,
   type RetrievalResult,
+  type BM25Chunk,
 } from '../../src/context/embeddings.js';
 
 const TEMP_DIR = join(tmpdir(), `vibemate-embed-test-${Date.now()}`);
@@ -249,5 +252,199 @@ describe('EmbeddingStore', () => {
     store.addChunks([chunk]);
     await store.retrieve('query text');
     expect(calls).toContain('query text');
+  });
+
+  it('embedOKFChunks() normalizes path separators to forward slashes', async () => {
+    const okfDir = join(TEMP_DIR, 'slash-test');
+    mkdirSync(join(okfDir, 'sub'), { recursive: true });
+    await writeFile(join(okfDir, 'sub', 'doc.md'), '# Doc\n\nSome content here for the test.', 'utf-8');
+    const store = new EmbeddingStore(TEMP_DIR);
+    const chunks = await store.embedOKFChunks(okfDir);
+    expect(chunks.some(c => c.source.includes('\\'))).toBe(false);
+  });
+});
+
+describe('cosineSimilarity() — dimension guard', () => {
+  it('throws when vectors have different lengths', () => {
+    expect(() => cosineSimilarity([1, 2, 3], [1, 2])).toThrow('dimension mismatch');
+  });
+
+  it('does not throw for vectors of equal length', () => {
+    expect(() => cosineSimilarity([1, 0], [0, 1])).not.toThrow();
+  });
+});
+
+describe('BM25Store', () => {
+  it('retrieve() returns empty array when no docs loaded', () => {
+    const store = new BM25Store();
+    expect(store.retrieve('query')).toEqual([]);
+  });
+
+  it('retrieve() returns most relevant doc first', () => {
+    const store = new BM25Store();
+    store.addDocs([
+      { id: 'a', content: 'TypeScript configuration and tsconfig setup', source: 'a.md' },
+      { id: 'b', content: 'Docker deployment and container orchestration', source: 'b.md' },
+    ]);
+    const results = store.retrieve('TypeScript config');
+    expect(results[0].chunk.id).toBe('a');
+  });
+
+  it('retrieve() orders results by score descending', () => {
+    const store = new BM25Store();
+    store.addDocs([
+      { id: 'a', content: 'TypeScript configuration setup', source: 'a.md' },
+      { id: 'b', content: 'Docker container deployment', source: 'b.md' },
+      { id: 'c', content: 'TypeScript types and interfaces guide', source: 'c.md' },
+    ]);
+    const results = store.retrieve('TypeScript');
+    for (let i = 1; i < results.length; i++) {
+      expect(results[i - 1].score).toBeGreaterThanOrEqual(results[i].score);
+    }
+  });
+
+  it('retrieve() returns at most topK results', () => {
+    const store = new BM25Store();
+    store.addDocs(
+      ['a', 'b', 'c', 'd', 'e'].map((id, i) => ({
+        id,
+        content: `document ${id} with some content here`,
+        source: `${i}.md`,
+      }))
+    );
+    expect(store.retrieve('document content', 2).length).toBe(2);
+  });
+
+  it('retrieve() defaults to top 3', () => {
+    const store = new BM25Store();
+    store.addDocs(
+      ['a', 'b', 'c', 'd', 'e'].map(id => ({ id, content: `doc ${id}`, source: `${id}.md` }))
+    );
+    expect(store.retrieve('doc').length).toBe(3);
+  });
+
+  it('addDocs() accumulates documents', () => {
+    const store = new BM25Store();
+    store.addDocs([{ id: '1', content: 'first', source: 'a.md' }]);
+    store.addDocs([{ id: '2', content: 'second', source: 'b.md' }]);
+    expect(store.getDocs().length).toBe(2);
+  });
+
+  it('getDocs() returns all indexed documents', () => {
+    const store = new BM25Store();
+    store.addDocs([
+      { id: '1', content: 'first doc', source: 'a.md' },
+      { id: '2', content: 'second doc', source: 'b.md' },
+    ]);
+    expect(store.getDocs().length).toBe(2);
+  });
+
+  it('tokenize() lowercases and splits on non-word chars', () => {
+    const store = new BM25Store();
+    expect(store.tokenize('Hello, World! TypeScript.')).toEqual(['hello', 'world', 'typescript']);
+  });
+
+  it('indexDir() processes markdown files and returns chunk count', async () => {
+    const bm25Dir = join(TEMP_DIR, 'bm25-index');
+    mkdirSync(bm25Dir, { recursive: true });
+    await writeFile(
+      join(bm25Dir, 'arch.md'),
+      '# Architecture\n\nTypeScript monorepo with modular design.\n\n## Modules\n\nContext pipeline for LLM preparation.',
+      'utf-8'
+    );
+    const store = new BM25Store();
+    const count = await store.indexDir(bm25Dir);
+    expect(count).toBeGreaterThan(0);
+    expect(store.getDocs().length).toBe(count);
+  });
+
+  it('indexDir() returns 0 for non-existent directory', async () => {
+    const store = new BM25Store();
+    const count = await store.indexDir('/tmp/bm25-nonexistent-xyz-999');
+    expect(count).toBe(0);
+  });
+
+  it('indexDir() normalizes path separators to forward slashes', async () => {
+    const bm25Dir = join(TEMP_DIR, 'bm25-slash');
+    mkdirSync(join(bm25Dir, 'sub'), { recursive: true });
+    await writeFile(join(bm25Dir, 'sub', 'doc.md'), '# Sub\n\nContent here for slash test.', 'utf-8');
+    const store = new BM25Store();
+    await store.indexDir(bm25Dir);
+    expect(store.getDocs().some(d => d.source.includes('\\'))).toBe(false);
+  });
+
+  it('scores exact-term match higher than zero-term match', () => {
+    const store = new BM25Store();
+    store.addDocs([
+      { id: 'match', content: 'bun test runner configuration setup', source: 'a.md' },
+      { id: 'nomatch', content: 'completely unrelated gardening tips', source: 'b.md' },
+    ]);
+    const results = store.retrieve('bun test');
+    expect(results[0].chunk.id).toBe('match');
+    expect(results[0].score).toBeGreaterThan(0);
+  });
+});
+
+describe('createOpenAICompatibleEmbedFn()', () => {
+  it('returns a callable EmbedFn', () => {
+    const fn = createOpenAICompatibleEmbedFn({
+      baseUrl: 'https://api.openai.com/v1',
+      apiKey: 'test-key',
+      model: 'text-embedding-3-small',
+    });
+    expect(typeof fn).toBe('function');
+  });
+
+  it('calls the correct endpoint with Authorization header', async () => {
+    const calls: { url: string; headers: Record<string, string> }[] = [];
+    const mockFetch = async (url: string, opts: RequestInit) => {
+      calls.push({ url, headers: opts.headers as Record<string, string> });
+      return new Response(JSON.stringify({ data: [{ embedding: [0.1, 0.2, 0.3] }] }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    };
+    const orig = global.fetch;
+    global.fetch = mockFetch as typeof fetch;
+
+    const fn = createOpenAICompatibleEmbedFn({
+      baseUrl: 'https://api.openai.com/v1',
+      apiKey: 'sk-test',
+      model: 'text-embedding-3-small',
+    });
+    await fn('hello world');
+
+    global.fetch = orig;
+    expect(calls[0].url).toBe('https://api.openai.com/v1/embeddings');
+    expect(calls[0].headers['Authorization']).toBe('Bearer sk-test');
+  });
+
+  it('returns the embedding vector from the API response', async () => {
+    const expected = [0.1, 0.5, 0.9];
+    const mockFetch = async () =>
+      new Response(JSON.stringify({ data: [{ embedding: expected }] }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    const orig = global.fetch;
+    global.fetch = mockFetch as typeof fetch;
+
+    const fn = createOpenAICompatibleEmbedFn({ baseUrl: 'http://x', apiKey: 'k', model: 'm' });
+    const result = await fn('test input');
+
+    global.fetch = orig;
+    expect(result).toEqual(expected);
+  });
+
+  it('throws on non-ok HTTP response', async () => {
+    const mockFetch = async () =>
+      new Response('Unauthorized', { status: 401 });
+    const orig = global.fetch;
+    global.fetch = mockFetch as typeof fetch;
+
+    const fn = createOpenAICompatibleEmbedFn({ baseUrl: 'http://x', apiKey: 'bad', model: 'm' });
+    await expect(fn('text')).rejects.toThrow('401');
+
+    global.fetch = orig;
   });
 });
