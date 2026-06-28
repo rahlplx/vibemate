@@ -5,6 +5,9 @@ import { install, detectPlatform } from '../mcp/installer.js';
 import { createSpecGenerator } from '../mcp/tools/spec-generator.js';
 import { createAuthManager, createOAuthClient, type OAuthConfig } from '../mcp/auth.js';
 import { createAutoFix } from '../mcp/tools/auto-fix.js';
+import { generateTests } from '../sdd/test-generator.js';
+import { writeFileSync, mkdirSync } from 'fs';
+import { dirname, resolve } from 'path';
 
 const VIBEMATE_OAUTH: OAuthConfig = {
   clientId: 'vibemate-cli',
@@ -63,23 +66,26 @@ program
   .description('Generate a product specification from a plain English idea')
   .argument('<idea>', 'Product idea description')
   .option('--stack <framework>', 'Target framework (nextjs, express, fastapi, laravel)')
+  .option('--gen-tests', 'Generate test stubs from the spec after generation')
+  .option('--test-output <dir>', 'Output directory for generated tests (default: tests/spec)')
+  .option('--test-framework <framework>', 'Test framework: bun | vitest | jest (default: bun)')
   .action(async (idea, options) => {
     try {
       const apiKey = process.env.ANTHROPIC_API_KEY;
-      
+
       if (!apiKey) {
         console.error('Error: Set the ANTHROPIC_API_KEY environment variable before running.');
         process.exit(1);
       }
-      
+
       console.log(`Generating specification for: "${idea}"\n`);
-      
+
       const generator = createSpecGenerator({ apiKey });
-      const spec = await generator({ 
+      const spec = await generator({
         idea,
         stack: options.stack ? { framework: options.stack } : undefined
       });
-      
+
       console.log(`# ${spec.product.name}`);
       console.log(`\n${spec.product.oneLiner}\n`);
       console.log(`## Problem`);
@@ -97,6 +103,31 @@ program
       console.log(`\n## API Endpoints`);
       for (const endpoint of spec.apiContract.endpoints) {
         console.log(`- ${endpoint.method} ${endpoint.path}`);
+      }
+
+      if (options.genTests) {
+        const framework = options.testFramework ?? 'bun';
+        if (framework !== 'bun' && framework !== 'vitest' && framework !== 'jest') {
+          console.error(`Error: Unsupported test framework "${framework}". Supported frameworks are: bun, vitest, jest.`);
+          process.exit(1);
+        }
+        try {
+          const result = generateTests(spec, {
+            framework,
+            outputDir: options.testOutput ?? 'tests/spec',
+          });
+          console.log(`\n## Generated Tests (${result.totalCases} cases across ${result.files.length} files)`);
+          for (const file of result.files) {
+            const fullPath = resolve(file.path);
+            mkdirSync(dirname(fullPath), { recursive: true });
+            writeFileSync(fullPath, file.content, 'utf-8');
+            console.log(`  ✓ ${file.path} (${file.cases.length} cases)`);
+          }
+          console.log(`\nCoverage areas: ${result.coverageAreas.join(', ')}`);
+        } catch (testError) {
+          console.error('Test generation failed:', testError instanceof Error ? testError.message : testError);
+          process.exit(1);
+        }
       }
     } catch (error) {
       console.error('Spec generation failed:', error instanceof Error ? error.message : error);
