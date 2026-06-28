@@ -181,6 +181,7 @@ export interface RoutingDecision {
   provider: string;
   estimatedCost: number;
   reason: string;
+  contextWindow?: number;
 }
 
 // Harness Types
