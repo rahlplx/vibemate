@@ -219,7 +219,7 @@ async function runAutoPipeline(description: string, options: AutoOptions): Promi
         0,
         0,
         0,
-        { phase: justCompleted, agentType: state.agent }
+        { phase: justCompleted, agentType: process.env.VIBEMATE_AGENT_TYPE ?? state.agent }
       );
     }
 

@@ -1,9 +1,11 @@
 import { writeFile, mkdir, appendFile } from 'fs/promises';
-import { readdirSync, existsSync } from 'fs';
+import { existsSync, readdirSync } from 'fs';
 import { join } from 'path';
 import { randomUUID } from 'crypto';
 import { execFileSync } from 'child_process';
 import type { DatabaseConnection } from '../state/connection.js';
+import { analyzeFolder } from './folder-analyzer.js';
+import { analyzeCommits } from './commit-analyzer.js';
 
 const ALLOWED_URL_PROTOCOLS = /^(https?:\/\/|git:\/\/|ssh:\/\/|git@|file:\/\/)/i;
 
@@ -49,58 +51,6 @@ export interface RepoMineOptions {
   db?: DatabaseConnection;
 }
 
-function detectLanguages(dir: string): Record<string, number> {
-  const langs: Record<string, number> = {};
-  const extMap: Record<string, string> = {
-    '.ts': 'TypeScript', '.tsx': 'TSX', '.js': 'JavaScript', '.jsx': 'JSX',
-    '.py': 'Python', '.rs': 'Rust', '.go': 'Go', '.rb': 'Ruby',
-    '.java': 'Java', '.cs': 'C#', '.cpp': 'C++', '.c': 'C',
-    '.swift': 'Swift', '.kt': 'Kotlin', '.vue': 'Vue', '.svelte': 'Svelte',
-  };
-
-  function walk(d: string) {
-    try {
-      for (const entry of readdirSync(d, { withFileTypes: true })) {
-        if (entry.name === 'node_modules' || entry.name === '.git') continue;
-        const full = join(d, entry.name);
-        if (entry.isDirectory()) { walk(full); continue; }
-        const ext = '.' + entry.name.split('.').pop()?.toLowerCase();
-        const lang = extMap[ext];
-        if (lang) langs[lang] = (langs[lang] || 0) + 1;
-      }
-    } catch { /* ignore unreadable dirs */ }
-  }
-  walk(dir);
-  return langs;
-}
-
-function detectPatterns(dir: string): string[] {
-  const patterns: string[] = [];
-  try {
-    const entries = readdirSync(dir);
-    if (entries.includes('packages') || entries.includes('apps')) patterns.push('monorepo');
-    if (entries.some(e => ['controllers', 'models', 'views'].includes(e))) patterns.push('mvc');
-    if (entries.some(e => ['domain', 'application', 'infrastructure'].includes(e))) patterns.push('hexagonal');
-    if (entries.some(e => ['features', 'modules'].includes(e))) patterns.push('feature-sliced');
-    if (entries.includes('src') && entries.includes('tests')) patterns.push('src-tests-separation');
-  } catch { /* ignore */ }
-  return patterns;
-}
-
-function detectConfigFiles(dir: string): string[] {
-  const known = [
-    'tsconfig.json', 'package.json', 'bun.lockb', 'bun.lock',
-    'pnpm-lock.yaml', 'yarn.lock', '.eslintrc.json', '.eslintrc.js',
-    'jest.config.ts', 'vitest.config.ts', 'bunfig.toml',
-    'Cargo.toml', 'go.mod', 'requirements.txt', 'pyproject.toml',
-    '.github', 'Dockerfile', 'docker-compose.yml',
-  ];
-  try {
-    const entries = readdirSync(dir);
-    return known.filter(f => entries.includes(f));
-  } catch { return []; }
-}
-
 function countFiles(dir: string): number {
   let count = 0;
   try {
@@ -110,37 +60,6 @@ function countFiles(dir: string): number {
     }
   } catch { /* ignore */ }
   return count;
-}
-
-function getCommitStats(repoPath: string, depth: number): { count: number; contributors: { author: string; count: number }[] } {
-  try {
-    const log = execFileSync(
-      'git',
-      ['log', '--format=%an', '-n', String(depth)],
-      { cwd: repoPath, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] }
-    ).trim();
-
-    if (!log) return { count: 0, contributors: [] };
-
-    const authors = log.split('\n').filter(Boolean);
-    const counts: Record<string, number> = {};
-    for (const a of authors) counts[a] = (counts[a] || 0) + 1;
-    const contributors = Object.entries(counts)
-      .map(([author, count]) => ({ author, count }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 10);
-
-    return { count: authors.length, contributors };
-  } catch {
-    return { count: 0, contributors: [] };
-  }
-}
-
-function hasTestDir(dir: string): boolean {
-  try {
-    const entries = readdirSync(dir);
-    return entries.some(e => ['tests', 'test', '__tests__', 'spec'].includes(e));
-  } catch { return false; }
 }
 
 function hasCI(dir: string): boolean {
@@ -187,11 +106,14 @@ export async function mineRepo(url: string, options: RepoMineOptions = {}): Prom
     }
   }
 
-  const languages = detectLanguages(repoPath);
+  const folderAnalysis = analyzeFolder(repoPath);
+  const commitAnalysis = analyzeCommits(repoPath, depth);
+  const languages = folderAnalysis.languages;
   const fileCount = countFiles(repoPath);
-  const { count: commitCount, contributors: topContributors } = getCommitStats(repoPath, depth);
-  const detectedPatterns = detectPatterns(repoPath);
-  const configFiles = detectConfigFiles(repoPath);
+  const commitCount = commitAnalysis.totalCommits;
+  const topContributors = commitAnalysis.topContributors;
+  const detectedPatterns = folderAnalysis.detectedPatterns;
+  const configFiles = folderAnalysis.configFiles;
 
   const analysis: RepoAnalysis = {
     url,
@@ -200,7 +122,7 @@ export async function mineRepo(url: string, options: RepoMineOptions = {}): Prom
     fileCount,
     commitCount,
     topContributors,
-    hasTests: hasTestDir(repoPath),
+    hasTests: folderAnalysis.testCoverage !== 'absent',
     hasCI: hasCI(repoPath),
     packageManager: detectPackageManager(repoPath),
     detectedPatterns,
