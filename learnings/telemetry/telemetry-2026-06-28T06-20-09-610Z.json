@@ -1,0 +1,95 @@
+{
+  "exportTime": "2026-06-28T06:20:09.611Z",
+  "spans": [
+    {
+      "name": "simulation.plugins",
+      "traceId": "c1e20e1a-682d-463c-b555-0320b11f14ad",
+      "spanId": "8b6b1be5-07c9-48f1-a138-1ed462dddb10",
+      "startTime": 1782627609116,
+      "attributes": {},
+      "status": "ok",
+      "endTime": 1782627609197
+    },
+    {
+      "name": "simulation.tool_policy",
+      "traceId": "c889067f-ea48-4c29-bc65-c4e8701f2960",
+      "spanId": "704ccad7-457c-423e-823b-c4128aef6876",
+      "startTime": 1782627609198,
+      "attributes": {},
+      "status": "ok",
+      "endTime": 1782627609235
+    },
+    {
+      "name": "simulation.memory",
+      "traceId": "be3e488f-b9be-4f3f-8fdb-ece0c7bb2a62",
+      "spanId": "0150b0e5-9e0a-4fcf-b112-c94be295dfe1",
+      "startTime": 1782627609236,
+      "attributes": {},
+      "status": "ok",
+      "endTime": 1782627609552
+    },
+    {
+      "name": "simulation.temporal_decay",
+      "traceId": "371e71fe-614a-4a1a-a6e6-24eeb2b4fa94",
+      "spanId": "f12907b7-214b-4bf5-9cce-2b1fc47c3d5f",
+      "startTime": 1782627609553,
+      "attributes": {},
+      "status": "ok",
+      "endTime": 1782627609554
+    }
+  ],
+  "metrics": {
+    "totalTokens": 0,
+    "totalCost": 0,
+    "averageLatency": 0,
+    "errorRate": 0,
+    "toolFailureRate": 0,
+    "stuckDetections": 0
+  },
+  "traces": {
+    "c1e20e1a-682d-463c-b555-0320b11f14ad": [
+      {
+        "name": "simulation.plugins",
+        "traceId": "c1e20e1a-682d-463c-b555-0320b11f14ad",
+        "spanId": "8b6b1be5-07c9-48f1-a138-1ed462dddb10",
+        "startTime": 1782627609116,
+        "attributes": {},
+        "status": "ok",
+        "endTime": 1782627609197
+      }
+    ],
+    "c889067f-ea48-4c29-bc65-c4e8701f2960": [
+      {
+        "name": "simulation.tool_policy",
+        "traceId": "c889067f-ea48-4c29-bc65-c4e8701f2960",
+        "spanId": "704ccad7-457c-423e-823b-c4128aef6876",
+        "startTime": 1782627609198,
+        "attributes": {},
+        "status": "ok",
+        "endTime": 1782627609235
+      }
+    ],
+    "be3e488f-b9be-4f3f-8fdb-ece0c7bb2a62": [
+      {
+        "name": "simulation.memory",
+        "traceId": "be3e488f-b9be-4f3f-8fdb-ece0c7bb2a62",
+        "spanId": "0150b0e5-9e0a-4fcf-b112-c94be295dfe1",
+        "startTime": 1782627609236,
+        "attributes": {},
+        "status": "ok",
+        "endTime": 1782627609552
+      }
+    ],
+    "371e71fe-614a-4a1a-a6e6-24eeb2b4fa94": [
+      {
+        "name": "simulation.temporal_decay",
+        "traceId": "371e71fe-614a-4a1a-a6e6-24eeb2b4fa94",
+        "spanId": "f12907b7-214b-4bf5-9cce-2b1fc47c3d5f",
+        "startTime": 1782627609553,
+        "attributes": {},
+        "status": "ok",
+        "endTime": 1782627609554
+      }
+    ]
+  }
+}

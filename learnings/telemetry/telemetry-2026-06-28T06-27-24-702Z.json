@@ -1,0 +1,1985 @@
+{
+  "exportTime": "2026-06-28T06:27:24.702Z",
+  "spans": [
+    {
+      "name": "sim.plugins",
+      "traceId": "faaa0698-7ea6-454a-be8a-1f21b1bdd40d",
+      "spanId": "24f22266-cdb3-417d-8daa-37722a0202e4",
+      "startTime": 1782628044613,
+      "attributes": {},
+      "status": "ok",
+      "endTime": 1782628044614
+    },
+    {
+      "name": "sim.tool_policy",
+      "traceId": "edee93b4-591a-4a94-86d4-1bdbc3396285",
+      "spanId": "7496a72b-96d1-4dc2-bf60-1002816d94d0",
+      "startTime": 1782628044614,
+      "attributes": {},
+      "status": "ok",
+      "endTime": 1782628044614
+    },
+    {
+      "name": "sim.memory",
+      "traceId": "7688fe50-bf35-4164-86a7-fec2ec38f6de",
+      "spanId": "cd45a7c0-f739-4ed8-a083-2ccb16969136",
+      "startTime": 1782628044614,
+      "attributes": {},
+      "status": "ok",
+      "endTime": 1782628044616
+    },
+    {
+      "name": "sim.pipeline",
+      "traceId": "631e7c72-fbd8-4010-a540-dd0eabd607e9",
+      "spanId": "5fbe2b51-a92d-4080-a03e-613ade5c7634",
+      "startTime": 1782628044616,
+      "attributes": {},
+      "status": "ok",
+      "endTime": 1782628044700
+    },
+    {
+      "name": "pipeline.think",
+      "traceId": "68430a46-225f-4e17-ab53-49020f23520d",
+      "spanId": "c9c8f60c-4464-46d9-83bf-e48364676ffb",
+      "parentSpanId": "trace-0",
+      "startTime": 1782628044616,
+      "attributes": {},
+      "status": "ok",
+      "endTime": 1782628044617
+    },
+    {
+      "name": "sim.concurrency",
+      "traceId": "18299186-3cad-4606-a422-7258853e5bb9",
+      "spanId": "c74dfe06-d2ef-4409-9533-5327311325d1",
+      "startTime": 1782628044616,
+      "attributes": {},
+      "status": "ok",
+      "endTime": 1782628044623
+    },
+    {
+      "name": "pipeline.plan",
+      "traceId": "ba88f3a7-be36-4fb4-96db-b2979344867e",
+      "spanId": "ccf3f00d-f4ce-48b1-b24b-2b35166802ef",
+      "parentSpanId": "trace-0",
+      "startTime": 1782628044617,
+      "attributes": {},
+      "status": "ok",
+      "endTime": 1782628044618
+    },
+    {
+      "name": "agent.handoff",
+      "traceId": "8c4805e0-509c-4aaa-bad3-07a557bf777f",
+      "spanId": "c36571ad-ae41-4f79-be75-55fded2211d7",
+      "startTime": 1782628044617,
+      "attributes": {
+        "agent.handoff.from": "THINKER",
+        "agent.handoff.to": "PLANNER",
+        "agent.handoff.context_size": 1024
+      },
+      "status": "ok",
+      "endTime": 1782628044617
+    },
+    {
+      "name": "pipeline.design",
+      "traceId": "e20b0524-ec88-4cbe-86c5-d2e37b853868",
+      "spanId": "b1f94217-d5d6-44b1-8cb6-f4bfd0eaa846",
+      "parentSpanId": "trace-0",
+      "startTime": 1782628044618,
+      "attributes": {},
+      "status": "ok",
+      "endTime": 1782628044619
+    },
+    {
+      "name": "pipeline.break",
+      "traceId": "88b80b6f-4c28-4b9b-8fe9-712f64b68958",
+      "spanId": "b4b7d759-78cf-424d-acab-d83ad721dcf3",
+      "parentSpanId": "trace-0",
+      "startTime": 1782628044619,
+      "attributes": {},
+      "status": "ok",
+      "endTime": 1782628044621
+    },
+    {
+      "name": "pipeline.build",
+      "traceId": "f6d5d138-91ab-4dca-8d1d-f7ff66c7b7d8",
+      "spanId": "fc9f1dfe-d2b2-469e-abac-6e960a90bea3",
+      "parentSpanId": "trace-0",
+      "startTime": 1782628044621,
+      "attributes": {},
+      "status": "ok",
+      "endTime": 1782628044623
+    },
+    {
+      "name": "tool.call",
+      "traceId": "6c4cd3e6-5730-400d-ae87-37b40783d4b6",
+      "spanId": "e5173016-0fe3-4062-80e7-8fedc1f34719",
+      "startTime": 1782628044622,
+      "attributes": {
+        "tool.name": "write_file",
+        "tool.input": "{\"path\":\"src/app.ts\"}",
+        "tool.output": "{\"status\":\"ok\"}",
+        "tool.duration_ms": 50,
+        "tool.success": true
+      },
+      "status": "ok",
+      "endTime": 1782628044622
+    },
+    {
+      "name": "pipeline.harness",
+      "traceId": "6fbb65cc-1e86-4889-875b-1fbb354d2619",
+      "spanId": "733dfb1e-46e8-4749-a0f5-a1b2fdec6f67",
+      "parentSpanId": "trace-0",
+      "startTime": 1782628044623,
+      "attributes": {},
+      "status": "ok",
+      "endTime": 1782628044624
+    },
+    {
+      "name": "pipeline.review",
+      "traceId": "071fe120-8362-4b43-a805-6fdb35da63d6",
+      "spanId": "697fae1e-1b19-4d76-8697-2369333c73a4",
+      "parentSpanId": "trace-0",
+      "startTime": 1782628044624,
+      "attributes": {},
+      "status": "ok",
+      "endTime": 1782628044625
+    },
+    {
+      "name": "pipeline.qa",
+      "traceId": "645bd041-08f4-43a8-9755-68c335124785",
+      "spanId": "a24a31e3-985a-4421-a737-0d9a5d341359",
+      "parentSpanId": "trace-0",
+      "startTime": 1782628044625,
+      "attributes": {},
+      "status": "ok",
+      "endTime": 1782628044626
+    },
+    {
+      "name": "pipeline.ship",
+      "traceId": "992181ed-f5f7-4b5c-b26b-fc1da60e126d",
+      "spanId": "ef0202be-f430-4e49-a62e-02fd1e0c8dd9",
+      "parentSpanId": "trace-0",
+      "startTime": 1782628044626,
+      "attributes": {},
+      "status": "ok",
+      "endTime": 1782628044628
+    },
+    {
+      "name": "pipeline.retro",
+      "traceId": "949f440e-a956-43ef-b1f2-8e9f8ef53f5a",
+      "spanId": "b08e4ec9-0406-47f9-8f33-350973e76b6a",
+      "parentSpanId": "trace-0",
+      "startTime": 1782628044628,
+      "attributes": {},
+      "status": "ok",
+      "endTime": 1782628044629
+    },
+    {
+      "name": "pipeline.learn",
+      "traceId": "45e1f6f4-107d-4236-a6ad-1688a512e7f3",
+      "spanId": "0d1fe7ce-ed6c-469d-af25-fef6e8d1ddc0",
+      "parentSpanId": "trace-0",
+      "startTime": 1782628044629,
+      "attributes": {},
+      "status": "ok",
+      "endTime": 1782628044630
+    },
+    {
+      "name": "pipeline.evolve",
+      "traceId": "2e6878e8-b559-4b17-bc71-ec58a81ba37c",
+      "spanId": "85ba50aa-5173-4e35-afef-f4ea56e1e176",
+      "parentSpanId": "trace-0",
+      "startTime": 1782628044630,
+      "attributes": {},
+      "status": "ok",
+      "endTime": 1782628044632
+    },
+    {
+      "name": "pipeline.telemetry",
+      "traceId": "c7023e38-1f82-4226-b820-0d2a49ed2206",
+      "spanId": "2d80d593-7d0f-4a29-8892-fb545d2da6cd",
+      "parentSpanId": "trace-0",
+      "startTime": 1782628044632,
+      "attributes": {},
+      "status": "ok",
+      "endTime": 1782628044633
+    },
+    {
+      "name": "agent.evaluation",
+      "traceId": "8139a5c6-d651-4f7e-be66-ddf2eca95774",
+      "spanId": "9a70496a-f5e5-4d05-b0f8-15ecf77a455d",
+      "startTime": 1782628044633,
+      "attributes": {
+        "evaluation.name": "task_success",
+        "evaluation.score": 1,
+        "evaluation.passed": true
+      },
+      "status": "ok",
+      "endTime": 1782628044633
+    },
+    {
+      "name": "pipeline.think",
+      "traceId": "c837bb26-9055-44e9-936d-89a39f7256ac",
+      "spanId": "c9f4f74a-fb0e-4c23-8805-01661b71df4c",
+      "parentSpanId": "trace-1",
+      "startTime": 1782628044633,
+      "attributes": {},
+      "status": "ok",
+      "endTime": 1782628044634
+    },
+    {
+      "name": "pipeline.plan",
+      "traceId": "7f06e492-501a-4848-8a1a-f5b18264c021",
+      "spanId": "62886c68-5c71-4d4d-9dee-91f4a7efd41a",
+      "parentSpanId": "trace-1",
+      "startTime": 1782628044634,
+      "attributes": {},
+      "status": "ok",
+      "endTime": 1782628044635
+    },
+    {
+      "name": "agent.handoff",
+      "traceId": "6c853ec7-686d-4079-be64-3ae6e7c6af06",
+      "spanId": "ff66a1ee-79fc-4578-8d94-9cb0d681de8e",
+      "startTime": 1782628044634,
+      "attributes": {
+        "agent.handoff.from": "THINKER",
+        "agent.handoff.to": "PLANNER",
+        "agent.handoff.context_size": 1024
+      },
+      "status": "ok",
+      "endTime": 1782628044634
+    },
+    {
+      "name": "pipeline.design",
+      "traceId": "84aff7be-ab62-43bd-9d76-d6aa3dc32071",
+      "spanId": "4fa201e8-f0cb-4b22-a4cf-f4c55127502c",
+      "parentSpanId": "trace-1",
+      "startTime": 1782628044635,
+      "attributes": {},
+      "status": "ok",
+      "endTime": 1782628044637
+    },
+    {
+      "name": "pipeline.break",
+      "traceId": "20b0ac76-aebb-4100-816e-b4035bd77caf",
+      "spanId": "1a809081-5e3a-48b1-9d5b-03552524181c",
+      "parentSpanId": "trace-1",
+      "startTime": 1782628044637,
+      "attributes": {},
+      "status": "ok",
+      "endTime": 1782628044638
+    },
+    {
+      "name": "pipeline.build",
+      "traceId": "7c4e6c4d-8532-47f3-b353-2e6401528f46",
+      "spanId": "3224e723-ed61-4cdc-988a-2de9b4a4e6c2",
+      "parentSpanId": "trace-1",
+      "startTime": 1782628044638,
+      "attributes": {},
+      "status": "ok",
+      "endTime": 1782628044640
+    },
+    {
+      "name": "tool.call",
+      "traceId": "baa815f3-525e-4120-8637-cb69068ebc76",
+      "spanId": "934ea6ec-9969-4b3f-be39-30c0f8bc65e4",
+      "startTime": 1782628044639,
+      "attributes": {
+        "tool.name": "write_file",
+        "tool.input": "{\"path\":\"src/app.ts\"}",
+        "tool.output": "{\"status\":\"ok\"}",
+        "tool.duration_ms": 50,
+        "tool.success": true
+      },
+      "status": "ok",
+      "endTime": 1782628044639
+    },
+    {
+      "name": "pipeline.harness",
+      "traceId": "9c4283eb-7dc0-494c-8c70-6befea9041c0",
+      "spanId": "06992bba-5e20-43c2-8d44-5e6110377e42",
+      "parentSpanId": "trace-1",
+      "startTime": 1782628044640,
+      "attributes": {},
+      "status": "ok",
+      "endTime": 1782628044643
+    },
+    {
+      "name": "pipeline.review",
+      "traceId": "c9c3e573-545f-4838-bdd6-26e35af7920c",
+      "spanId": "a1bc85cb-9e25-41d1-b5cc-1ddc911a1a02",
+      "parentSpanId": "trace-1",
+      "startTime": 1782628044643,
+      "attributes": {},
+      "status": "ok",
+      "endTime": 1782628044644
+    },
+    {
+      "name": "pipeline.qa",
+      "traceId": "b199b93e-3d45-4913-88d9-c66564d8edee",
+      "spanId": "4ec325f0-3884-4cc1-a492-fe6c5b9bfef2",
+      "parentSpanId": "trace-1",
+      "startTime": 1782628044644,
+      "attributes": {},
+      "status": "ok",
+      "endTime": 1782628044645
+    },
+    {
+      "name": "pipeline.ship",
+      "traceId": "f7c0389a-a015-4cae-a1e4-f1604f4daa95",
+      "spanId": "28aa522b-3578-4d1c-b091-da3aaa1827f8",
+      "parentSpanId": "trace-1",
+      "startTime": 1782628044645,
+      "attributes": {},
+      "status": "ok",
+      "endTime": 1782628044647
+    },
+    {
+      "name": "pipeline.retro",
+      "traceId": "428a70ca-6b68-438d-8b5b-553946103b2a",
+      "spanId": "baa2ab1f-94ff-445a-96e0-2e25069bb93f",
+      "parentSpanId": "trace-1",
+      "startTime": 1782628044647,
+      "attributes": {},
+      "status": "ok",
+      "endTime": 1782628044648
+    },
+    {
+      "name": "pipeline.learn",
+      "traceId": "ea02bc15-507e-4428-8001-8094dced37c5",
+      "spanId": "430f3c6b-9491-4e35-a62f-61936ce90e72",
+      "parentSpanId": "trace-1",
+      "startTime": 1782628044648,
+      "attributes": {},
+      "status": "ok",
+      "endTime": 1782628044649
+    },
+    {
+      "name": "pipeline.evolve",
+      "traceId": "d417966a-6d69-4349-baad-20c6c14978e1",
+      "spanId": "f0b7c159-f8c8-4324-823b-9e0ba9f96bae",
+      "parentSpanId": "trace-1",
+      "startTime": 1782628044649,
+      "attributes": {},
+      "status": "ok",
+      "endTime": 1782628044650
+    },
+    {
+      "name": "pipeline.telemetry",
+      "traceId": "4c209354-3132-4217-9ce2-15b6298dfa18",
+      "spanId": "c1dc61e7-9228-4362-8d12-750b8a1ba262",
+      "parentSpanId": "trace-1",
+      "startTime": 1782628044650,
+      "attributes": {},
+      "status": "ok",
+      "endTime": 1782628044651
+    },
+    {
+      "name": "agent.evaluation",
+      "traceId": "723ffd32-8f08-493b-9bac-949ce90bd02d",
+      "spanId": "39599181-086f-4ff2-99e2-1579eb87d756",
+      "startTime": 1782628044651,
+      "attributes": {
+        "evaluation.name": "task_success",
+        "evaluation.score": 1,
+        "evaluation.passed": true
+      },
+      "status": "ok",
+      "endTime": 1782628044651
+    },
+    {
+      "name": "pipeline.think",
+      "traceId": "264b8e1b-6881-492f-82ba-f6a52e1a2fac",
+      "spanId": "e52aa6f3-c62f-44c7-bfe5-e5964d1fc2b1",
+      "parentSpanId": "trace-2",
+      "startTime": 1782628044651,
+      "attributes": {},
+      "status": "ok",
+      "endTime": 1782628044654
+    },
+    {
+      "name": "pipeline.plan",
+      "traceId": "446e2614-f7dc-4413-be6e-215905fa6983",
+      "spanId": "f7c4df36-b564-4b98-bb46-d0db0732298d",
+      "parentSpanId": "trace-2",
+      "startTime": 1782628044654,
+      "attributes": {},
+      "status": "ok",
+      "endTime": 1782628044655
+    },
+    {
+      "name": "agent.handoff",
+      "traceId": "6274b333-e060-4a88-8641-c4229dff92ac",
+      "spanId": "a5d7f3b2-4845-42aa-87c6-1f7800ab06ec",
+      "startTime": 1782628044654,
+      "attributes": {
+        "agent.handoff.from": "THINKER",
+        "agent.handoff.to": "PLANNER",
+        "agent.handoff.context_size": 1024
+      },
+      "status": "ok",
+      "endTime": 1782628044654
+    },
+    {
+      "name": "pipeline.design",
+      "traceId": "a94300dc-ab87-4e62-b2db-bbeee76fe344",
+      "spanId": "5c178ca9-a1c0-4e89-867e-ae85418f8001",
+      "parentSpanId": "trace-2",
+      "startTime": 1782628044655,
+      "attributes": {},
+      "status": "ok",
+      "endTime": 1782628044656
+    },
+    {
+      "name": "pipeline.break",
+      "traceId": "f526ce30-08d7-4402-a134-d0c495490fab",
+      "spanId": "d2e1a7de-07e4-4a9d-80a7-627963b11bae",
+      "parentSpanId": "trace-2",
+      "startTime": 1782628044656,
+      "attributes": {},
+      "status": "ok",
+      "endTime": 1782628044657
+    },
+    {
+      "name": "pipeline.build",
+      "traceId": "c9e45104-acda-4cc2-b3d0-5b5c67ab7c28",
+      "spanId": "b4557658-447f-4ac2-9e9c-d0c3cdd7209e",
+      "parentSpanId": "trace-2",
+      "startTime": 1782628044657,
+      "attributes": {},
+      "status": "ok",
+      "endTime": 1782628044658
+    },
+    {
+      "name": "tool.call",
+      "traceId": "dda7a937-3b75-418c-a875-1c501cd3c172",
+      "spanId": "0337108e-dd5b-4b12-99da-812257489d45",
+      "startTime": 1782628044657,
+      "attributes": {
+        "tool.name": "write_file",
+        "tool.input": "{\"path\":\"src/app.ts\"}",
+        "tool.output": "{\"status\":\"ok\"}",
+        "tool.duration_ms": 50,
+        "tool.success": true
+      },
+      "status": "ok",
+      "endTime": 1782628044657
+    },
+    {
+      "name": "pipeline.harness",
+      "traceId": "595b071d-bee1-4fa6-bb92-582f62d70c1c",
+      "spanId": "783d5793-7350-4e3a-9727-aba563ead138",
+      "parentSpanId": "trace-2",
+      "startTime": 1782628044658,
+      "attributes": {},
+      "status": "ok",
+      "endTime": 1782628044660
+    },
+    {
+      "name": "pipeline.review",
+      "traceId": "2284ec8a-dedb-4a89-a8ad-ebaf83c1f2f9",
+      "spanId": "9ea7c9a5-df26-40ce-a6aa-b7972e126167",
+      "parentSpanId": "trace-2",
+      "startTime": 1782628044660,
+      "attributes": {},
+      "status": "ok",
+      "endTime": 1782628044661
+    },
+    {
+      "name": "pipeline.qa",
+      "traceId": "576bfdb6-47a5-4c02-8103-2b9724c66246",
+      "spanId": "286d568d-a847-4dc9-a572-b029194ac1e8",
+      "parentSpanId": "trace-2",
+      "startTime": 1782628044661,
+      "attributes": {},
+      "status": "ok",
+      "endTime": 1782628044662
+    },
+    {
+      "name": "pipeline.ship",
+      "traceId": "274ae0d0-261a-4871-8ef9-549226ead4dc",
+      "spanId": "d459a653-021d-4f01-8785-ceb33378b07c",
+      "parentSpanId": "trace-2",
+      "startTime": 1782628044662,
+      "attributes": {},
+      "status": "ok",
+      "endTime": 1782628044663
+    },
+    {
+      "name": "pipeline.retro",
+      "traceId": "45aca53a-f5ac-4b2c-9aae-f53e6eb7979e",
+      "spanId": "f71cd2f5-f9f6-4a41-b999-bd45b8056b3f",
+      "parentSpanId": "trace-2",
+      "startTime": 1782628044663,
+      "attributes": {},
+      "status": "ok",
+      "endTime": 1782628044664
+    },
+    {
+      "name": "pipeline.learn",
+      "traceId": "f5717d8d-0b7c-4ba2-b442-273eb92e09cc",
+      "spanId": "62da89ef-6046-4f86-9c6c-b5240a2e8dc6",
+      "parentSpanId": "trace-2",
+      "startTime": 1782628044664,
+      "attributes": {},
+      "status": "ok",
+      "endTime": 1782628044665
+    },
+    {
+      "name": "pipeline.evolve",
+      "traceId": "477a0279-f0ea-4955-9f91-311f82bb57d4",
+      "spanId": "4c3a743b-b266-4ce9-9f8a-8f9baa6694db",
+      "parentSpanId": "trace-2",
+      "startTime": 1782628044665,
+      "attributes": {},
+      "status": "ok",
+      "endTime": 1782628044667
+    },
+    {
+      "name": "pipeline.telemetry",
+      "traceId": "524a9f79-d57b-423a-8e53-69ffddc2db05",
+      "spanId": "87f2b42d-dc14-4fea-9a9f-2aa926244709",
+      "parentSpanId": "trace-2",
+      "startTime": 1782628044667,
+      "attributes": {},
+      "status": "ok",
+      "endTime": 1782628044668
+    },
+    {
+      "name": "agent.evaluation",
+      "traceId": "b36ef708-374d-4a7b-a6cf-7c1baf873566",
+      "spanId": "6feda763-49fa-4e4a-adb4-8d46f1edf9ba",
+      "startTime": 1782628044668,
+      "attributes": {
+        "evaluation.name": "task_success",
+        "evaluation.score": 1,
+        "evaluation.passed": true
+      },
+      "status": "ok",
+      "endTime": 1782628044668
+    },
+    {
+      "name": "pipeline.think",
+      "traceId": "eebcb9d4-ad5e-4b69-8f41-05d9eeb56280",
+      "spanId": "7afa02ed-8781-4994-9705-8b72d884a812",
+      "parentSpanId": "trace-3",
+      "startTime": 1782628044668,
+      "attributes": {},
+      "status": "ok",
+      "endTime": 1782628044670
+    },
+    {
+      "name": "pipeline.plan",
+      "traceId": "83177a59-e7b0-46c5-a80d-b158f2f9078e",
+      "spanId": "6f010664-0483-4bb0-b9ae-0aa4370ce7e9",
+      "parentSpanId": "trace-3",
+      "startTime": 1782628044670,
+      "attributes": {},
+      "status": "ok",
+      "endTime": 1782628044671
+    },
+    {
+      "name": "agent.handoff",
+      "traceId": "edd9245f-cee8-44e1-986f-c32e6509653c",
+      "spanId": "40494350-4f71-4f52-ba69-93dd4eb0fa37",
+      "startTime": 1782628044670,
+      "attributes": {
+        "agent.handoff.from": "THINKER",
+        "agent.handoff.to": "PLANNER",
+        "agent.handoff.context_size": 1024
+      },
+      "status": "ok",
+      "endTime": 1782628044670
+    },
+    {
+      "name": "pipeline.design",
+      "traceId": "a531d56d-d855-4237-b884-77826344e23a",
+      "spanId": "26f59daf-bdea-4224-bf96-0ab0c059330b",
+      "parentSpanId": "trace-3",
+      "startTime": 1782628044671,
+      "attributes": {},
+      "status": "ok",
+      "endTime": 1782628044672
+    },
+    {
+      "name": "pipeline.break",
+      "traceId": "2b9bbf5b-ecd2-4831-8197-b4acc52f5969",
+      "spanId": "100accc4-07af-427f-955d-5b6300c388bd",
+      "parentSpanId": "trace-3",
+      "startTime": 1782628044672,
+      "attributes": {},
+      "status": "ok",
+      "endTime": 1782628044673
+    },
+    {
+      "name": "pipeline.build",
+      "traceId": "3f1500b8-abd3-4aef-a10c-c4b552e36717",
+      "spanId": "0f291cca-9ed6-48f1-bfb3-24663d5d46e9",
+      "parentSpanId": "trace-3",
+      "startTime": 1782628044673,
+      "attributes": {},
+      "status": "ok",
+      "endTime": 1782628044674
+    },
+    {
+      "name": "tool.call",
+      "traceId": "5617bf76-bccd-430b-b2ee-8c0a83ad55ef",
+      "spanId": "c339af4a-af09-4dc3-80ce-937422a37b40",
+      "startTime": 1782628044673,
+      "attributes": {
+        "tool.name": "write_file",
+        "tool.input": "{\"path\":\"src/app.ts\"}",
+        "tool.output": "{\"status\":\"ok\"}",
+        "tool.duration_ms": 50,
+        "tool.success": true
+      },
+      "status": "ok",
+      "endTime": 1782628044673
+    },
+    {
+      "name": "pipeline.harness",
+      "traceId": "54d4d11d-56ac-4cbc-a817-725ab2fe680e",
+      "spanId": "74d08b0f-c9de-4b7e-be57-654bce9c5e05",
+      "parentSpanId": "trace-3",
+      "startTime": 1782628044674,
+      "attributes": {},
+      "status": "ok",
+      "endTime": 1782628044676
+    },
+    {
+      "name": "pipeline.review",
+      "traceId": "88d4ebd4-9983-432f-b04c-f3ce449a7c8e",
+      "spanId": "44d47f0e-0de2-46e0-8e8a-1452635861c0",
+      "parentSpanId": "trace-3",
+      "startTime": 1782628044676,
+      "attributes": {},
+      "status": "ok",
+      "endTime": 1782628044677
+    },
+    {
+      "name": "pipeline.qa",
+      "traceId": "29fd34d1-7acb-4a20-afc6-77e46f40658f",
+      "spanId": "6bdd3988-e305-44fe-b3a1-5270edc58b18",
+      "parentSpanId": "trace-3",
+      "startTime": 1782628044677,
+      "attributes": {},
+      "status": "ok",
+      "endTime": 1782628044678
+    },
+    {
+      "name": "pipeline.ship",
+      "traceId": "3ab220af-88bb-425d-a48c-8bf44a6951cc",
+      "spanId": "db5ffa3d-bc31-47d1-b9d3-21f4ac2119f3",
+      "parentSpanId": "trace-3",
+      "startTime": 1782628044678,
+      "attributes": {},
+      "status": "ok",
+      "endTime": 1782628044679
+    },
+    {
+      "name": "pipeline.retro",
+      "traceId": "90583cbd-ee3a-43e8-b34e-e3eb9a00c2fa",
+      "spanId": "73c57ad1-7e8a-45a2-993b-758da901dc19",
+      "parentSpanId": "trace-3",
+      "startTime": 1782628044679,
+      "attributes": {},
+      "status": "ok",
+      "endTime": 1782628044680
+    },
+    {
+      "name": "pipeline.learn",
+      "traceId": "4a2b39be-f43d-4a64-8b78-137a9ba9be31",
+      "spanId": "57746c65-69ab-4d74-b8bb-272fa5cdfa17",
+      "parentSpanId": "trace-3",
+      "startTime": 1782628044680,
+      "attributes": {},
+      "status": "ok",
+      "endTime": 1782628044681
+    },
+    {
+      "name": "pipeline.evolve",
+      "traceId": "5691d3a0-c391-4e9e-8dc0-726c7d1bbabe",
+      "spanId": "b98c74c4-d436-4450-832b-e5103255575e",
+      "parentSpanId": "trace-3",
+      "startTime": 1782628044681,
+      "attributes": {},
+      "status": "ok",
+      "endTime": 1782628044683
+    },
+    {
+      "name": "pipeline.telemetry",
+      "traceId": "505169b7-6b84-468c-a4f0-f5b3b68dbf71",
+      "spanId": "bb95da46-e923-449b-87d5-ccc26557c998",
+      "parentSpanId": "trace-3",
+      "startTime": 1782628044683,
+      "attributes": {},
+      "status": "ok",
+      "endTime": 1782628044684
+    },
+    {
+      "name": "agent.evaluation",
+      "traceId": "6b9bf856-cd67-4829-ac14-c03e7e429915",
+      "spanId": "a2ca4191-34e6-433d-98c6-92418a6287aa",
+      "startTime": 1782628044684,
+      "attributes": {
+        "evaluation.name": "task_success",
+        "evaluation.score": 1,
+        "evaluation.passed": true
+      },
+      "status": "ok",
+      "endTime": 1782628044684
+    },
+    {
+      "name": "pipeline.think",
+      "traceId": "b0180beb-cdfb-4eec-8950-cbd5aeeea9de",
+      "spanId": "1f6cfd30-a56f-464e-8caf-9781b8c1c182",
+      "parentSpanId": "trace-4",
+      "startTime": 1782628044684,
+      "attributes": {},
+      "status": "ok",
+      "endTime": 1782628044686
+    },
+    {
+      "name": "pipeline.plan",
+      "traceId": "a21c811c-5aed-410c-8987-0674cee2d1f0",
+      "spanId": "0efb6ba3-eff2-40cc-891f-4f7163740e55",
+      "parentSpanId": "trace-4",
+      "startTime": 1782628044686,
+      "attributes": {},
+      "status": "ok",
+      "endTime": 1782628044687
+    },
+    {
+      "name": "agent.handoff",
+      "traceId": "c2e858b3-6aff-44d6-9a73-c5673ad71533",
+      "spanId": "23c5a11b-b16e-4d78-8bdb-479ee97a78ba",
+      "startTime": 1782628044686,
+      "attributes": {
+        "agent.handoff.from": "THINKER",
+        "agent.handoff.to": "PLANNER",
+        "agent.handoff.context_size": 1024
+      },
+      "status": "ok",
+      "endTime": 1782628044686
+    },
+    {
+      "name": "pipeline.design",
+      "traceId": "82250566-6364-495e-ab41-1d534a31b75b",
+      "spanId": "7d871df5-3f1e-4b7c-a610-c4beb8be2ae1",
+      "parentSpanId": "trace-4",
+      "startTime": 1782628044687,
+      "attributes": {},
+      "status": "ok",
+      "endTime": 1782628044688
+    },
+    {
+      "name": "pipeline.break",
+      "traceId": "673b81f2-0493-4eb4-8af6-f2ee4a5b1140",
+      "spanId": "89c56cab-d838-4354-83ed-819d281da292",
+      "parentSpanId": "trace-4",
+      "startTime": 1782628044688,
+      "attributes": {},
+      "status": "ok",
+      "endTime": 1782628044689
+    },
+    {
+      "name": "pipeline.build",
+      "traceId": "b24c301d-a536-46a0-9032-497fda763a0d",
+      "spanId": "58541265-ecc8-4b37-9ef1-538b843f980f",
+      "parentSpanId": "trace-4",
+      "startTime": 1782628044689,
+      "attributes": {},
+      "status": "ok",
+      "endTime": 1782628044691
+    },
+    {
+      "name": "tool.call",
+      "traceId": "282b3365-a2b0-49eb-a8c4-0fc851ff14bf",
+      "spanId": "ad5bf389-c932-4d84-9845-cb7a833657d5",
+      "startTime": 1782628044689,
+      "attributes": {
+        "tool.name": "write_file",
+        "tool.input": "{\"path\":\"src/app.ts\"}",
+        "tool.output": "{\"status\":\"ok\"}",
+        "tool.duration_ms": 50,
+        "tool.success": true
+      },
+      "status": "ok",
+      "endTime": 1782628044689
+    },
+    {
+      "name": "pipeline.harness",
+      "traceId": "bc2bf822-d6ed-4fd1-91b1-bd06efde82e5",
+      "spanId": "57b5e737-a266-461d-8848-f5fcd59719d3",
+      "parentSpanId": "trace-4",
+      "startTime": 1782628044691,
+      "attributes": {},
+      "status": "ok",
+      "endTime": 1782628044692
+    },
+    {
+      "name": "pipeline.review",
+      "traceId": "2fd323e5-5757-4c7e-9508-302752751969",
+      "spanId": "bdd40516-fc4a-47ad-8f2c-9c6eb2244360",
+      "parentSpanId": "trace-4",
+      "startTime": 1782628044692,
+      "attributes": {},
+      "status": "ok",
+      "endTime": 1782628044693
+    },
+    {
+      "name": "pipeline.qa",
+      "traceId": "63725957-7d8d-4442-9f8d-09fd8d5465ff",
+      "spanId": "ebfecc0f-978f-4f4a-9e67-380678ffc47b",
+      "parentSpanId": "trace-4",
+      "startTime": 1782628044693,
+      "attributes": {},
+      "status": "ok",
+      "endTime": 1782628044694
+    },
+    {
+      "name": "pipeline.ship",
+      "traceId": "c6f93dc5-fdf7-4f68-bb0c-4347bc128843",
+      "spanId": "3a33179a-dbb2-4e31-8ca5-dbdbbb367edd",
+      "parentSpanId": "trace-4",
+      "startTime": 1782628044694,
+      "attributes": {},
+      "status": "ok",
+      "endTime": 1782628044695
+    },
+    {
+      "name": "pipeline.retro",
+      "traceId": "3dc645ac-4f51-4be1-ba77-88dbe266d50e",
+      "spanId": "062539cc-bdae-4e4b-9c35-af5b1f064666",
+      "parentSpanId": "trace-4",
+      "startTime": 1782628044695,
+      "attributes": {},
+      "status": "ok",
+      "endTime": 1782628044696
+    },
+    {
+      "name": "pipeline.learn",
+      "traceId": "647f6acb-7674-4528-b410-3f6f0a47ede4",
+      "spanId": "b9df0a64-03c2-4a83-bd13-b8b6e2300005",
+      "parentSpanId": "trace-4",
+      "startTime": 1782628044696,
+      "attributes": {},
+      "status": "ok",
+      "endTime": 1782628044698
+    },
+    {
+      "name": "pipeline.evolve",
+      "traceId": "92383196-0b94-4434-a5be-70233660df64",
+      "spanId": "c257784c-bd7b-4a1e-afa3-9830cab304c8",
+      "parentSpanId": "trace-4",
+      "startTime": 1782628044698,
+      "attributes": {},
+      "status": "ok",
+      "endTime": 1782628044699
+    },
+    {
+      "name": "pipeline.telemetry",
+      "traceId": "7af65201-8a9d-4c1d-9e57-306292dcf54f",
+      "spanId": "8b9243cd-1dd1-4abe-8a42-82a4f6fd54d8",
+      "parentSpanId": "trace-4",
+      "startTime": 1782628044699,
+      "attributes": {},
+      "status": "ok",
+      "endTime": 1782628044700
+    },
+    {
+      "name": "agent.evaluation",
+      "traceId": "55918733-3253-423b-b6bf-893ba9fd8560",
+      "spanId": "51374579-66aa-43b3-98a1-903dc54dddf9",
+      "startTime": 1782628044700,
+      "attributes": {
+        "evaluation.name": "task_success",
+        "evaluation.score": 1,
+        "evaluation.passed": true
+      },
+      "status": "ok",
+      "endTime": 1782628044700
+    }
+  ],
+  "metrics": {
+    "totalTokens": 0,
+    "totalCost": 0,
+    "averageLatency": 0,
+    "errorRate": 0,
+    "toolFailureRate": 0,
+    "stuckDetections": 1
+  },
+  "traces": {
+    "faaa0698-7ea6-454a-be8a-1f21b1bdd40d": [
+      {
+        "name": "sim.plugins",
+        "traceId": "faaa0698-7ea6-454a-be8a-1f21b1bdd40d",
+        "spanId": "24f22266-cdb3-417d-8daa-37722a0202e4",
+        "startTime": 1782628044613,
+        "attributes": {},
+        "status": "ok",
+        "endTime": 1782628044614
+      }
+    ],
+    "edee93b4-591a-4a94-86d4-1bdbc3396285": [
+      {
+        "name": "sim.tool_policy",
+        "traceId": "edee93b4-591a-4a94-86d4-1bdbc3396285",
+        "spanId": "7496a72b-96d1-4dc2-bf60-1002816d94d0",
+        "startTime": 1782628044614,
+        "attributes": {},
+        "status": "ok",
+        "endTime": 1782628044614
+      }
+    ],
+    "7688fe50-bf35-4164-86a7-fec2ec38f6de": [
+      {
+        "name": "sim.memory",
+        "traceId": "7688fe50-bf35-4164-86a7-fec2ec38f6de",
+        "spanId": "cd45a7c0-f739-4ed8-a083-2ccb16969136",
+        "startTime": 1782628044614,
+        "attributes": {},
+        "status": "ok",
+        "endTime": 1782628044616
+      }
+    ],
+    "631e7c72-fbd8-4010-a540-dd0eabd607e9": [
+      {
+        "name": "sim.pipeline",
+        "traceId": "631e7c72-fbd8-4010-a540-dd0eabd607e9",
+        "spanId": "5fbe2b51-a92d-4080-a03e-613ade5c7634",
+        "startTime": 1782628044616,
+        "attributes": {},
+        "status": "ok",
+        "endTime": 1782628044700
+      }
+    ],
+    "68430a46-225f-4e17-ab53-49020f23520d": [
+      {
+        "name": "pipeline.think",
+        "traceId": "68430a46-225f-4e17-ab53-49020f23520d",
+        "spanId": "c9c8f60c-4464-46d9-83bf-e48364676ffb",
+        "parentSpanId": "trace-0",
+        "startTime": 1782628044616,
+        "attributes": {},
+        "status": "ok",
+        "endTime": 1782628044617
+      }
+    ],
+    "18299186-3cad-4606-a422-7258853e5bb9": [
+      {
+        "name": "sim.concurrency",
+        "traceId": "18299186-3cad-4606-a422-7258853e5bb9",
+        "spanId": "c74dfe06-d2ef-4409-9533-5327311325d1",
+        "startTime": 1782628044616,
+        "attributes": {},
+        "status": "ok",
+        "endTime": 1782628044623
+      }
+    ],
+    "ba88f3a7-be36-4fb4-96db-b2979344867e": [
+      {
+        "name": "pipeline.plan",
+        "traceId": "ba88f3a7-be36-4fb4-96db-b2979344867e",
+        "spanId": "ccf3f00d-f4ce-48b1-b24b-2b35166802ef",
+        "parentSpanId": "trace-0",
+        "startTime": 1782628044617,
+        "attributes": {},
+        "status": "ok",
+        "endTime": 1782628044618
+      }
+    ],
+    "8c4805e0-509c-4aaa-bad3-07a557bf777f": [
+      {
+        "name": "agent.handoff",
+        "traceId": "8c4805e0-509c-4aaa-bad3-07a557bf777f",
+        "spanId": "c36571ad-ae41-4f79-be75-55fded2211d7",
+        "startTime": 1782628044617,
+        "attributes": {
+          "agent.handoff.from": "THINKER",
+          "agent.handoff.to": "PLANNER",
+          "agent.handoff.context_size": 1024
+        },
+        "status": "ok",
+        "endTime": 1782628044617
+      }
+    ],
+    "e20b0524-ec88-4cbe-86c5-d2e37b853868": [
+      {
+        "name": "pipeline.design",
+        "traceId": "e20b0524-ec88-4cbe-86c5-d2e37b853868",
+        "spanId": "b1f94217-d5d6-44b1-8cb6-f4bfd0eaa846",
+        "parentSpanId": "trace-0",
+        "startTime": 1782628044618,
+        "attributes": {},
+        "status": "ok",
+        "endTime": 1782628044619
+      }
+    ],
+    "88b80b6f-4c28-4b9b-8fe9-712f64b68958": [
+      {
+        "name": "pipeline.break",
+        "traceId": "88b80b6f-4c28-4b9b-8fe9-712f64b68958",
+        "spanId": "b4b7d759-78cf-424d-acab-d83ad721dcf3",
+        "parentSpanId": "trace-0",
+        "startTime": 1782628044619,
+        "attributes": {},
+        "status": "ok",
+        "endTime": 1782628044621
+      }
+    ],
+    "f6d5d138-91ab-4dca-8d1d-f7ff66c7b7d8": [
+      {
+        "name": "pipeline.build",
+        "traceId": "f6d5d138-91ab-4dca-8d1d-f7ff66c7b7d8",
+        "spanId": "fc9f1dfe-d2b2-469e-abac-6e960a90bea3",
+        "parentSpanId": "trace-0",
+        "startTime": 1782628044621,
+        "attributes": {},
+        "status": "ok",
+        "endTime": 1782628044623
+      }
+    ],
+    "6c4cd3e6-5730-400d-ae87-37b40783d4b6": [
+      {
+        "name": "tool.call",
+        "traceId": "6c4cd3e6-5730-400d-ae87-37b40783d4b6",
+        "spanId": "e5173016-0fe3-4062-80e7-8fedc1f34719",
+        "startTime": 1782628044622,
+        "attributes": {
+          "tool.name": "write_file",
+          "tool.input": "{\"path\":\"src/app.ts\"}",
+          "tool.output": "{\"status\":\"ok\"}",
+          "tool.duration_ms": 50,
+          "tool.success": true
+        },
+        "status": "ok",
+        "endTime": 1782628044622
+      }
+    ],
+    "6fbb65cc-1e86-4889-875b-1fbb354d2619": [
+      {
+        "name": "pipeline.harness",
+        "traceId": "6fbb65cc-1e86-4889-875b-1fbb354d2619",
+        "spanId": "733dfb1e-46e8-4749-a0f5-a1b2fdec6f67",
+        "parentSpanId": "trace-0",
+        "startTime": 1782628044623,
+        "attributes": {},
+        "status": "ok",
+        "endTime": 1782628044624
+      }
+    ],
+    "071fe120-8362-4b43-a805-6fdb35da63d6": [
+      {
+        "name": "pipeline.review",
+        "traceId": "071fe120-8362-4b43-a805-6fdb35da63d6",
+        "spanId": "697fae1e-1b19-4d76-8697-2369333c73a4",
+        "parentSpanId": "trace-0",
+        "startTime": 1782628044624,
+        "attributes": {},
+        "status": "ok",
+        "endTime": 1782628044625
+      }
+    ],
+    "645bd041-08f4-43a8-9755-68c335124785": [
+      {
+        "name": "pipeline.qa",
+        "traceId": "645bd041-08f4-43a8-9755-68c335124785",
+        "spanId": "a24a31e3-985a-4421-a737-0d9a5d341359",
+        "parentSpanId": "trace-0",
+        "startTime": 1782628044625,
+        "attributes": {},
+        "status": "ok",
+        "endTime": 1782628044626
+      }
+    ],
+    "992181ed-f5f7-4b5c-b26b-fc1da60e126d": [
+      {
+        "name": "pipeline.ship",
+        "traceId": "992181ed-f5f7-4b5c-b26b-fc1da60e126d",
+        "spanId": "ef0202be-f430-4e49-a62e-02fd1e0c8dd9",
+        "parentSpanId": "trace-0",
+        "startTime": 1782628044626,
+        "attributes": {},
+        "status": "ok",
+        "endTime": 1782628044628
+      }
+    ],
+    "949f440e-a956-43ef-b1f2-8e9f8ef53f5a": [
+      {
+        "name": "pipeline.retro",
+        "traceId": "949f440e-a956-43ef-b1f2-8e9f8ef53f5a",
+        "spanId": "b08e4ec9-0406-47f9-8f33-350973e76b6a",
+        "parentSpanId": "trace-0",
+        "startTime": 1782628044628,
+        "attributes": {},
+        "status": "ok",
+        "endTime": 1782628044629
+      }
+    ],
+    "45e1f6f4-107d-4236-a6ad-1688a512e7f3": [
+      {
+        "name": "pipeline.learn",
+        "traceId": "45e1f6f4-107d-4236-a6ad-1688a512e7f3",
+        "spanId": "0d1fe7ce-ed6c-469d-af25-fef6e8d1ddc0",
+        "parentSpanId": "trace-0",
+        "startTime": 1782628044629,
+        "attributes": {},
+        "status": "ok",
+        "endTime": 1782628044630
+      }
+    ],
+    "2e6878e8-b559-4b17-bc71-ec58a81ba37c": [
+      {
+        "name": "pipeline.evolve",
+        "traceId": "2e6878e8-b559-4b17-bc71-ec58a81ba37c",
+        "spanId": "85ba50aa-5173-4e35-afef-f4ea56e1e176",
+        "parentSpanId": "trace-0",
+        "startTime": 1782628044630,
+        "attributes": {},
+        "status": "ok",
+        "endTime": 1782628044632
+      }
+    ],
+    "c7023e38-1f82-4226-b820-0d2a49ed2206": [
+      {
+        "name": "pipeline.telemetry",
+        "traceId": "c7023e38-1f82-4226-b820-0d2a49ed2206",
+        "spanId": "2d80d593-7d0f-4a29-8892-fb545d2da6cd",
+        "parentSpanId": "trace-0",
+        "startTime": 1782628044632,
+        "attributes": {},
+        "status": "ok",
+        "endTime": 1782628044633
+      }
+    ],
+    "8139a5c6-d651-4f7e-be66-ddf2eca95774": [
+      {
+        "name": "agent.evaluation",
+        "traceId": "8139a5c6-d651-4f7e-be66-ddf2eca95774",
+        "spanId": "9a70496a-f5e5-4d05-b0f8-15ecf77a455d",
+        "startTime": 1782628044633,
+        "attributes": {
+          "evaluation.name": "task_success",
+          "evaluation.score": 1,
+          "evaluation.passed": true
+        },
+        "status": "ok",
+        "endTime": 1782628044633
+      }
+    ],
+    "c837bb26-9055-44e9-936d-89a39f7256ac": [
+      {
+        "name": "pipeline.think",
+        "traceId": "c837bb26-9055-44e9-936d-89a39f7256ac",
+        "spanId": "c9f4f74a-fb0e-4c23-8805-01661b71df4c",
+        "parentSpanId": "trace-1",
+        "startTime": 1782628044633,
+        "attributes": {},
+        "status": "ok",
+        "endTime": 1782628044634
+      }
+    ],
+    "7f06e492-501a-4848-8a1a-f5b18264c021": [
+      {
+        "name": "pipeline.plan",
+        "traceId": "7f06e492-501a-4848-8a1a-f5b18264c021",
+        "spanId": "62886c68-5c71-4d4d-9dee-91f4a7efd41a",
+        "parentSpanId": "trace-1",
+        "startTime": 1782628044634,
+        "attributes": {},
+        "status": "ok",
+        "endTime": 1782628044635
+      }
+    ],
+    "6c853ec7-686d-4079-be64-3ae6e7c6af06": [
+      {
+        "name": "agent.handoff",
+        "traceId": "6c853ec7-686d-4079-be64-3ae6e7c6af06",
+        "spanId": "ff66a1ee-79fc-4578-8d94-9cb0d681de8e",
+        "startTime": 1782628044634,
+        "attributes": {
+          "agent.handoff.from": "THINKER",
+          "agent.handoff.to": "PLANNER",
+          "agent.handoff.context_size": 1024
+        },
+        "status": "ok",
+        "endTime": 1782628044634
+      }
+    ],
+    "84aff7be-ab62-43bd-9d76-d6aa3dc32071": [
+      {
+        "name": "pipeline.design",
+        "traceId": "84aff7be-ab62-43bd-9d76-d6aa3dc32071",
+        "spanId": "4fa201e8-f0cb-4b22-a4cf-f4c55127502c",
+        "parentSpanId": "trace-1",
+        "startTime": 1782628044635,
+        "attributes": {},
+        "status": "ok",
+        "endTime": 1782628044637
+      }
+    ],
+    "20b0ac76-aebb-4100-816e-b4035bd77caf": [
+      {
+        "name": "pipeline.break",
+        "traceId": "20b0ac76-aebb-4100-816e-b4035bd77caf",
+        "spanId": "1a809081-5e3a-48b1-9d5b-03552524181c",
+        "parentSpanId": "trace-1",
+        "startTime": 1782628044637,
+        "attributes": {},
+        "status": "ok",
+        "endTime": 1782628044638
+      }
+    ],
+    "7c4e6c4d-8532-47f3-b353-2e6401528f46": [
+      {
+        "name": "pipeline.build",
+        "traceId": "7c4e6c4d-8532-47f3-b353-2e6401528f46",
+        "spanId": "3224e723-ed61-4cdc-988a-2de9b4a4e6c2",
+        "parentSpanId": "trace-1",
+        "startTime": 1782628044638,
+        "attributes": {},
+        "status": "ok",
+        "endTime": 1782628044640
+      }
+    ],
+    "baa815f3-525e-4120-8637-cb69068ebc76": [
+      {
+        "name": "tool.call",
+        "traceId": "baa815f3-525e-4120-8637-cb69068ebc76",
+        "spanId": "934ea6ec-9969-4b3f-be39-30c0f8bc65e4",
+        "startTime": 1782628044639,
+        "attributes": {
+          "tool.name": "write_file",
+          "tool.input": "{\"path\":\"src/app.ts\"}",
+          "tool.output": "{\"status\":\"ok\"}",
+          "tool.duration_ms": 50,
+          "tool.success": true
+        },
+        "status": "ok",
+        "endTime": 1782628044639
+      }
+    ],
+    "9c4283eb-7dc0-494c-8c70-6befea9041c0": [
+      {
+        "name": "pipeline.harness",
+        "traceId": "9c4283eb-7dc0-494c-8c70-6befea9041c0",
+        "spanId": "06992bba-5e20-43c2-8d44-5e6110377e42",
+        "parentSpanId": "trace-1",
+        "startTime": 1782628044640,
+        "attributes": {},
+        "status": "ok",
+        "endTime": 1782628044643
+      }
+    ],
+    "c9c3e573-545f-4838-bdd6-26e35af7920c": [
+      {
+        "name": "pipeline.review",
+        "traceId": "c9c3e573-545f-4838-bdd6-26e35af7920c",
+        "spanId": "a1bc85cb-9e25-41d1-b5cc-1ddc911a1a02",
+        "parentSpanId": "trace-1",
+        "startTime": 1782628044643,
+        "attributes": {},
+        "status": "ok",
+        "endTime": 1782628044644
+      }
+    ],
+    "b199b93e-3d45-4913-88d9-c66564d8edee": [
+      {
+        "name": "pipeline.qa",
+        "traceId": "b199b93e-3d45-4913-88d9-c66564d8edee",
+        "spanId": "4ec325f0-3884-4cc1-a492-fe6c5b9bfef2",
+        "parentSpanId": "trace-1",
+        "startTime": 1782628044644,
+        "attributes": {},
+        "status": "ok",
+        "endTime": 1782628044645
+      }
+    ],
+    "f7c0389a-a015-4cae-a1e4-f1604f4daa95": [
+      {
+        "name": "pipeline.ship",
+        "traceId": "f7c0389a-a015-4cae-a1e4-f1604f4daa95",
+        "spanId": "28aa522b-3578-4d1c-b091-da3aaa1827f8",
+        "parentSpanId": "trace-1",
+        "startTime": 1782628044645,
+        "attributes": {},
+        "status": "ok",
+        "endTime": 1782628044647
+      }
+    ],
+    "428a70ca-6b68-438d-8b5b-553946103b2a": [
+      {
+        "name": "pipeline.retro",
+        "traceId": "428a70ca-6b68-438d-8b5b-553946103b2a",
+        "spanId": "baa2ab1f-94ff-445a-96e0-2e25069bb93f",
+        "parentSpanId": "trace-1",
+        "startTime": 1782628044647,
+        "attributes": {},
+        "status": "ok",
+        "endTime": 1782628044648
+      }
+    ],
+    "ea02bc15-507e-4428-8001-8094dced37c5": [
+      {
+        "name": "pipeline.learn",
+        "traceId": "ea02bc15-507e-4428-8001-8094dced37c5",
+        "spanId": "430f3c6b-9491-4e35-a62f-61936ce90e72",
+        "parentSpanId": "trace-1",
+        "startTime": 1782628044648,
+        "attributes": {},
+        "status": "ok",
+        "endTime": 1782628044649
+      }
+    ],
+    "d417966a-6d69-4349-baad-20c6c14978e1": [
+      {
+        "name": "pipeline.evolve",
+        "traceId": "d417966a-6d69-4349-baad-20c6c14978e1",
+        "spanId": "f0b7c159-f8c8-4324-823b-9e0ba9f96bae",
+        "parentSpanId": "trace-1",
+        "startTime": 1782628044649,
+        "attributes": {},
+        "status": "ok",
+        "endTime": 1782628044650
+      }
+    ],
+    "4c209354-3132-4217-9ce2-15b6298dfa18": [
+      {
+        "name": "pipeline.telemetry",
+        "traceId": "4c209354-3132-4217-9ce2-15b6298dfa18",
+        "spanId": "c1dc61e7-9228-4362-8d12-750b8a1ba262",
+        "parentSpanId": "trace-1",
+        "startTime": 1782628044650,
+        "attributes": {},
+        "status": "ok",
+        "endTime": 1782628044651
+      }
+    ],
+    "723ffd32-8f08-493b-9bac-949ce90bd02d": [
+      {
+        "name": "agent.evaluation",
+        "traceId": "723ffd32-8f08-493b-9bac-949ce90bd02d",
+        "spanId": "39599181-086f-4ff2-99e2-1579eb87d756",
+        "startTime": 1782628044651,
+        "attributes": {
+          "evaluation.name": "task_success",
+          "evaluation.score": 1,
+          "evaluation.passed": true
+        },
+        "status": "ok",
+        "endTime": 1782628044651
+      }
+    ],
+    "264b8e1b-6881-492f-82ba-f6a52e1a2fac": [
+      {
+        "name": "pipeline.think",
+        "traceId": "264b8e1b-6881-492f-82ba-f6a52e1a2fac",
+        "spanId": "e52aa6f3-c62f-44c7-bfe5-e5964d1fc2b1",
+        "parentSpanId": "trace-2",
+        "startTime": 1782628044651,
+        "attributes": {},
+        "status": "ok",
+        "endTime": 1782628044654
+      }
+    ],
+    "446e2614-f7dc-4413-be6e-215905fa6983": [
+      {
+        "name": "pipeline.plan",
+        "traceId": "446e2614-f7dc-4413-be6e-215905fa6983",
+        "spanId": "f7c4df36-b564-4b98-bb46-d0db0732298d",
+        "parentSpanId": "trace-2",
+        "startTime": 1782628044654,
+        "attributes": {},
+        "status": "ok",
+        "endTime": 1782628044655
+      }
+    ],
+    "6274b333-e060-4a88-8641-c4229dff92ac": [
+      {
+        "name": "agent.handoff",
+        "traceId": "6274b333-e060-4a88-8641-c4229dff92ac",
+        "spanId": "a5d7f3b2-4845-42aa-87c6-1f7800ab06ec",
+        "startTime": 1782628044654,
+        "attributes": {
+          "agent.handoff.from": "THINKER",
+          "agent.handoff.to": "PLANNER",
+          "agent.handoff.context_size": 1024
+        },
+        "status": "ok",
+        "endTime": 1782628044654
+      }
+    ],
+    "a94300dc-ab87-4e62-b2db-bbeee76fe344": [
+      {
+        "name": "pipeline.design",
+        "traceId": "a94300dc-ab87-4e62-b2db-bbeee76fe344",
+        "spanId": "5c178ca9-a1c0-4e89-867e-ae85418f8001",
+        "parentSpanId": "trace-2",
+        "startTime": 1782628044655,
+        "attributes": {},
+        "status": "ok",
+        "endTime": 1782628044656
+      }
+    ],
+    "f526ce30-08d7-4402-a134-d0c495490fab": [
+      {
+        "name": "pipeline.break",
+        "traceId": "f526ce30-08d7-4402-a134-d0c495490fab",
+        "spanId": "d2e1a7de-07e4-4a9d-80a7-627963b11bae",
+        "parentSpanId": "trace-2",
+        "startTime": 1782628044656,
+        "attributes": {},
+        "status": "ok",
+        "endTime": 1782628044657
+      }
+    ],
+    "c9e45104-acda-4cc2-b3d0-5b5c67ab7c28": [
+      {
+        "name": "pipeline.build",
+        "traceId": "c9e45104-acda-4cc2-b3d0-5b5c67ab7c28",
+        "spanId": "b4557658-447f-4ac2-9e9c-d0c3cdd7209e",
+        "parentSpanId": "trace-2",
+        "startTime": 1782628044657,
+        "attributes": {},
+        "status": "ok",
+        "endTime": 1782628044658
+      }
+    ],
+    "dda7a937-3b75-418c-a875-1c501cd3c172": [
+      {
+        "name": "tool.call",
+        "traceId": "dda7a937-3b75-418c-a875-1c501cd3c172",
+        "spanId": "0337108e-dd5b-4b12-99da-812257489d45",
+        "startTime": 1782628044657,
+        "attributes": {
+          "tool.name": "write_file",
+          "tool.input": "{\"path\":\"src/app.ts\"}",
+          "tool.output": "{\"status\":\"ok\"}",
+          "tool.duration_ms": 50,
+          "tool.success": true
+        },
+        "status": "ok",
+        "endTime": 1782628044657
+      }
+    ],
+    "595b071d-bee1-4fa6-bb92-582f62d70c1c": [
+      {
+        "name": "pipeline.harness",
+        "traceId": "595b071d-bee1-4fa6-bb92-582f62d70c1c",
+        "spanId": "783d5793-7350-4e3a-9727-aba563ead138",
+        "parentSpanId": "trace-2",
+        "startTime": 1782628044658,
+        "attributes": {},
+        "status": "ok",
+        "endTime": 1782628044660
+      }
+    ],
+    "2284ec8a-dedb-4a89-a8ad-ebaf83c1f2f9": [
+      {
+        "name": "pipeline.review",
+        "traceId": "2284ec8a-dedb-4a89-a8ad-ebaf83c1f2f9",
+        "spanId": "9ea7c9a5-df26-40ce-a6aa-b7972e126167",
+        "parentSpanId": "trace-2",
+        "startTime": 1782628044660,
+        "attributes": {},
+        "status": "ok",
+        "endTime": 1782628044661
+      }
+    ],
+    "576bfdb6-47a5-4c02-8103-2b9724c66246": [
+      {
+        "name": "pipeline.qa",
+        "traceId": "576bfdb6-47a5-4c02-8103-2b9724c66246",
+        "spanId": "286d568d-a847-4dc9-a572-b029194ac1e8",
+        "parentSpanId": "trace-2",
+        "startTime": 1782628044661,
+        "attributes": {},
+        "status": "ok",
+        "endTime": 1782628044662
+      }
+    ],
+    "274ae0d0-261a-4871-8ef9-549226ead4dc": [
+      {
+        "name": "pipeline.ship",
+        "traceId": "274ae0d0-261a-4871-8ef9-549226ead4dc",
+        "spanId": "d459a653-021d-4f01-8785-ceb33378b07c",
+        "parentSpanId": "trace-2",
+        "startTime": 1782628044662,
+        "attributes": {},
+        "status": "ok",
+        "endTime": 1782628044663
+      }
+    ],
+    "45aca53a-f5ac-4b2c-9aae-f53e6eb7979e": [
+      {
+        "name": "pipeline.retro",
+        "traceId": "45aca53a-f5ac-4b2c-9aae-f53e6eb7979e",
+        "spanId": "f71cd2f5-f9f6-4a41-b999-bd45b8056b3f",
+        "parentSpanId": "trace-2",
+        "startTime": 1782628044663,
+        "attributes": {},
+        "status": "ok",
+        "endTime": 1782628044664
+      }
+    ],
+    "f5717d8d-0b7c-4ba2-b442-273eb92e09cc": [
+      {
+        "name": "pipeline.learn",
+        "traceId": "f5717d8d-0b7c-4ba2-b442-273eb92e09cc",
+        "spanId": "62da89ef-6046-4f86-9c6c-b5240a2e8dc6",
+        "parentSpanId": "trace-2",
+        "startTime": 1782628044664,
+        "attributes": {},
+        "status": "ok",
+        "endTime": 1782628044665
+      }
+    ],
+    "477a0279-f0ea-4955-9f91-311f82bb57d4": [
+      {
+        "name": "pipeline.evolve",
+        "traceId": "477a0279-f0ea-4955-9f91-311f82bb57d4",
+        "spanId": "4c3a743b-b266-4ce9-9f8a-8f9baa6694db",
+        "parentSpanId": "trace-2",
+        "startTime": 1782628044665,
+        "attributes": {},
+        "status": "ok",
+        "endTime": 1782628044667
+      }
+    ],
+    "524a9f79-d57b-423a-8e53-69ffddc2db05": [
+      {
+        "name": "pipeline.telemetry",
+        "traceId": "524a9f79-d57b-423a-8e53-69ffddc2db05",
+        "spanId": "87f2b42d-dc14-4fea-9a9f-2aa926244709",
+        "parentSpanId": "trace-2",
+        "startTime": 1782628044667,
+        "attributes": {},
+        "status": "ok",
+        "endTime": 1782628044668
+      }
+    ],
+    "b36ef708-374d-4a7b-a6cf-7c1baf873566": [
+      {
+        "name": "agent.evaluation",
+        "traceId": "b36ef708-374d-4a7b-a6cf-7c1baf873566",
+        "spanId": "6feda763-49fa-4e4a-adb4-8d46f1edf9ba",
+        "startTime": 1782628044668,
+        "attributes": {
+          "evaluation.name": "task_success",
+          "evaluation.score": 1,
+          "evaluation.passed": true
+        },
+        "status": "ok",
+        "endTime": 1782628044668
+      }
+    ],
+    "eebcb9d4-ad5e-4b69-8f41-05d9eeb56280": [
+      {
+        "name": "pipeline.think",
+        "traceId": "eebcb9d4-ad5e-4b69-8f41-05d9eeb56280",
+        "spanId": "7afa02ed-8781-4994-9705-8b72d884a812",
+        "parentSpanId": "trace-3",
+        "startTime": 1782628044668,
+        "attributes": {},
+        "status": "ok",
+        "endTime": 1782628044670
+      }
+    ],
+    "83177a59-e7b0-46c5-a80d-b158f2f9078e": [
+      {
+        "name": "pipeline.plan",
+        "traceId": "83177a59-e7b0-46c5-a80d-b158f2f9078e",
+        "spanId": "6f010664-0483-4bb0-b9ae-0aa4370ce7e9",
+        "parentSpanId": "trace-3",
+        "startTime": 1782628044670,
+        "attributes": {},
+        "status": "ok",
+        "endTime": 1782628044671
+      }
+    ],
+    "edd9245f-cee8-44e1-986f-c32e6509653c": [
+      {
+        "name": "agent.handoff",
+        "traceId": "edd9245f-cee8-44e1-986f-c32e6509653c",
+        "spanId": "40494350-4f71-4f52-ba69-93dd4eb0fa37",
+        "startTime": 1782628044670,
+        "attributes": {
+          "agent.handoff.from": "THINKER",
+          "agent.handoff.to": "PLANNER",
+          "agent.handoff.context_size": 1024
+        },
+        "status": "ok",
+        "endTime": 1782628044670
+      }
+    ],
+    "a531d56d-d855-4237-b884-77826344e23a": [
+      {
+        "name": "pipeline.design",
+        "traceId": "a531d56d-d855-4237-b884-77826344e23a",
+        "spanId": "26f59daf-bdea-4224-bf96-0ab0c059330b",
+        "parentSpanId": "trace-3",
+        "startTime": 1782628044671,
+        "attributes": {},
+        "status": "ok",
+        "endTime": 1782628044672
+      }
+    ],
+    "2b9bbf5b-ecd2-4831-8197-b4acc52f5969": [
+      {
+        "name": "pipeline.break",
+        "traceId": "2b9bbf5b-ecd2-4831-8197-b4acc52f5969",
+        "spanId": "100accc4-07af-427f-955d-5b6300c388bd",
+        "parentSpanId": "trace-3",
+        "startTime": 1782628044672,
+        "attributes": {},
+        "status": "ok",
+        "endTime": 1782628044673
+      }
+    ],
+    "3f1500b8-abd3-4aef-a10c-c4b552e36717": [
+      {
+        "name": "pipeline.build",
+        "traceId": "3f1500b8-abd3-4aef-a10c-c4b552e36717",
+        "spanId": "0f291cca-9ed6-48f1-bfb3-24663d5d46e9",
+        "parentSpanId": "trace-3",
+        "startTime": 1782628044673,
+        "attributes": {},
+        "status": "ok",
+        "endTime": 1782628044674
+      }
+    ],
+    "5617bf76-bccd-430b-b2ee-8c0a83ad55ef": [
+      {
+        "name": "tool.call",
+        "traceId": "5617bf76-bccd-430b-b2ee-8c0a83ad55ef",
+        "spanId": "c339af4a-af09-4dc3-80ce-937422a37b40",
+        "startTime": 1782628044673,
+        "attributes": {
+          "tool.name": "write_file",
+          "tool.input": "{\"path\":\"src/app.ts\"}",
+          "tool.output": "{\"status\":\"ok\"}",
+          "tool.duration_ms": 50,
+          "tool.success": true
+        },
+        "status": "ok",
+        "endTime": 1782628044673
+      }
+    ],
+    "54d4d11d-56ac-4cbc-a817-725ab2fe680e": [
+      {
+        "name": "pipeline.harness",
+        "traceId": "54d4d11d-56ac-4cbc-a817-725ab2fe680e",
+        "spanId": "74d08b0f-c9de-4b7e-be57-654bce9c5e05",
+        "parentSpanId": "trace-3",
+        "startTime": 1782628044674,
+        "attributes": {},
+        "status": "ok",
+        "endTime": 1782628044676
+      }
+    ],
+    "88d4ebd4-9983-432f-b04c-f3ce449a7c8e": [
+      {
+        "name": "pipeline.review",
+        "traceId": "88d4ebd4-9983-432f-b04c-f3ce449a7c8e",
+        "spanId": "44d47f0e-0de2-46e0-8e8a-1452635861c0",
+        "parentSpanId": "trace-3",
+        "startTime": 1782628044676,
+        "attributes": {},
+        "status": "ok",
+        "endTime": 1782628044677
+      }
+    ],
+    "29fd34d1-7acb-4a20-afc6-77e46f40658f": [
+      {
+        "name": "pipeline.qa",
+        "traceId": "29fd34d1-7acb-4a20-afc6-77e46f40658f",
+        "spanId": "6bdd3988-e305-44fe-b3a1-5270edc58b18",
+        "parentSpanId": "trace-3",
+        "startTime": 1782628044677,
+        "attributes": {},
+        "status": "ok",
+        "endTime": 1782628044678
+      }
+    ],
+    "3ab220af-88bb-425d-a48c-8bf44a6951cc": [
+      {
+        "name": "pipeline.ship",
+        "traceId": "3ab220af-88bb-425d-a48c-8bf44a6951cc",
+        "spanId": "db5ffa3d-bc31-47d1-b9d3-21f4ac2119f3",
+        "parentSpanId": "trace-3",
+        "startTime": 1782628044678,
+        "attributes": {},
+        "status": "ok",
+        "endTime": 1782628044679
+      }
+    ],
+    "90583cbd-ee3a-43e8-b34e-e3eb9a00c2fa": [
+      {
+        "name": "pipeline.retro",
+        "traceId": "90583cbd-ee3a-43e8-b34e-e3eb9a00c2fa",
+        "spanId": "73c57ad1-7e8a-45a2-993b-758da901dc19",
+        "parentSpanId": "trace-3",
+        "startTime": 1782628044679,
+        "attributes": {},
+        "status": "ok",
+        "endTime": 1782628044680
+      }
+    ],
+    "4a2b39be-f43d-4a64-8b78-137a9ba9be31": [
+      {
+        "name": "pipeline.learn",
+        "traceId": "4a2b39be-f43d-4a64-8b78-137a9ba9be31",
+        "spanId": "57746c65-69ab-4d74-b8bb-272fa5cdfa17",
+        "parentSpanId": "trace-3",
+        "startTime": 1782628044680,
+        "attributes": {},
+        "status": "ok",
+        "endTime": 1782628044681
+      }
+    ],
+    "5691d3a0-c391-4e9e-8dc0-726c7d1bbabe": [
+      {
+        "name": "pipeline.evolve",
+        "traceId": "5691d3a0-c391-4e9e-8dc0-726c7d1bbabe",
+        "spanId": "b98c74c4-d436-4450-832b-e5103255575e",
+        "parentSpanId": "trace-3",
+        "startTime": 1782628044681,
+        "attributes": {},
+        "status": "ok",
+        "endTime": 1782628044683
+      }
+    ],
+    "505169b7-6b84-468c-a4f0-f5b3b68dbf71": [
+      {
+        "name": "pipeline.telemetry",
+        "traceId": "505169b7-6b84-468c-a4f0-f5b3b68dbf71",
+        "spanId": "bb95da46-e923-449b-87d5-ccc26557c998",
+        "parentSpanId": "trace-3",
+        "startTime": 1782628044683,
+        "attributes": {},
+        "status": "ok",
+        "endTime": 1782628044684
+      }
+    ],
+    "6b9bf856-cd67-4829-ac14-c03e7e429915": [
+      {
+        "name": "agent.evaluation",
+        "traceId": "6b9bf856-cd67-4829-ac14-c03e7e429915",
+        "spanId": "a2ca4191-34e6-433d-98c6-92418a6287aa",
+        "startTime": 1782628044684,
+        "attributes": {
+          "evaluation.name": "task_success",
+          "evaluation.score": 1,
+          "evaluation.passed": true
+        },
+        "status": "ok",
+        "endTime": 1782628044684
+      }
+    ],
+    "b0180beb-cdfb-4eec-8950-cbd5aeeea9de": [
+      {
+        "name": "pipeline.think",
+        "traceId": "b0180beb-cdfb-4eec-8950-cbd5aeeea9de",
+        "spanId": "1f6cfd30-a56f-464e-8caf-9781b8c1c182",
+        "parentSpanId": "trace-4",
+        "startTime": 1782628044684,
+        "attributes": {},
+        "status": "ok",
+        "endTime": 1782628044686
+      }
+    ],
+    "a21c811c-5aed-410c-8987-0674cee2d1f0": [
+      {
+        "name": "pipeline.plan",
+        "traceId": "a21c811c-5aed-410c-8987-0674cee2d1f0",
+        "spanId": "0efb6ba3-eff2-40cc-891f-4f7163740e55",
+        "parentSpanId": "trace-4",
+        "startTime": 1782628044686,
+        "attributes": {},
+        "status": "ok",
+        "endTime": 1782628044687
+      }
+    ],
+    "c2e858b3-6aff-44d6-9a73-c5673ad71533": [
+      {
+        "name": "agent.handoff",
+        "traceId": "c2e858b3-6aff-44d6-9a73-c5673ad71533",
+        "spanId": "23c5a11b-b16e-4d78-8bdb-479ee97a78ba",
+        "startTime": 1782628044686,
+        "attributes": {
+          "agent.handoff.from": "THINKER",
+          "agent.handoff.to": "PLANNER",
+          "agent.handoff.context_size": 1024
+        },
+        "status": "ok",
+        "endTime": 1782628044686
+      }
+    ],
+    "82250566-6364-495e-ab41-1d534a31b75b": [
+      {
+        "name": "pipeline.design",
+        "traceId": "82250566-6364-495e-ab41-1d534a31b75b",
+        "spanId": "7d871df5-3f1e-4b7c-a610-c4beb8be2ae1",
+        "parentSpanId": "trace-4",
+        "startTime": 1782628044687,
+        "attributes": {},
+        "status": "ok",
+        "endTime": 1782628044688
+      }
+    ],
+    "673b81f2-0493-4eb4-8af6-f2ee4a5b1140": [
+      {
+        "name": "pipeline.break",
+        "traceId": "673b81f2-0493-4eb4-8af6-f2ee4a5b1140",
+        "spanId": "89c56cab-d838-4354-83ed-819d281da292",
+        "parentSpanId": "trace-4",
+        "startTime": 1782628044688,
+        "attributes": {},
+        "status": "ok",
+        "endTime": 1782628044689
+      }
+    ],
+    "b24c301d-a536-46a0-9032-497fda763a0d": [
+      {
+        "name": "pipeline.build",
+        "traceId": "b24c301d-a536-46a0-9032-497fda763a0d",
+        "spanId": "58541265-ecc8-4b37-9ef1-538b843f980f",
+        "parentSpanId": "trace-4",
+        "startTime": 1782628044689,
+        "attributes": {},
+        "status": "ok",
+        "endTime": 1782628044691
+      }
+    ],
+    "282b3365-a2b0-49eb-a8c4-0fc851ff14bf": [
+      {
+        "name": "tool.call",
+        "traceId": "282b3365-a2b0-49eb-a8c4-0fc851ff14bf",
+        "spanId": "ad5bf389-c932-4d84-9845-cb7a833657d5",
+        "startTime": 1782628044689,
+        "attributes": {
+          "tool.name": "write_file",
+          "tool.input": "{\"path\":\"src/app.ts\"}",
+          "tool.output": "{\"status\":\"ok\"}",
+          "tool.duration_ms": 50,
+          "tool.success": true
+        },
+        "status": "ok",
+        "endTime": 1782628044689
+      }
+    ],
+    "bc2bf822-d6ed-4fd1-91b1-bd06efde82e5": [
+      {
+        "name": "pipeline.harness",
+        "traceId": "bc2bf822-d6ed-4fd1-91b1-bd06efde82e5",
+        "spanId": "57b5e737-a266-461d-8848-f5fcd59719d3",
+        "parentSpanId": "trace-4",
+        "startTime": 1782628044691,
+        "attributes": {},
+        "status": "ok",
+        "endTime": 1782628044692
+      }
+    ],
+    "2fd323e5-5757-4c7e-9508-302752751969": [
+      {
+        "name": "pipeline.review",
+        "traceId": "2fd323e5-5757-4c7e-9508-302752751969",
+        "spanId": "bdd40516-fc4a-47ad-8f2c-9c6eb2244360",
+        "parentSpanId": "trace-4",
+        "startTime": 1782628044692,
+        "attributes": {},
+        "status": "ok",
+        "endTime": 1782628044693
+      }
+    ],
+    "63725957-7d8d-4442-9f8d-09fd8d5465ff": [
+      {
+        "name": "pipeline.qa",
+        "traceId": "63725957-7d8d-4442-9f8d-09fd8d5465ff",
+        "spanId": "ebfecc0f-978f-4f4a-9e67-380678ffc47b",
+        "parentSpanId": "trace-4",
+        "startTime": 1782628044693,
+        "attributes": {},
+        "status": "ok",
+        "endTime": 1782628044694
+      }
+    ],
+    "c6f93dc5-fdf7-4f68-bb0c-4347bc128843": [
+      {
+        "name": "pipeline.ship",
+        "traceId": "c6f93dc5-fdf7-4f68-bb0c-4347bc128843",
+        "spanId": "3a33179a-dbb2-4e31-8ca5-dbdbbb367edd",
+        "parentSpanId": "trace-4",
+        "startTime": 1782628044694,
+        "attributes": {},
+        "status": "ok",
+        "endTime": 1782628044695
+      }
+    ],
+    "3dc645ac-4f51-4be1-ba77-88dbe266d50e": [
+      {
+        "name": "pipeline.retro",
+        "traceId": "3dc645ac-4f51-4be1-ba77-88dbe266d50e",
+        "spanId": "062539cc-bdae-4e4b-9c35-af5b1f064666",
+        "parentSpanId": "trace-4",
+        "startTime": 1782628044695,
+        "attributes": {},
+        "status": "ok",
+        "endTime": 1782628044696
+      }
+    ],
+    "647f6acb-7674-4528-b410-3f6f0a47ede4": [
+      {
+        "name": "pipeline.learn",
+        "traceId": "647f6acb-7674-4528-b410-3f6f0a47ede4",
+        "spanId": "b9df0a64-03c2-4a83-bd13-b8b6e2300005",
+        "parentSpanId": "trace-4",
+        "startTime": 1782628044696,
+        "attributes": {},
+        "status": "ok",
+        "endTime": 1782628044698
+      }
+    ],
+    "92383196-0b94-4434-a5be-70233660df64": [
+      {
+        "name": "pipeline.evolve",
+        "traceId": "92383196-0b94-4434-a5be-70233660df64",
+        "spanId": "c257784c-bd7b-4a1e-afa3-9830cab304c8",
+        "parentSpanId": "trace-4",
+        "startTime": 1782628044698,
+        "attributes": {},
+        "status": "ok",
+        "endTime": 1782628044699
+      }
+    ],
+    "7af65201-8a9d-4c1d-9e57-306292dcf54f": [
+      {
+        "name": "pipeline.telemetry",
+        "traceId": "7af65201-8a9d-4c1d-9e57-306292dcf54f",
+        "spanId": "8b9243cd-1dd1-4abe-8a42-82a4f6fd54d8",
+        "parentSpanId": "trace-4",
+        "startTime": 1782628044699,
+        "attributes": {},
+        "status": "ok",
+        "endTime": 1782628044700
+      }
+    ],
+    "55918733-3253-423b-b6bf-893ba9fd8560": [
+      {
+        "name": "agent.evaluation",
+        "traceId": "55918733-3253-423b-b6bf-893ba9fd8560",
+        "spanId": "51374579-66aa-43b3-98a1-903dc54dddf9",
+        "startTime": 1782628044700,
+        "attributes": {
+          "evaluation.name": "task_success",
+          "evaluation.score": 1,
+          "evaluation.passed": true
+        },
+        "status": "ok",
+        "endTime": 1782628044700
+      }
+    ]
+  }
+}

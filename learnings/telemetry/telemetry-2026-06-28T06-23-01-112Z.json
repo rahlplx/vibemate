@@ -1,0 +1,115 @@
+{
+  "exportTime": "2026-06-28T06:23:01.112Z",
+  "spans": [
+    {
+      "name": "sim.plugins",
+      "traceId": "a21869b2-ee63-452c-ba1f-663eb55a90e8",
+      "spanId": "d684db23-8066-4304-8bf1-669ecfe69e07",
+      "startTime": 1782627778818,
+      "attributes": {},
+      "status": "ok",
+      "endTime": 1782627778941
+    },
+    {
+      "name": "sim.tool_policy",
+      "traceId": "baba8fe2-19bd-4f21-9ad5-5bd54c368227",
+      "spanId": "ed1e47b3-5210-4c8e-8359-8a456dce3620",
+      "startTime": 1782627778941,
+      "attributes": {},
+      "status": "ok",
+      "endTime": 1782627778952
+    },
+    {
+      "name": "sim.memory",
+      "traceId": "632a7d7a-c060-45f1-9404-00f2fcda3847",
+      "spanId": "3ee1e25d-c84f-4bad-8d71-36b3d3063e99",
+      "startTime": 1782627778953,
+      "attributes": {},
+      "status": "ok",
+      "endTime": 1782627779649
+    },
+    {
+      "name": "sim.pipeline",
+      "traceId": "fe2733c8-195f-44a6-8c51-2bb24d8c55d4",
+      "spanId": "2f4d226f-17e2-48d0-ba5d-84534c87471f",
+      "startTime": 1782627779651,
+      "attributes": {},
+      "status": "ok",
+      "endTime": 1782627781110
+    },
+    {
+      "name": "sim.concurrency",
+      "traceId": "04f3abb9-08be-42cd-942a-50417e43fb29",
+      "spanId": "2b6232f0-84bc-4014-a93e-fe0afb7d835a",
+      "startTime": 1782627779651,
+      "attributes": {},
+      "status": "ok",
+      "endTime": 1782627779888
+    }
+  ],
+  "metrics": {
+    "totalTokens": 0,
+    "totalCost": 0,
+    "averageLatency": 0,
+    "errorRate": 0,
+    "toolFailureRate": 0,
+    "stuckDetections": 0
+  },
+  "traces": {
+    "a21869b2-ee63-452c-ba1f-663eb55a90e8": [
+      {
+        "name": "sim.plugins",
+        "traceId": "a21869b2-ee63-452c-ba1f-663eb55a90e8",
+        "spanId": "d684db23-8066-4304-8bf1-669ecfe69e07",
+        "startTime": 1782627778818,
+        "attributes": {},
+        "status": "ok",
+        "endTime": 1782627778941
+      }
+    ],
+    "baba8fe2-19bd-4f21-9ad5-5bd54c368227": [
+      {
+        "name": "sim.tool_policy",
+        "traceId": "baba8fe2-19bd-4f21-9ad5-5bd54c368227",
+        "spanId": "ed1e47b3-5210-4c8e-8359-8a456dce3620",
+        "startTime": 1782627778941,
+        "attributes": {},
+        "status": "ok",
+        "endTime": 1782627778952
+      }
+    ],
+    "632a7d7a-c060-45f1-9404-00f2fcda3847": [
+      {
+        "name": "sim.memory",
+        "traceId": "632a7d7a-c060-45f1-9404-00f2fcda3847",
+        "spanId": "3ee1e25d-c84f-4bad-8d71-36b3d3063e99",
+        "startTime": 1782627778953,
+        "attributes": {},
+        "status": "ok",
+        "endTime": 1782627779649
+      }
+    ],
+    "fe2733c8-195f-44a6-8c51-2bb24d8c55d4": [
+      {
+        "name": "sim.pipeline",
+        "traceId": "fe2733c8-195f-44a6-8c51-2bb24d8c55d4",
+        "spanId": "2f4d226f-17e2-48d0-ba5d-84534c87471f",
+        "startTime": 1782627779651,
+        "attributes": {},
+        "status": "ok",
+        "endTime": 1782627781110
+      }
+    ],
+    "04f3abb9-08be-42cd-942a-50417e43fb29": [
+      {
+        "name": "sim.concurrency",
+        "traceId": "04f3abb9-08be-42cd-942a-50417e43fb29",
+        "spanId": "2b6232f0-84bc-4014-a93e-fe0afb7d835a",
+        "startTime": 1782627779651,
+        "attributes": {},
+        "status": "ok",
+        "endTime": 1782627779888
+      }
+    ]
+  }
+}

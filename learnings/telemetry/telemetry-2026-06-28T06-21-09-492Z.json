@@ -1,0 +1,95 @@
+{
+  "exportTime": "2026-06-28T06:21:09.492Z",
+  "spans": [
+    {
+      "name": "sim.plugins",
+      "traceId": "02d3a98c-e147-4935-b29d-4b43ae025968",
+      "spanId": "7e914d41-d75f-4ef5-9bca-f81213fae408",
+      "startTime": 1782627669200,
+      "attributes": {},
+      "status": "ok",
+      "endTime": 1782627669204
+    },
+    {
+      "name": "sim.tool_policy",
+      "traceId": "070bc624-7442-4953-b71f-96b7d8a13c17",
+      "spanId": "0f336a75-fb37-4d6a-83e1-5e80f721a577",
+      "startTime": 1782627669204,
+      "attributes": {},
+      "status": "ok",
+      "endTime": 1782627669206
+    },
+    {
+      "name": "sim.memory",
+      "traceId": "d8b55ebd-2d85-4a58-af96-b4f20195e293",
+      "spanId": "f25703ac-a097-42bf-af0c-919fca9ca95d",
+      "startTime": 1782627669206,
+      "attributes": {},
+      "status": "ok",
+      "endTime": 1782627669244
+    },
+    {
+      "name": "sim.pipeline",
+      "traceId": "87a55046-29a5-4dfe-b5ea-03ce7e8e0110",
+      "spanId": "f66c4eac-25e6-4d58-b4c8-b70d55ef7631",
+      "startTime": 1782627669244,
+      "attributes": {},
+      "status": "ok",
+      "endTime": 1782627669491
+    }
+  ],
+  "metrics": {
+    "totalTokens": 0,
+    "totalCost": 0,
+    "averageLatency": 0,
+    "errorRate": 0,
+    "toolFailureRate": 0,
+    "stuckDetections": 0
+  },
+  "traces": {
+    "02d3a98c-e147-4935-b29d-4b43ae025968": [
+      {
+        "name": "sim.plugins",
+        "traceId": "02d3a98c-e147-4935-b29d-4b43ae025968",
+        "spanId": "7e914d41-d75f-4ef5-9bca-f81213fae408",
+        "startTime": 1782627669200,
+        "attributes": {},
+        "status": "ok",
+        "endTime": 1782627669204
+      }
+    ],
+    "070bc624-7442-4953-b71f-96b7d8a13c17": [
+      {
+        "name": "sim.tool_policy",
+        "traceId": "070bc624-7442-4953-b71f-96b7d8a13c17",
+        "spanId": "0f336a75-fb37-4d6a-83e1-5e80f721a577",
+        "startTime": 1782627669204,
+        "attributes": {},
+        "status": "ok",
+        "endTime": 1782627669206
+      }
+    ],
+    "d8b55ebd-2d85-4a58-af96-b4f20195e293": [
+      {
+        "name": "sim.memory",
+        "traceId": "d8b55ebd-2d85-4a58-af96-b4f20195e293",
+        "spanId": "f25703ac-a097-42bf-af0c-919fca9ca95d",
+        "startTime": 1782627669206,
+        "attributes": {},
+        "status": "ok",
+        "endTime": 1782627669244
+      }
+    ],
+    "87a55046-29a5-4dfe-b5ea-03ce7e8e0110": [
+      {
+        "name": "sim.pipeline",
+        "traceId": "87a55046-29a5-4dfe-b5ea-03ce7e8e0110",
+        "spanId": "f66c4eac-25e6-4d58-b4c8-b70d55ef7631",
+        "startTime": 1782627669244,
+        "attributes": {},
+        "status": "ok",
+        "endTime": 1782627669491
+      }
+    ]
+  }
+}

@@ -386,4 +386,39 @@ program
     }
   });
 
+program
+  .command("sim")
+  .description("Run performance and chaos simulation loop")
+  .option("-i, --iterations <number>", "Number of iterations", "100")
+  .option("-c, --concurrent", "Run tasks concurrently")
+  .option("--chaos", "Inject chaos and failures")
+  .action(async (options) => {
+    try {
+      const { SimulationEngine } = await import("../performance/simulation-engine.js");
+      const engine = new SimulationEngine();
+      console.log("🚀 Starting Vibemate Simulation Loop...");
+      const result = await engine.run({
+        iterations: parseInt(options.iterations),
+        concurrent: !!options.concurrent,
+        chaos: !!options.chaos
+      });
+      console.log("\n📊 Simulation Results:");
+      console.log(`   Pass: ${result.pass}`);
+      console.log(`   Fail: ${result.fail}`);
+      console.log(`   Duration: ${result.duration.toFixed(2)}ms`);
+      if (result.bottlenecks.length > 0) {
+        console.log("\n⚠️  Bottlenecks Detected:");
+        result.bottlenecks.forEach(b => console.log(`   - ${b}`));
+      }
+      if (result.concurrencyIssues.length > 0) {
+        console.log("\n💥 Concurrency Issues Detected:");
+        result.concurrencyIssues.forEach(ci => console.log(`   - ${ci}`));
+      }
+      console.log("\n✅ Simulation complete. Telemetry exported to ./learnings/telemetry");
+    } catch (error) {
+      console.error("Simulation failed:", error instanceof Error ? error.message : error);
+      process.exit(1);
+    }
+  });
+
 program.parse();
