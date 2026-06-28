@@ -252,11 +252,17 @@ async function executePhase(
     case 'think': {
       console.log('💭 Analyzing requirements...');
 
+      // Consult past learnings before designing — close the feedback loop
+      const advisory = await selfImprovement.advise(context.description);
+      const guidanceSection = advisory.guidance
+        ? `\n## Past Learnings Advisory\n${advisory.guidance}\n`
+        : '';
+
       const designDoc = `# Design Document
 
 ## Task
 ${context.description}
-
+${guidanceSection}
 ## Requirements
 - [ ] Core functionality implemented
 - [ ] Error handling comprehensive
@@ -440,6 +446,21 @@ ${Object.entries(state.artifacts).map(([p, a]) => `- ${p}: ${a}`).join('\n')}
 
     case 'learn': {
       console.log('📚 Learning from experience...');
+      const learnAdvisory = await selfImprovement.advise(context.description);
+      const learningsDoc = `# Learnings
+
+## Best Principle
+${learnAdvisory.bestPrinciple}
+
+## Recommended Approach for Similar Tasks
+${learnAdvisory.selectedSkill.action}
+
+## Top Lessons from Past Work
+${learnAdvisory.relevantLessons.length > 0
+  ? learnAdvisory.relevantLessons.map(l => `- [${l.type}] ${l.lesson}`).join('\n')
+  : '- No relevant past lessons yet.'}
+`;
+      await writeFile(join(vibeDir, 'learnings.md'), learningsDoc);
       return { artifact: 'learnings.md' };
     }
 

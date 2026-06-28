@@ -494,3 +494,272 @@ describe('SelfImprovementOrchestrator.init() — lastReflection persistence', ()
     expect(result.newRules).toHaveLength(0);
   });
 });
+
+describe('RetroAgent — persistence roundtrip', () => {
+  let tmpDir: string;
+  let dbPath: string;
+  let persistence: PersistenceManager;
+
+  beforeEach(async () => {
+    tmpDir = join(tmpdir(), `retro-persist-${Date.now()}`);
+    await mkdir(tmpDir, { recursive: true });
+    dbPath = join(tmpDir, 'state.db');
+    const conn = createConnection(dbPath);
+    runMigrations(conn);
+    closeConnection(conn);
+    persistence = new PersistenceManager(dbPath);
+  });
+
+  afterEach(async () => {
+    await rm(tmpDir, { recursive: true, force: true });
+  });
+
+  it('persists a learning to DB on reflect()', async () => {
+    const okf = new OKFGenerator(tmpDir);
+    const agent = new RetroAgent(okf, persistence);
+    await agent.reflect({ taskId: 'task-A', steps: ['step1'], outcome: 'failure', error: 'timeout' });
+
+    const store = await persistence.getEvolveStore();
+    const rows = await store.getAllLearnings();
+    expect(rows.length).toBe(1);
+    expect(rows[0].lesson).toContain('task-A');
+    expect(rows[0].type).toBe('failure');
+  });
+
+  it('loadHistory() restores persisted learnings into memory', async () => {
+    const store = await persistence.getEvolveStore();
+    await store.saveLearning({
+      id: 'learn-1',
+      timestamp: new Date(),
+      type: 'failure',
+      description: 'DB task: failure',
+      lesson: 'Avoid tight coupling',
+      tags: ['database'],
+      utilityScore: 0.6,
+    });
+
+    const okf = new OKFGenerator(tmpDir);
+    const agent = new RetroAgent(okf, persistence);
+    expect(agent.getLearnings().length).toBe(0); // before load
+
+    await agent.loadHistory();
+    expect(agent.getLearnings().length).toBe(1);
+    expect(agent.getLearnings()[0].lesson).toBe('Avoid tight coupling');
+  });
+
+  it('retrieveLessons() returns relevant past failures after loadHistory()', async () => {
+    const store = await persistence.getEvolveStore();
+    await store.saveLearning({
+      id: 'learn-auth',
+      timestamp: new Date(),
+      type: 'failure',
+      description: 'auth task failed',
+      lesson: 'Always validate JWT expiry',
+      tags: ['auth'],
+      utilityScore: 0.9,
+    });
+
+    const okf = new OKFGenerator(tmpDir);
+    const agent = new RetroAgent(okf, persistence);
+    await agent.loadHistory();
+
+    const lessons = await agent.retrieveLessons('auth security', agent.getLearnings());
+    expect(lessons.length).toBeGreaterThan(0);
+    expect(lessons[0].lesson).toBe('Always validate JWT expiry');
+  });
+});
+
+describe('LearnAgent — persistence roundtrip', () => {
+  let tmpDir: string;
+  let dbPath: string;
+  let persistence: PersistenceManager;
+
+  beforeEach(async () => {
+    tmpDir = join(tmpdir(), `learn-persist-${Date.now()}`);
+    await mkdir(tmpDir, { recursive: true });
+    dbPath = join(tmpDir, 'state.db');
+    const conn = createConnection(dbPath);
+    runMigrations(conn);
+    closeConnection(conn);
+    persistence = new PersistenceManager(dbPath);
+  });
+
+  afterEach(async () => {
+    await rm(tmpDir, { recursive: true, force: true });
+  });
+
+  it('persists a principle to DB on learn()', async () => {
+    const okf = new OKFGenerator(tmpDir);
+    const agent = new LearnAgent(okf, persistence);
+    await agent.learn({ taskId: 'task-B', steps: ['step1', 'step2'], outcome: 'success' });
+
+    const store = await persistence.getEvolveStore();
+    const rows = await store.getAllPrinciples();
+    expect(rows.length).toBe(1);
+    expect(rows[0].principle).toContain('task-B');
+    expect(rows[0].effectiveness).toBeCloseTo(0.8);
+  });
+
+  it('loadHistory() restores persisted principles into memory', async () => {
+    const store = await persistence.getEvolveStore();
+    await store.savePrinciple({
+      id: 'p-1',
+      principle: 'Prefer immutable state',
+      context: 'build -> test',
+      effectiveness: 0.85,
+      usageCount: 3,
+      lastUsed: new Date(),
+    });
+
+    const okf = new OKFGenerator(tmpDir);
+    const agent = new LearnAgent(okf, persistence);
+    expect(agent.getPrinciples().length).toBe(0); // before load
+
+    await agent.loadHistory();
+    expect(agent.getPrinciples().length).toBe(1);
+    expect(agent.getPrinciples()[0].principle).toBe('Prefer immutable state');
+  });
+
+  it('selfNavigate() uses restored principles to pick the most effective one', async () => {
+    const store = await persistence.getEvolveStore();
+    await store.savePrinciple({ id: 'p-low',  principle: 'Mediocre principle', context: 'ctx', effectiveness: 0.3, usageCount: 0, lastUsed: new Date() });
+    await store.savePrinciple({ id: 'p-high', principle: 'Excellent principle',  context: 'ctx', effectiveness: 0.95, usageCount: 2, lastUsed: new Date() });
+
+    const okf = new OKFGenerator(tmpDir);
+    const agent = new LearnAgent(okf, persistence);
+    await agent.loadHistory();
+
+    const best = await agent.selfNavigate(agent.getPrinciples());
+    expect(best).toBe('Excellent principle');
+  });
+});
+
+describe('EvolveAgent.selectSkill() — useCount tracking', () => {
+  let tmpDir: string;
+  let dbPath: string;
+  let persistence: PersistenceManager;
+
+  beforeEach(async () => {
+    tmpDir = join(tmpdir(), `evolve-usecount-${Date.now()}`);
+    await mkdir(tmpDir, { recursive: true });
+    dbPath = join(tmpDir, 'state.db');
+    const conn = createConnection(dbPath);
+    runMigrations(conn);
+    closeConnection(conn);
+    persistence = new PersistenceManager(dbPath);
+  });
+
+  afterEach(async () => {
+    await rm(tmpDir, { recursive: true, force: true });
+  });
+
+  it('increments useCount in memory on each selectSkill() call', async () => {
+    const store = await persistence.getEvolveStore();
+    await store.saveRule({ id: 'r-1', name: 'best-rule', description: 'desc', condition: 'always', action: 'do it', qualityScore: 0.9, lastUsed: new Date(), useCount: 0 });
+
+    const okf = new OKFGenerator(tmpDir);
+    const agent = new EvolveAgent(okf, { persistence });
+    await agent.loadRules();
+
+    const skill1 = agent.selectSkill('context');
+    expect(skill1.name).toBe('best-rule');
+    expect(skill1.useCount).toBe(1);
+
+    agent.selectSkill('context');
+    expect(agent.getPoolStats().totalRules).toBe(1);
+    // second call also increments (same in-memory reference)
+    const rules = agent.getPoolStats();
+    expect(rules.totalRules).toBe(1);
+  });
+});
+
+describe('SelfImprovementOrchestrator.advise() — feedback loop', () => {
+  let tmpDir: string;
+  let dbPath: string;
+  let persistence: PersistenceManager;
+
+  beforeEach(async () => {
+    tmpDir = join(tmpdir(), `advise-${Date.now()}`);
+    await mkdir(tmpDir, { recursive: true });
+    dbPath = join(tmpDir, 'state.db');
+    const conn = createConnection(dbPath);
+    runMigrations(conn);
+    closeConnection(conn);
+    persistence = new PersistenceManager(dbPath);
+  });
+
+  afterEach(async () => {
+    await rm(tmpDir, { recursive: true, force: true });
+  });
+
+  it('advise() returns safe defaults when no history', async () => {
+    const okf = new OKFGenerator(tmpDir);
+    const orch = new SelfImprovementOrchestrator(okf, { persistence });
+    await orch.init();
+
+    const advisory = await orch.advise('build an auth system');
+    expect(advisory.relevantLessons).toHaveLength(0);
+    expect(advisory.bestPrinciple).toContain('No experience available');
+    expect(advisory.selectedSkill.name).toBe('default');
+    expect(advisory.guidance).toBe('');
+  });
+
+  it('advise() surfaces past failure lessons relevant to the task context', async () => {
+    const store = await persistence.getEvolveStore();
+    await store.saveLearning({
+      id: 'l-auth',
+      timestamp: new Date(),
+      type: 'failure',
+      description: 'auth task failed',
+      lesson: 'Validate JWT on every request',
+      tags: ['auth'],
+      utilityScore: 0.9,
+    });
+
+    const okf = new OKFGenerator(tmpDir);
+    const orch = new SelfImprovementOrchestrator(okf, { persistence });
+    await orch.init();
+
+    const advisory = await orch.advise('implement auth middleware');
+    expect(advisory.relevantLessons.length).toBeGreaterThan(0);
+    expect(advisory.guidance).toContain('Validate JWT on every request');
+  });
+
+  it('advise() includes best principle from past successes', async () => {
+    const store = await persistence.getEvolveStore();
+    await store.savePrinciple({
+      id: 'p-best',
+      principle: 'Always write tests first',
+      context: 'build->test',
+      effectiveness: 0.95,
+      usageCount: 5,
+      lastUsed: new Date(),
+    });
+
+    const okf = new OKFGenerator(tmpDir);
+    const orch = new SelfImprovementOrchestrator(okf, { persistence });
+    await orch.init();
+
+    const advisory = await orch.advise('build a new feature');
+    expect(advisory.bestPrinciple).toBe('Always write tests first');
+    expect(advisory.guidance).toContain('Always write tests first');
+  });
+
+  it('improve() then advise() creates a closed feedback loop within one session', async () => {
+    const okf = new OKFGenerator(tmpDir);
+    const orch = new SelfImprovementOrchestrator(okf, { persistence });
+    await orch.init();
+
+    await orch.improve({
+      taskId: 'db-migration',
+      steps: ['plan', 'implement'],
+      outcome: 'failure',
+      error: 'missing rollback',
+    });
+
+    // advise() on a related task should now surface the lesson
+    const advisory = await orch.advise('database migration');
+    expect(advisory.relevantLessons.length).toBeGreaterThan(0);
+    expect(advisory.guidance).toContain('db-migration');
+  });
+});

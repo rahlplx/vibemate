@@ -49,9 +49,11 @@ export interface ExperienceLifecycle {
 export class RetroAgent {
   private okfGenerator: OKFGenerator;
   private learnings: RetroLearning[] = [];
+  private persistence?: PersistenceManager;
 
-  constructor(okfGenerator: OKFGenerator) {
+  constructor(okfGenerator: OKFGenerator, persistence?: PersistenceManager) {
     this.okfGenerator = okfGenerator;
+    this.persistence = persistence;
   }
 
   // RetroAgent-style hindsight self-reflection
@@ -78,6 +80,15 @@ export class RetroAgent {
     };
 
     this.learnings.push(learning);
+
+    // Persist to DB so it survives restarts
+    if (this.persistence) {
+      const store = await this.persistence.getEvolveStore();
+      await store.saveLearning({
+        ...learning,
+        timestamp: new Date(learning.timestamp),
+      });
+    }
 
     // Write to OKF bundle
     await this.okfGenerator.addLearning(
@@ -175,6 +186,22 @@ export class RetroAgent {
     return overlap / queryWords.length;
   }
 
+  // Restore learnings from DB on startup so past mistakes survive restarts
+  async loadHistory(): Promise<void> {
+    if (!this.persistence) return;
+    const store = await this.persistence.getEvolveStore();
+    const rows = await store.getAllLearnings();
+    this.learnings = rows.map(r => ({
+      id: r.id,
+      timestamp: r.timestamp.toISOString(),
+      type: r.type as RetroLearning['type'],
+      description: r.description,
+      lesson: r.lesson,
+      tags: r.tags,
+      utilityScore: r.utilityScore,
+    }));
+  }
+
   getLearnings(): RetroLearning[] {
     return this.learnings;
   }
@@ -207,9 +234,8 @@ export class EvolveAgent {
 
   selectSkill(_taskContext: string): EvolveRule {
     const explorationBonus = this.rng.next() < this.config.fastTimescale.thompsonSampling.explorationRate;
-    
+
     if (explorationBonus || this.rules.length === 0) {
-      // Explore: return default or random rule
       return {
         id: randomUUID(),
         name: 'default',
@@ -222,9 +248,20 @@ export class EvolveAgent {
       };
     }
 
-    // Exploit: select best performing rule
+    // Exploit: select best performing rule and track usage
     const sortedRules = [...this.rules].sort((a, b) => b.qualityScore - a.qualityScore);
-    return sortedRules[0];
+    const selected = sortedRules[0];
+    selected.useCount++;
+    selected.lastUsed = new Date().toISOString();
+
+    // Fire-and-forget persistence so selectSkill() stays synchronous
+    if (this.persistence) {
+      this.persistence.getEvolveStore()
+        .then(store => store.saveRule({ ...selected, lastUsed: new Date(selected.lastUsed) }))
+        .catch(() => {});
+    }
+
+    return selected;
   }
 
   // AEL slow timescale - LLM reflection for rule evolution
@@ -393,9 +430,11 @@ export class EvolveAgent {
 export class LearnAgent {
   private principles: ExperiencePrinciple[] = [];
   private okfGenerator: OKFGenerator;
+  private persistence?: PersistenceManager;
 
-  constructor(okfGenerator: OKFGenerator) {
+  constructor(okfGenerator: OKFGenerator, persistence?: PersistenceManager) {
     this.okfGenerator = okfGenerator;
+    this.persistence = persistence;
   }
 
   // AgentEvolver-style self-questioning
@@ -462,6 +501,15 @@ export class LearnAgent {
     const principle = this.distillPrinciple(trajectory);
     this.principles.push(principle);
 
+    // Persist to DB so it survives restarts
+    if (this.persistence) {
+      const store = await this.persistence.getEvolveStore();
+      await store.savePrinciple({
+        ...principle,
+        lastUsed: new Date(principle.lastUsed),
+      });
+    }
+
     // Write to OKF bundle
     await this.okfGenerator.addLearning(
       await this.loadBundle(),
@@ -502,6 +550,25 @@ export class LearnAgent {
     };
   }
 
+  // Restore principles from DB on startup so past learnings survive restarts
+  async loadHistory(): Promise<void> {
+    if (!this.persistence) return;
+    const store = await this.persistence.getEvolveStore();
+    const rows = await store.getAllPrinciples();
+    this.principles = rows.map(r => ({
+      id: r.id,
+      principle: r.principle,
+      context: r.context,
+      effectiveness: r.effectiveness,
+      usageCount: r.usageCount,
+      lastUsed: r.lastUsed.toISOString(),
+    }));
+  }
+
+  getPrinciples(): ExperiencePrinciple[] {
+    return this.principles;
+  }
+
   // Get principle pool stats
   getPoolStats(): {
     totalPrinciples: number;
@@ -533,9 +600,9 @@ export class SelfImprovementOrchestrator {
   private vibeDir: string | null;
 
   constructor(okfGenerator: OKFGenerator, options?: { persistence?: PersistenceManager; vibeDir?: string }) {
-    this.retroAgent = new RetroAgent(okfGenerator);
+    this.retroAgent = new RetroAgent(okfGenerator, options?.persistence);
     this.evolveAgent = new EvolveAgent(okfGenerator, options);
-    this.learnAgent = new LearnAgent(okfGenerator);
+    this.learnAgent = new LearnAgent(okfGenerator, options?.persistence);
     this.vibeDir = options?.vibeDir ?? null;
   }
 
@@ -543,9 +610,52 @@ export class SelfImprovementOrchestrator {
   // Call once after construction before the first improve() call.
   async init(): Promise<void> {
     await this.evolveAgent.loadRules();
+    await this.retroAgent.loadHistory();
+    await this.learnAgent.loadHistory();
     if (this.vibeDir) {
       await this.restoreLastReflection();
     }
+  }
+
+  // Pre-task advisory: consults all past learnings and principles before a task executes.
+  // Call this before THINK/BUILD phases so past mistakes inform the current task.
+  async advise(taskContext: string): Promise<{
+    relevantLessons: RetroLearning[];
+    bestPrinciple: string;
+    selectedSkill: EvolveRule;
+    guidance: string;
+  }> {
+    const relevantLessons = await this.retroAgent.retrieveLessons(
+      taskContext,
+      this.retroAgent.getLearnings()
+    );
+    const bestPrinciple = await this.learnAgent.selfNavigate(
+      this.learnAgent.getPrinciples()
+    );
+    const selectedSkill = this.evolveAgent.selectSkill(taskContext);
+    const guidance = this.formatGuidance(relevantLessons, bestPrinciple, selectedSkill);
+    return { relevantLessons, bestPrinciple, selectedSkill, guidance };
+  }
+
+  private formatGuidance(
+    lessons: RetroLearning[],
+    principle: string,
+    skill: EvolveRule
+  ): string {
+    const parts: string[] = [];
+    if (lessons.length > 0) {
+      parts.push('## Past Learnings (avoid repeating these mistakes)');
+      for (const l of lessons.slice(0, 3)) {
+        parts.push(`- [${l.type}] ${l.lesson}`);
+      }
+    }
+    if (principle && !principle.includes('No experience available')) {
+      parts.push(`\n## Best Principle\n${principle}`);
+    }
+    if (skill.name !== 'default') {
+      parts.push(`\n## Recommended Approach\n${skill.action}`);
+    }
+    return parts.join('\n');
   }
 
   private async restoreLastReflection(): Promise<void> {
