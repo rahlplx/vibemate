@@ -287,8 +287,7 @@ export class TelemetryCollector {
       'gen_ai.cost': cost,
       ...(phase ? { 'auto.phase': phase } : {})
     });
-    const turn: AgentTurn = { ...span, agentId, inputTokens, outputTokens, model, cost };
-    this.spanMap.set(span.spanId, turn);
+    const turn = Object.assign(span, { agentId, inputTokens, outputTokens, model, cost }) as AgentTurn;
     this.endSpan(span.spanId);
     return turn;
   }
@@ -330,8 +329,7 @@ export class TelemetryCollector {
       ...(content?.agentType ? { 'agent.type': content.agentType } : {})
     });
 
-    const turn: AgentTurn = { ...span, agentId, inputTokens, outputTokens, model, cost };
-    this.spanMap.set(span.spanId, turn);
+    const turn = Object.assign(span, { agentId, inputTokens, outputTokens, model, cost }) as AgentTurn;
     this.endSpan(span.spanId);
 
     if (this.contentStore && content) {
@@ -391,8 +389,7 @@ export class TelemetryCollector {
     const parentAgent = this.spanMap.get(parentSpanId);
     const parentAgentId = (parentAgent as AgentTurn | undefined)?.agentId ?? '';
 
-    const subSpan: SubAgentSpan = { ...span, parentAgentId, childAgentId, model };
-    this.spanMap.set(span.spanId, subSpan);
+    const subSpan = Object.assign(span, { parentAgentId, childAgentId, model }) as SubAgentSpan;
     this.endSpan(span.spanId);
 
     if (this.contentStore && content) {
