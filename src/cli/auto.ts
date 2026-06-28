@@ -12,6 +12,7 @@ import { execFileSync } from 'child_process';
 import { AutoPhase, CircuitBreaker, AutoState, HarnessCheck, HarnessReport, PhaseObservation } from '../types.js';
 import { applyAmbiguityGate, checkGovernancePermission, handleHarnessFailure, computeObservationScore } from './auto-helpers.js';
 import { tokenBudgetGate, dlpGate, passRateGate } from './harness-gates.js';
+import { buildCritiqueReport } from './critique-engine.js';
 import { createObservationEngine } from '../improve/observation.js';
 
 interface AutoOptions {
@@ -26,7 +27,8 @@ const PHASE_TRANSITIONS: Record<AutoPhase, { next: AutoPhase | null; condition?:
   plan:      { next: 'design', condition: 'has_ui' },
   design:    { next: 'break' },
   break:     { next: 'build' },
-  build:     { next: 'harness', condition: 'has_more_tasks' },
+  build:     { next: 'critique', condition: 'has_more_tasks' },
+  critique:  { next: 'harness', condition: 'critique_passed' },
   harness:   { next: 'review', condition: 'all_checks_passed' },
   review:    { next: 'qa', condition: 'has_ui' },
   qa:        { next: 'ship' },
@@ -37,18 +39,19 @@ const PHASE_TRANSITIONS: Record<AutoPhase, { next: AutoPhase | null; condition?:
 };
 
 const PHASE_EXECUTION: Record<AutoPhase, { skill: string; description: string }> = {
-  think:     { skill: '/vibe:think',  description: 'Product strategy & design thinking' },
-  plan:      { skill: '/vibe:plan',   description: 'Multi-perspective review' },
-  design:    { skill: '/vibe:design', description: 'UI generation & approval' },
-  break:     { skill: '/vibe:break',  description: 'Milestone to task decomposition' },
-  build:     { skill: '/vibe:build',  description: 'TDD execution with subagent dispatch' },
-  harness:   { skill: '/vibe:harness', description: 'Production readiness validation' },
-  review:    { skill: '/vibe:review', description: 'Multi-perspective code review' },
-  qa:        { skill: '/vibe:qa',     description: 'Real browser QA testing' },
-  ship:      { skill: '/vibe:ship',   description: 'Release engineering' },
-  retro:     { skill: '/vibe:retro',  description: 'Retrospective & learning capture' },
-  learn:     { skill: '/vibe:learn',  description: 'Self-improvement engine' },
-  done:      { skill: '',             description: 'Pipeline complete' }
+  think:     { skill: '/vibe:think',    description: 'Product strategy & design thinking' },
+  plan:      { skill: '/vibe:plan',     description: 'Multi-perspective review' },
+  design:    { skill: '/vibe:design',   description: 'UI generation & approval' },
+  break:     { skill: '/vibe:break',    description: 'Milestone to task decomposition' },
+  build:     { skill: '/vibe:build',    description: 'TDD execution with subagent dispatch' },
+  critique:  { skill: '/vibe:critique', description: 'Cold-start adversarial code review — 5 lenses, minimum-findings floor' },
+  harness:   { skill: '/vibe:harness',  description: 'Production readiness validation' },
+  review:    { skill: '/vibe:review',   description: 'Multi-perspective code review' },
+  qa:        { skill: '/vibe:qa',       description: 'Real browser QA testing' },
+  ship:      { skill: '/vibe:ship',     description: 'Release engineering' },
+  retro:     { skill: '/vibe:retro',    description: 'Retrospective & learning capture' },
+  learn:     { skill: '/vibe:learn',    description: 'Self-improvement engine' },
+  done:      { skill: '',               description: 'Pipeline complete' }
 };
 
 export function autoCommand(program: Command): void {
@@ -243,6 +246,9 @@ async function runAutoPipeline(description: string, options: AutoOptions): Promi
         state.phase = skipTransition?.next ?? transition.next;
       } else if (transition.condition === 'has_more_tasks' && !result.hasMoreTasks) {
         state.phase = transition.next;
+      } else if (transition.condition === 'critique_passed' && !result.allChecksPassed) {
+        console.log('🔄 Critique found blocking issues — looping back to build');
+        state.phase = 'build';
       } else if (transition.condition === 'all_checks_passed' && !result.allChecksPassed) {
         console.log('🔄 Harness checks failed, looping...');
       } else {
@@ -423,6 +429,45 @@ Reference OKF bundle for pre-populated decisions.
       console.log('🏗️  Building...');
       const buildResult = await runBuild(root);
       return { artifact: 'build-output.log', hasMoreTasks: buildResult.hasMoreTasks };
+    }
+
+    case 'critique': {
+      console.log('🔬 Running adversarial critique (5 lenses)...');
+      // Gather recently generated source files for analysis
+      let sourceCode = '';
+      let testCode = '';
+      try {
+        const buildLog = await readFile(join(vibeDir, 'build-output.log'), 'utf-8');
+        sourceCode = buildLog;
+      } catch { /* no build log yet — critique against empty string */ }
+      try {
+        const handoff = await readFile(join(vibeDir, 'handoff.md'), 'utf-8');
+        sourceCode += '\n' + handoff;
+      } catch { /* no handoff yet */ }
+
+      const critiqueReport = buildCritiqueReport(sourceCode, testCode);
+      await writeFile(join(vibeDir, 'critique-report.json'), JSON.stringify(critiqueReport, null, 2));
+
+      // Print findings to console
+      console.log(`\n   📊 Critique score: ${critiqueReport.score} — verdict: ${critiqueReport.verdict.toUpperCase()}`);
+      for (const f of critiqueReport.findings) {
+        const icon = f.severity === 'critical' ? '🚨' : f.severity === 'high' ? '⚠️ ' : f.severity === 'medium' ? '🔶' : 'ℹ️ ';
+        const synth = f.category === 'synthetic' ? ' [probe]' : '';
+        console.log(`   ${icon} [${f.lens}]${synth} ${f.message}`);
+      }
+
+      if (critiqueReport.blocksHarness) {
+        console.log(`\n   🚫 Critique BLOCKS harness — fix critical findings before proceeding`);
+        circuitBreaker.consecutiveFailures++;
+      } else {
+        console.log(`\n   ✅ Critique passed — proceeding to harness`);
+        circuitBreaker.consecutiveFailures = 0;
+      }
+
+      return {
+        artifact: 'critique-report.json',
+        allChecksPassed: !critiqueReport.blocksHarness,
+      };
     }
 
     case 'harness': {

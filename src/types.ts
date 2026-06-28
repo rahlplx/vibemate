@@ -261,7 +261,7 @@ export interface ExperiencePrinciple {
 // Auto-Mode Types
 export type AutoPhase =
   | 'think' | 'plan' | 'design' | 'break'
-  | 'build' | 'harness' | 'review' | 'qa'
+  | 'build' | 'critique' | 'harness' | 'review' | 'qa'
   | 'ship' | 'retro' | 'learn' | 'done';
 
 export interface PhaseObservation {
@@ -326,6 +326,21 @@ export interface HarnessCheck {
   status: HarnessCheckStatus;
   message: string;
   duration: number;
+}
+
+export interface CritiqueReport {
+  timestamp: string;
+  findings: Array<{
+    lens: string;
+    category: string;
+    severity: string;
+    message: string;
+    line?: number;
+  }>;
+  score: number;
+  verdict: 'pass' | 'warn' | 'fail';
+  blocksHarness: boolean;
+  summary: string;
 }
 
 export interface HarnessReport {
