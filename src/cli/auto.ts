@@ -5,7 +5,7 @@ import { SelfImprovementOrchestrator } from '../evolve/index.js';
 import { TelemetryCollector } from '../telemetry/collector.js';
 import { CostAwareRouter } from '../router/index.js';
 import { OKFGenerator } from '../okf/generator.js';
-import { writeFile, readFile, mkdir } from 'fs/promises';
+import { writeFile, readFile, mkdir, readdir } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join } from 'path';
 import { execFileSync } from 'child_process';
@@ -433,17 +433,15 @@ Reference OKF bundle for pre-populated decisions.
 
     case 'critique': {
       console.log('🔬 Running adversarial critique (5 lenses)...');
-      // Gather recently generated source files for analysis
+      // Gather actual TypeScript source and test files for static analysis
       let sourceCode = '';
       let testCode = '';
       try {
-        const buildLog = await readFile(join(vibeDir, 'build-output.log'), 'utf-8');
-        sourceCode = buildLog;
-      } catch { /* no build log yet — critique against empty string */ }
-      try {
-        const handoff = await readFile(join(vibeDir, 'handoff.md'), 'utf-8');
-        sourceCode += '\n' + handoff;
-      } catch { /* no handoff yet */ }
+        sourceCode = await gatherTsFiles(join(root, 'src'));
+        testCode = await gatherTsFiles(join(root, 'tests'));
+      } catch (e) {
+        console.error('[Critique] Failed to gather source/test files:', e instanceof Error ? e.message : String(e));
+      }
 
       const critiqueReport = buildCritiqueReport(sourceCode, testCode);
       await writeFile(join(vibeDir, 'critique-report.json'), JSON.stringify(critiqueReport, null, 2));
@@ -557,6 +555,23 @@ ${learnAdvisory.relevantLessons.length > 0
     default:
       return {};
   }
+}
+
+async function gatherTsFiles(dir: string): Promise<string> {
+  let content = '';
+  try {
+    const entries = await readdir(dir, { withFileTypes: true });
+    for (const entry of entries) {
+      if (entry.name.startsWith('.') || entry.name === 'node_modules') continue;
+      const fullPath = join(dir, entry.name);
+      if (entry.isDirectory()) {
+        content += await gatherTsFiles(fullPath);
+      } else if (entry.name.endsWith('.ts')) {
+        try { content += '\n' + await readFile(fullPath, 'utf-8'); } catch { /* skip unreadable */ }
+      }
+    }
+  } catch { /* dir doesn't exist */ }
+  return content;
 }
 
 async function runBuild(root: string): Promise<{ hasMoreTasks: boolean }> {

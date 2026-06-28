@@ -56,17 +56,30 @@ const BLOCK_THRESHOLD = 40;
 function edgeCaseLens(code: string): CritiqueFinding[] {
   const findings: CritiqueFinding[] = [];
 
-  // Division without zero guard
-  if (/\/\s*\w+/.test(code) && !/if\s*\(.*===?\s*0/.test(code) && !/\?\?/.test(code)) {
-    const match = code.match(/(\w+)\s*\/\s*(\w+)/);
-    if (match && !code.includes('//')) {
-      findings.push({
-        lens: 'edge_cases',
-        category: 'edge_case',
-        severity: 'medium',
-        message: `Division by '${match[2]}' with no zero-guard — will produce Infinity or NaN silently`,
-        line: lineOf(code, match[0]),
-      });
+  // Division without zero guard — line-by-line to avoid false negatives from comments/URLs
+  const divLines = code.split('\n');
+  for (let i = 0; i < divLines.length; i++) {
+    const divLine = divLines[i];
+    const divMatch = divLine.match(/(\w+)\s*\/\s*(\w+)/);
+    if (divMatch) {
+      const commentIdx = divLine.indexOf('//');
+      const matchIdx = divLine.indexOf(divMatch[0]);
+      if (
+        (commentIdx === -1 || matchIdx < commentIdx) &&
+        !divLine.includes('http://') &&
+        !divLine.includes('https://') &&
+        !/if\s*\(.*===?\s*0/.test(divLine) &&
+        !/\?\?/.test(divLine)
+      ) {
+        findings.push({
+          lens: 'edge_cases',
+          category: 'edge_case',
+          severity: 'medium',
+          message: `Division by '${divMatch[2]}' with no zero-guard — will produce Infinity or NaN silently`,
+          line: i + 1,
+        });
+        break;
+      }
     }
   }
 
@@ -84,7 +97,7 @@ function edgeCaseLens(code: string): CritiqueFinding[] {
 
   // Unconditional .name / .length on a variable that might be null
   const dotAccess = code.match(/(\w+)\[(\d+)\]\s*\.\s*\w+/);
-  if (dotAccess && !code.includes('?.')) {
+  if (dotAccess) {
     findings.push({
       lens: 'edge_cases',
       category: 'edge_case',
@@ -111,13 +124,14 @@ function securityLens(code: string): CritiqueFinding[] {
   }
 
   // Prototype pollution: dynamic bracket write with external key
-  if (/\w+\[\w+\]\s*=/.test(code) && !/const\s+\w+\s*=/.test(code.split('\n').find(l => /\[\w+\]\s*=/.test(l)) ?? '')) {
+  const protoMatch = code.match(/\w+\[\w+\]\s*=/);
+  if (protoMatch && !/const\s+\w+\s*=/.test(code.split('\n').find(l => /\[\w+\]\s*=/.test(l)) ?? '')) {
     findings.push({
       lens: 'security',
       category: 'security',
       severity: 'high',
       message: 'Dynamic property assignment via bracket notation — potential prototype pollution if key is attacker-controlled (__proto__, constructor)',
-      line: lineOf(code, '['),
+      line: lineOf(code, protoMatch[0]),
     });
   }
 
@@ -184,11 +198,13 @@ function invariantsLens(code: string): CritiqueFinding[] {
 function coverageGapsLens(code: string, testContent: string): CritiqueFinding[] {
   const findings: CritiqueFinding[] = [];
 
-  // Find exported function names
-  const exportedFns = [...code.matchAll(/export\s+(?:async\s+)?function\s+(\w+)/g)].map(m => m[1]);
+  // Find exported function names — both `export function f()` and `export const f = () =>`
+  const exportedFns = [
+    ...code.matchAll(/export\s+(?:async\s+)?function\s+(\w+)|export\s+const\s+(\w+)\s*=\s*(?:async\s*)?\([^)]*\)\s*=>/g)
+  ].map(m => m[1] || m[2]);
 
   for (const fn of exportedFns) {
-    if (!testContent.includes(fn)) {
+    if (fn && !testContent.includes(fn)) {
       findings.push({
         lens: 'coverage_gaps',
         category: 'coverage',
