@@ -5,13 +5,14 @@ import { SelfImprovementOrchestrator } from '../evolve/index.js';
 import { TelemetryCollector } from '../telemetry/collector.js';
 import { CostAwareRouter } from '../router/index.js';
 import { OKFGenerator } from '../okf/generator.js';
-import { writeFile, readFile, mkdir } from 'fs/promises';
+import { writeFile, readFile, mkdir, readdir } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join } from 'path';
 import { execFileSync } from 'child_process';
 import { AutoPhase, CircuitBreaker, AutoState, HarnessCheck, HarnessReport, PhaseObservation } from '../types.js';
 import { applyAmbiguityGate, checkGovernancePermission, handleHarnessFailure, computeObservationScore } from './auto-helpers.js';
 import { tokenBudgetGate, dlpGate, passRateGate } from './harness-gates.js';
+import { buildCritiqueReport } from './critique-engine.js';
 import { createObservationEngine } from '../improve/observation.js';
 
 interface AutoOptions {
@@ -26,7 +27,8 @@ const PHASE_TRANSITIONS: Record<AutoPhase, { next: AutoPhase | null; condition?:
   plan:      { next: 'design', condition: 'has_ui' },
   design:    { next: 'break' },
   break:     { next: 'build' },
-  build:     { next: 'harness', condition: 'has_more_tasks' },
+  build:     { next: 'critique', condition: 'has_more_tasks' },
+  critique:  { next: 'harness', condition: 'critique_passed' },
   harness:   { next: 'review', condition: 'all_checks_passed' },
   review:    { next: 'qa', condition: 'has_ui' },
   qa:        { next: 'ship' },
@@ -37,18 +39,19 @@ const PHASE_TRANSITIONS: Record<AutoPhase, { next: AutoPhase | null; condition?:
 };
 
 const PHASE_EXECUTION: Record<AutoPhase, { skill: string; description: string }> = {
-  think:     { skill: '/vibe:think',  description: 'Product strategy & design thinking' },
-  plan:      { skill: '/vibe:plan',   description: 'Multi-perspective review' },
-  design:    { skill: '/vibe:design', description: 'UI generation & approval' },
-  break:     { skill: '/vibe:break',  description: 'Milestone to task decomposition' },
-  build:     { skill: '/vibe:build',  description: 'TDD execution with subagent dispatch' },
-  harness:   { skill: '/vibe:harness', description: 'Production readiness validation' },
-  review:    { skill: '/vibe:review', description: 'Multi-perspective code review' },
-  qa:        { skill: '/vibe:qa',     description: 'Real browser QA testing' },
-  ship:      { skill: '/vibe:ship',   description: 'Release engineering' },
-  retro:     { skill: '/vibe:retro',  description: 'Retrospective & learning capture' },
-  learn:     { skill: '/vibe:learn',  description: 'Self-improvement engine' },
-  done:      { skill: '',             description: 'Pipeline complete' }
+  think:     { skill: '/vibe:think',    description: 'Product strategy & design thinking' },
+  plan:      { skill: '/vibe:plan',     description: 'Multi-perspective review' },
+  design:    { skill: '/vibe:design',   description: 'UI generation & approval' },
+  break:     { skill: '/vibe:break',    description: 'Milestone to task decomposition' },
+  build:     { skill: '/vibe:build',    description: 'TDD execution with subagent dispatch' },
+  critique:  { skill: '/vibe:critique', description: 'Cold-start adversarial code review — 5 lenses, minimum-findings floor' },
+  harness:   { skill: '/vibe:harness',  description: 'Production readiness validation' },
+  review:    { skill: '/vibe:review',   description: 'Multi-perspective code review' },
+  qa:        { skill: '/vibe:qa',       description: 'Real browser QA testing' },
+  ship:      { skill: '/vibe:ship',     description: 'Release engineering' },
+  retro:     { skill: '/vibe:retro',    description: 'Retrospective & learning capture' },
+  learn:     { skill: '/vibe:learn',    description: 'Self-improvement engine' },
+  done:      { skill: '',               description: 'Pipeline complete' }
 };
 
 export function autoCommand(program: Command): void {
@@ -241,8 +244,11 @@ async function runAutoPipeline(description: string, options: AutoOptions): Promi
         console.log(`⏭️  Skipping ${transition.next} (no UI)`);
         const skipTransition = PHASE_TRANSITIONS[transition.next];
         state.phase = skipTransition?.next ?? transition.next;
-      } else if (transition.condition === 'has_more_tasks' && !result.hasMoreTasks) {
-        state.phase = transition.next;
+      } else if (transition.condition === 'has_more_tasks' && result.hasMoreTasks) {
+        state.phase = justCompleted;
+      } else if (transition.condition === 'critique_passed' && !result.allChecksPassed) {
+        console.log('🔄 Critique found blocking issues — looping back to build');
+        state.phase = 'build';
       } else if (transition.condition === 'all_checks_passed' && !result.allChecksPassed) {
         console.log('🔄 Harness checks failed, looping...');
       } else {
@@ -425,6 +431,39 @@ Reference OKF bundle for pre-populated decisions.
       return { artifact: 'build-output.log', hasMoreTasks: buildResult.hasMoreTasks };
     }
 
+    case 'critique': {
+      console.log('🔬 Running adversarial critique (5 lenses)...');
+      let sourceCode = '';
+      let testCode = '';
+      try {
+        sourceCode = await gatherTsFiles(join(root, 'src'));
+        testCode = await gatherTsFiles(join(root, 'tests'));
+      } catch (e) {
+        console.error('[Critique] Failed to gather source/test files:', e instanceof Error ? e.message : String(e));
+      }
+
+      const critiqueReport = buildCritiqueReport(sourceCode, testCode);
+      await writeFile(join(vibeDir, 'critique-report.json'), JSON.stringify(critiqueReport, null, 2));
+
+      console.log(`\n   📊 Critique score: ${critiqueReport.score} — verdict: ${critiqueReport.verdict.toUpperCase()}`);
+      for (const f of critiqueReport.findings) {
+        const icon = f.severity === 'critical' ? '🚨' : f.severity === 'high' ? '⚠️ ' : f.severity === 'medium' ? '🔶' : 'ℹ️ ';
+        const synth = f.category === 'synthetic' ? ' [probe]' : '';
+        console.log(`   ${icon} [${f.lens}]${synth} ${f.message}`);
+      }
+
+      if (critiqueReport.blocksHarness) {
+        console.log(`\n   🚫 Critique BLOCKS harness — fix critical findings before proceeding`);
+      } else {
+        console.log(`\n   ✅ Critique passed — proceeding to harness`);
+      }
+
+      return {
+        artifact: 'critique-report.json',
+        allChecksPassed: !critiqueReport.blocksHarness,
+      };
+    }
+
     case 'harness': {
       console.log('🔍 Running harness checks...');
       const harnessResult = await runHarnessChecks(root, circuitBreaker);
@@ -512,6 +551,23 @@ ${learnAdvisory.relevantLessons.length > 0
     default:
       return {};
   }
+}
+
+async function gatherTsFiles(dir: string): Promise<string> {
+  let content = '';
+  try {
+    const entries = await readdir(dir, { withFileTypes: true });
+    for (const entry of entries) {
+      if (entry.name.startsWith('.') || entry.name === 'node_modules') continue;
+      const fullPath = join(dir, entry.name);
+      if (entry.isDirectory()) {
+        content += await gatherTsFiles(fullPath);
+      } else if ((entry.name.endsWith('.ts') || entry.name.endsWith('.tsx')) && !entry.name.endsWith('.d.ts')) {
+        try { content += '\n' + await readFile(fullPath, 'utf-8'); } catch { /* skip unreadable */ }
+      }
+    }
+  } catch { /* dir doesn't exist */ }
+  return content;
 }
 
 async function runBuild(root: string): Promise<{ hasMoreTasks: boolean }> {

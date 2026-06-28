@@ -261,7 +261,7 @@ export interface ExperiencePrinciple {
 // Auto-Mode Types
 export type AutoPhase =
   | 'think' | 'plan' | 'design' | 'break'
-  | 'build' | 'harness' | 'review' | 'qa'
+  | 'build' | 'critique' | 'harness' | 'review' | 'qa'
   | 'ship' | 'retro' | 'learn' | 'done';
 
 export interface PhaseObservation {
@@ -326,6 +326,28 @@ export interface HarnessCheck {
   status: HarnessCheckStatus;
   message: string;
   duration: number;
+}
+
+export type CritiqueLens = 'edge_cases' | 'security' | 'cleanup' | 'invariants' | 'coverage_gaps';
+export type FindingSeverity = 'critical' | 'high' | 'medium' | 'low';
+export type FindingCategory = 'edge_case' | 'security' | 'cleanup' | 'invariant' | 'coverage' | 'synthetic';
+export type CritiqueVerdict = 'pass' | 'warn' | 'fail';
+
+export interface CritiqueFinding {
+  lens: CritiqueLens;
+  category: FindingCategory;
+  severity: FindingSeverity;
+  message: string;
+  line?: number;
+}
+
+export interface CritiqueReport {
+  timestamp: string;
+  findings: CritiqueFinding[];
+  score: number;
+  verdict: CritiqueVerdict;
+  blocksHarness: boolean;
+  summary: string;
 }
 
 export interface HarnessReport {
