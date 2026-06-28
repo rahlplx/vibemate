@@ -125,11 +125,12 @@ describe('mineRepo', () => {
   });
 
   it('getCommitStats parses real git log when localPath is a git repo', async () => {
-    // Use the vibemate repo itself — it has real commits, so git log returns data
-    const result = await mineRepo('file:///home/user/vibemate', {
+    // Use the current repo itself — it has real commits, so git log returns data
+    const repoRoot = process.cwd();
+    const result = await mineRepo('file://' + repoRoot, {
       vibeDir,
       skipClone: true,
-      localPath: '/home/user/vibemate',
+      localPath: repoRoot,
     });
     // A real git repo has commits, so commitCount > 0 and contributors are populated
     expect(result.analysis.commitCount).toBeGreaterThan(0);
@@ -138,7 +139,8 @@ describe('mineRepo', () => {
 
   it('clones from local file:// URL when skipClone is false', async () => {
     // Use file:// protocol to clone locally without network access
-    const result = await mineRepo(`file:///home/user/vibemate`, {
+    const repoRoot = process.cwd();
+    const result = await mineRepo(`file://${repoRoot}`, {
       vibeDir,
       dryRun: false,
       skipClone: false,

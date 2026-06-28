@@ -5,6 +5,17 @@ import { randomUUID } from 'crypto';
 import { execFileSync } from 'child_process';
 import type { DatabaseConnection } from '../state/connection.js';
 
+const ALLOWED_URL_PROTOCOLS = /^(https?:\/\/|git:\/\/|ssh:\/\/|git@|file:\/\/)/i;
+
+function validateRepoUrl(url: string): void {
+  if (!ALLOWED_URL_PROTOCOLS.test(url)) {
+    throw new Error(`Unsupported repository URL scheme. Allowed: http, https, git, ssh, git@, file`);
+  }
+  if (url.startsWith('-')) {
+    throw new Error('Repository URL must not start with a dash');
+  }
+}
+
 export interface RepoAnalysis {
   url: string;
   clonedAt: string;
@@ -152,6 +163,9 @@ function urlToSlug(url: string): string {
 
 export async function mineRepo(url: string, options: RepoMineOptions = {}): Promise<RepoMineResult> {
   const { depth = 100, vibeDir = '.vibe', dryRun = false, skipClone = false, localPath, db } = options;
+
+  validateRepoUrl(url);
+
   const dbId = randomUUID();
   const clonedAt = new Date().toISOString();
 
@@ -166,7 +180,7 @@ export async function mineRepo(url: string, options: RepoMineOptions = {}): Prom
     const slug = urlToSlug(url).slice(0, 50);
     repoPath = join(cloneDir, slug);
     if (!dryRun) {
-      execFileSync('git', ['clone', '--depth', String(depth), url, repoPath], {
+      execFileSync('git', ['clone', '--depth', String(depth), '--', url, repoPath], {
         stdio: ['pipe', 'pipe', 'pipe'],
         timeout: 300_000
       });

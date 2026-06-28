@@ -151,13 +151,13 @@ describe('GovernanceEngine', () => {
       lastActive: new Date(),
     });
     engine.addPolicy({
-      name: 'deny-deploy',
-      description: 'Block deploy for everyone',
+      name: 'deny-execute',
+      description: 'Block execute for everyone',
       action: 'deny',
-      condition: (ctx) => ctx.action === 'deploy',
+      condition: (ctx) => ctx.action === 'execute',
     });
-    // developer normally can deploy but the policy overrides it
-    expect(engine.hasPermission('user-1', 'deploy', 'ci')).toBe(false);
+    // developer normally can execute, but the deny policy overrides it
+    expect(engine.hasPermission('user-1', 'execute', 'ci')).toBe(false);
   });
 
   it('addPolicy with allow action short-circuits role check', () => {

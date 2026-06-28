@@ -369,13 +369,13 @@ program
       const { OKFGenerator } = await import('../okf/generator.js');
       const { runEvolveCron } = await import('./evolve-helpers.js');
       const { mineRepo } = await import('../learnings/repo-miner.js');
-      const { createDefaultConfig } = await import('../shared/config.js');
+      const { loadConfig } = await import('../shared/config.js');
       const { join } = await import('path');
 
       const root = process.cwd();
       const okf = new OKFGenerator(root);
       const orchestrator = new SelfImprovementOrchestrator(okf);
-      const config = createDefaultConfig();
+      const config = loadConfig(root);
 
       if (options.cron) {
         console.log('🔄 Vibemate EvolveAgent — cron run');

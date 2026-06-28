@@ -1,5 +1,13 @@
+import { z } from 'zod';
 import type { ToolDefinition, ToolHandler, ToolResult } from '../types.js';
 import { mineRepo } from '../../learnings/repo-miner.js';
+
+const MineRepoArgsSchema = z.object({
+  url: z.string().min(1, 'url is required'),
+  depth: z.number().int().positive().optional(),
+  dryRun: z.boolean().optional(),
+  vibeDir: z.string().optional(),
+});
 
 export const mineRepoToolDefinition: ToolDefinition = {
   name: 'mine_repo',
@@ -17,12 +25,11 @@ export const mineRepoToolDefinition: ToolDefinition = {
 };
 
 export const mineRepoToolHandler: ToolHandler = async (args: unknown): Promise<ToolResult> => {
-  const { url, depth, dryRun, vibeDir } = args as {
-    url: string;
-    depth?: number;
-    dryRun?: boolean;
-    vibeDir?: string;
-  };
+  const parsed = MineRepoArgsSchema.safeParse(args);
+  if (!parsed.success) {
+    throw new Error(`Invalid arguments: ${parsed.error.message}`);
+  }
+  const { url, depth, dryRun, vibeDir } = parsed.data;
 
   const result = await mineRepo(url, {
     depth: depth ?? 100,

@@ -26,11 +26,13 @@ describe('mine_repo MCP tool definition', () => {
 });
 
 describe('mine_repo MCP tool handler', () => {
+  const repoUrl = 'file://' + process.cwd();
+
   it('returns markdown summary and structuredContent for local path in dry-run', async () => {
     const vibeDir = await mkdtemp(join(tmpdir(), 'vibe-mine-tool-'));
 
     const result = await mineRepoToolHandler({
-      url: '/home/user/vibemate',
+      url: repoUrl,
       dryRun: true,
       vibeDir,
     });
@@ -45,7 +47,7 @@ describe('mine_repo MCP tool handler', () => {
     const vibeDir = await mkdtemp(join(tmpdir(), 'vibe-mine-tool-dry-'));
 
     const result = await mineRepoToolHandler({
-      url: '/home/user/vibemate',
+      url: repoUrl,
       dryRun: true,
       vibeDir,
     });
@@ -58,7 +60,7 @@ describe('mine_repo MCP tool handler', () => {
     const vibeDir = await mkdtemp(join(tmpdir(), 'vibe-mine-tool-lang-'));
 
     const result = await mineRepoToolHandler({
-      url: '/home/user/vibemate',
+      url: repoUrl,
       dryRun: true,
       vibeDir,
     });
@@ -71,13 +73,13 @@ describe('mine_repo MCP tool handler', () => {
     const vibeDir = await mkdtemp(join(tmpdir(), 'vibe-mine-tool-struct-'));
 
     const result = await mineRepoToolHandler({
-      url: '/home/user/vibemate',
+      url: repoUrl,
       dryRun: true,
       vibeDir,
     });
 
     const sc = result.structuredContent as Record<string, unknown>;
-    expect(sc.url).toBe('/home/user/vibemate');
+    expect(sc.url).toBe(repoUrl);
     expect(sc.analysis).toBeDefined();
     expect(typeof sc.jsonlRecordsWritten).toBe('number');
   });
