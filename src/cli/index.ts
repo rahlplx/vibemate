@@ -367,7 +367,7 @@ program
     try {
       const { SelfImprovementOrchestrator } = await import('../evolve/index.js');
       const { OKFGenerator } = await import('../okf/generator.js');
-      const { runEvolveCron } = await import('./evolve-helpers.js');
+      const { runEvolveCron, runMineOnCron } = await import('./evolve-helpers.js');
       const { mineRepo } = await import('../learnings/repo-miner.js');
       const { loadConfig } = await import('../shared/config.js');
       const { join } = await import('path');
@@ -383,20 +383,11 @@ program
         console.log('🔄 Vibemate EvolveAgent — cron run');
         await runEvolveCron(orchestrator);
 
-        const repos = config.mineRepos ?? [];
-        if (repos.length > 0) {
-          console.log(`\n📦 Mining ${repos.length} configured repo(s)...`);
-          const vibeDir = join(root, config.stateDir);
-          for (const url of repos) {
-            try {
-              console.log(`  Mining: ${url}`);
-              const result = await mineRepo(url, { depth: config.mineDepth ?? 100, vibeDir });
-              console.log(`  ✓ ${result.analysis.fileCount} files, ${result.jsonlRecordsWritten} JSONL records`);
-            } catch (e) {
-              console.warn(`  ⚠ Failed to mine ${url}: ${e instanceof Error ? e.message : e}`);
-            }
-          }
-        }
+        await runMineOnCron(
+          config.mineRepos ?? [],
+          { depth: config.mineDepth ?? 100, vibeDir: join(root, config.stateDir) },
+          mineRepo,
+        );
 
         console.log('✅ EvolveAgent cron complete.');
       } else {
