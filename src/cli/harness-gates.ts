@@ -5,7 +5,7 @@ const DLP_PATTERNS = [
   { pattern: /ghp_[A-Za-z0-9]{30,40}/g, label: 'GitHub token' },
   { pattern: /eyJ[A-Za-z0-9_-]+\.eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/g, label: 'JWT' },
   { pattern: /(?:mongodb|postgresql|mysql|redis):\/\/[^\s]+/gi, label: 'connection string' },
-  { pattern: /(?:API_KEY|SECRET|PASSWORD|TOKEN|PRIVATE_KEY)[='":\s]+[^\s'"]+/gi, label: 'env var secret' },
+  { pattern: /(?:API_KEY|SECRET|PASSWORD|TOKEN|PRIVATE_KEY)\s*[=:]\s*['"]?[^\s'"]+/gi, label: 'env var secret' },
 ];
 
 export function tokenBudgetGate(totalCost: number, maxBudget: number): HarnessCheck {

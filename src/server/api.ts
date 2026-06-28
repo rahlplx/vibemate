@@ -212,6 +212,10 @@ app.get('/events', (_c) => {
           controller.enqueue(enc.encode(`event: telemetry_span\ndata: ${JSON.stringify(span)}\n\n`));
         } catch {
           unsubscribe?.();
+          if (stateInterval) {
+            clearInterval(stateInterval);
+            stateInterval = undefined;
+          }
         }
       });
 

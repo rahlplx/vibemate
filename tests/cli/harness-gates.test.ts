@@ -90,6 +90,11 @@ describe('dlpGate', () => {
     expect(check.status).toBe('fail');
   });
 
+  it('does not false-positive on env keyword in normal prose', () => {
+    const check = dlpGate('Do not share your PRIVATE_KEY with anyone');
+    expect(check.status).toBe('pass');
+  });
+
   it('reports the count of detected secrets', () => {
     const check = dlpGate('AKIAIOSFODNN7EXAMPLE and ghp_1234567890abcdef1234567890abcdef123456');
     expect(check.status).toBe('fail');

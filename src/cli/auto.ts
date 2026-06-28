@@ -611,9 +611,11 @@ async function runHarnessChecks(root: string, circuitBreaker: CircuitBreaker): P
     checks.push(rateCheck);
     console.log(`   ${rateCheck.status === 'pass' ? '✅' : rateCheck.status === 'warn' ? '⚠️ ' : '❌'} ${rateCheck.name}: ${rateCheck.message}`);
   } catch (error) {
-    const errOutput = error instanceof Error && 'stderr' in error ? String((error as NodeJS.ErrnoException & { stderr?: string }).stderr || '') : '';
-    const passMatch = errOutput.match(/(\d+) pass/);
-    const failMatch = errOutput.match(/(\d+) fail/);
+    const errStdout = error instanceof Error && 'stdout' in error ? String((error as NodeJS.ErrnoException & { stdout?: string }).stdout || '') : '';
+    const errStderr = error instanceof Error && 'stderr' in error ? String((error as NodeJS.ErrnoException & { stderr?: string }).stderr || '') : '';
+    const combinedOutput = errStdout + '\n' + errStderr;
+    const passMatch = combinedOutput.match(/(\d+) pass/);
+    const failMatch = combinedOutput.match(/(\d+) fail/);
     const passed = passMatch ? parseInt(passMatch[1]) : 0;
     const failed = failMatch ? parseInt(failMatch[1]) : 0;
     checks.push({
