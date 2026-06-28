@@ -3,6 +3,7 @@ import {
   QuestionTree,
   buildTree,
   getNextQuestion,
+  getAllQuestions,
   type TreeNode,
   type TreeAnswer,
 } from '../../src/discovery/tree.js';
@@ -107,6 +108,60 @@ describe('QuestionTree', () => {
       const first = getNextQuestion(tree, []);
       expect(first).toBeDefined();
       expect(first!.nodeId).toBe('root');
+    });
+  });
+
+  describe('getNextQuestion fallback child', () => {
+    it('uses first child when answer does not match any branch condition', () => {
+      // Tree where root has a child with a condition, but we answer something else
+      const tree: QuestionTree = {
+        root: {
+          id: 'root',
+          questionId: 'saas-purpose',
+          children: [
+            {
+              id: 'only-branch',
+              questionId: 'saas-users',
+              condition: { questionId: 'saas-purpose', value: 'specific-value' },
+              children: [],
+            },
+          ],
+        },
+        questionMap: new Map([
+          ['saas-purpose', getQuestionById('saas-purpose')!],
+          ['saas-users', getQuestionById('saas-users')!],
+        ]),
+      };
+      // Answer doesn't match 'specific-value', so fallback to first child
+      const answers: TreeAnswer[] = [
+        { questionId: 'saas-purpose', value: 'no-matching-value' },
+      ];
+      const next = getNextQuestion(tree, answers);
+      expect(next).toBeDefined();
+      expect(next!.nodeId).toBe('only-branch');
+    });
+  });
+
+  describe('getAllQuestions', () => {
+    it('returns all unique questions in tree', () => {
+      const tree = buildTree('saas');
+      const questions = getAllQuestions(tree);
+      expect(Array.isArray(questions)).toBe(true);
+      expect(questions.length).toBeGreaterThan(0);
+    });
+
+    it('includes root question', () => {
+      const questions = getAllQuestions(sampleTree);
+      const ids = questions.map(q => q.id);
+      expect(ids).toContain('saas-purpose');
+    });
+
+    it('does not duplicate visited nodes', () => {
+      const tree = buildTree('saas');
+      const questions = getAllQuestions(tree);
+      const ids = questions.map(q => q.id);
+      const uniqueIds = new Set(ids);
+      expect(ids.length).toBe(uniqueIds.size);
     });
   });
 });
