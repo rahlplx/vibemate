@@ -1,15 +1,15 @@
 ---
 type: retro-learning
-title: "Learn: test-task"
-description: "Learning from success"
-tags: [learned-principle]
+title: "Retro: test-task"
+description: "Task test-task: success"
+tags: [testing]
 timestamp: "2026-06-28T13:05:01.780Z"
 learningType: "success"
 ---
 
 ## Learning
 
-For test-task: Follow this pattern
+Successfully completed task test-task. Key pattern: incremental delivery
 
 ## Context
 
