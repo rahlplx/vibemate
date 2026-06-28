@@ -136,6 +136,41 @@ describe("generateMetaLearnings", () => {
     expect(depsLearning!.evidence).toContain("lodash")
   })
 
+  it("includes pattern usage learning when 3+ design patterns", () => {
+    const data = makeCleanData()
+    data.patterns.designPatterns = [
+      { name: "Singleton", type: "design", locations: [{ file: "a.ts", line: 1 }], confidence: 0.9, description: "Singleton" },
+      { name: "Factory", type: "design", locations: [{ file: "b.ts", line: 1 }], confidence: 0.9, description: "Factory" },
+      { name: "Observer", type: "design", locations: [{ file: "c.ts", line: 1 }], confidence: 0.9, description: "Observer" },
+    ]
+    const findings = audit(data)
+    const value = assessValue(data, findings)
+    const meta = generateMetaLearnings(data, findings, value)
+    const patternLearning = meta.find(m => m.id === "meta-pattern-usage")
+    expect(patternLearning).toBeDefined()
+    expect(patternLearning!.evidence).toContain("Singleton")
+  })
+
+  it("includes high-value learning when overallScore >= 70", () => {
+    const data = makeCleanData()
+    const findings = audit(data)
+    // Inject a value with overallScore >= 70 directly
+    const value = { ...assessValue(data, findings), overallScore: 85, strengths: ["clean architecture", "high test coverage"] }
+    const meta = generateMetaLearnings(data, findings, value)
+    const highValue = meta.find(m => m.id === "meta-high-value")
+    expect(highValue).toBeDefined()
+    expect(highValue!.evidence[0]).toContain("85")
+  })
+
+  it("omits high-value learning when overallScore < 70", () => {
+    const data = makeDirtyData()
+    const findings = audit(data)
+    const value = { ...assessValue(data, findings), overallScore: 40, strengths: [] }
+    const meta = generateMetaLearnings(data, findings, value)
+    const highValue = meta.find(m => m.id === "meta-high-value")
+    expect(highValue).toBeUndefined()
+  })
+
   it("all learnings have required fields", () => {
     const findings = audit(makeCleanData())
     const value = assessValue(makeCleanData(), findings)
