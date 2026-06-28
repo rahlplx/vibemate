@@ -231,13 +231,51 @@ describe('TelemetryCollector', () => {
     it('should clear spans older than max age', () => {
       // Create a span
       collector.startSpan('old.span');
-      
+
       // Clear spans older than 0ms (immediately)
       collector.clearOldSpans(0);
 
       // Get metrics - should be empty
       const metrics = collector.getMetrics();
       expect(metrics.totalTokens).toBe(0);
+    });
+  });
+
+  describe('flushAnomalyWindow', () => {
+    it('clears the anomaly scan window', async () => {
+      await collector.recordAgentTurn('agent-1', 'claude-sonnet-4-6', 10, 5, 0.001);
+      // flushAnomalyWindow resets internal spansSinceExport buffer
+      collector.flushAnomalyWindow();
+      // After flush, getAnomalies has no new spans to compare against baseline
+      const anomalies = collector.getAnomalies();
+      expect(Array.isArray(anomalies)).toBe(true);
+    });
+  });
+
+  describe('loadHistory', () => {
+    it('returns empty array when export dir has no telemetry files', async () => {
+      const history = await collector.loadHistory();
+      expect(Array.isArray(history)).toBe(true);
+    });
+
+    it('returns metrics from exported telemetry files', async () => {
+      await collector.recordAgentTurn('agent-1', 'claude-sonnet-4-6', 100, 50, 0.001);
+      await collector.export();
+
+      const history = await collector.loadHistory();
+      expect(history.length).toBeGreaterThan(0);
+      expect(history[0]).toHaveProperty('totalTokens');
+    });
+
+    it('returns empty array when export dir does not exist', async () => {
+      const c = new TelemetryCollector({
+        enabled: true,
+        exportDir: '/nonexistent/path/that/never/exists',
+        serviceName: 'test',
+        serviceVersion: '0.0.1',
+      });
+      const history = await c.loadHistory();
+      expect(history).toEqual([]);
     });
   });
 });

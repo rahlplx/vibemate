@@ -67,6 +67,18 @@ describe('resolveModel', () => {
     const info = resolveModel('GPT-4O-MINI');
     expect(info.provider).toBe('openai');
   });
+
+  it('infers openai from unknown gpt model (gpt-3.5-turbo)', () => {
+    const info = resolveModel('gpt-3.5-turbo');
+    expect(info.provider).toBe('openai');
+    expect(info.family).toBe('gpt-unknown');
+  });
+
+  it('infers openai from gpt-3.5-turbo (gpt inference fallback)', () => {
+    const info = resolveModel('gpt-3.5-turbo');
+    expect(info.provider).toBe('openai');
+    expect(info.family).toBe('gpt-unknown');
+  });
 });
 
 describe('resolveAgentType', () => {
