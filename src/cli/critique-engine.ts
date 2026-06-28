@@ -1,44 +1,16 @@
-/**
- * CRITIQUE phase engine — adversarial cold-start analysis of generated code.
- *
- * Five structured lenses run in isolation. Each lens can only see the code
- * through its specific adversarial frame, preventing generation-mode bias.
- * A minimum-findings floor ensures the agent never declares "all clear"
- * without genuine investigation (enforces calibrated self-doubt).
- */
+import type {
+  CritiqueLens,
+  FindingSeverity,
+  FindingCategory,
+  CritiqueFinding,
+  CritiqueReport,
+  CritiqueVerdict,
+} from '../types.js';
 
-export type CritiqueLens =
-  | 'edge_cases'
-  | 'security'
-  | 'cleanup'
-  | 'invariants'
-  | 'coverage_gaps';
+export type { CritiqueLens, FindingSeverity, FindingCategory, CritiqueFinding, CritiqueReport, CritiqueVerdict };
 
-export type FindingSeverity = 'critical' | 'high' | 'medium' | 'low';
-export type FindingCategory = 'edge_case' | 'security' | 'cleanup' | 'invariant' | 'coverage' | 'synthetic';
-export type CritiqueVerdict = 'pass' | 'warn' | 'fail';
-
-export interface CritiqueFinding {
-  lens: CritiqueLens;
-  category: FindingCategory;
-  severity: FindingSeverity;
-  message: string;
-  line?: number;
-}
-
-export interface CritiqueReport {
-  timestamp: string;
-  findings: CritiqueFinding[];
-  score: number;
-  verdict: CritiqueVerdict;
-  blocksHarness: boolean;
-  summary: string;
-}
-
-// Minimum number of findings the critique MUST surface (enforces curiosity)
 const MINIMUM_FINDINGS = 3;
 
-// Score weights per severity
 const SEVERITY_WEIGHTS: Record<FindingSeverity, number> = {
   critical: 40,
   high: 20,
@@ -46,17 +18,12 @@ const SEVERITY_WEIGHTS: Record<FindingSeverity, number> = {
   low: 2,
 };
 
-// Block harness when score exceeds this or any critical finding exists
 const BLOCK_THRESHOLD = 40;
-
-// ---------------------------------------------------------------
-// Lens implementations — each is a pure function over a code string
-// ---------------------------------------------------------------
 
 function edgeCaseLens(code: string): CritiqueFinding[] {
   const findings: CritiqueFinding[] = [];
 
-  // Division without zero guard — line-by-line to avoid false negatives from comments/URLs
+  // Line-by-line to avoid false negatives from comments/URLs
   const divLines = code.split('\n');
   for (let i = 0; i < divLines.length; i++) {
     const divLine = divLines[i];
@@ -83,7 +50,6 @@ function edgeCaseLens(code: string): CritiqueFinding[] {
     }
   }
 
-  // Array index access without bounds check
   const indexAccess = code.match(/(\w+)\[(\d+)\]\.(\w+)/);
   if (indexAccess) {
     findings.push({
@@ -92,18 +58,6 @@ function edgeCaseLens(code: string): CritiqueFinding[] {
       severity: 'medium',
       message: `Direct index access '${indexAccess[0]}' — throws if array is empty or shorter than expected`,
       line: lineOf(code, indexAccess[0]),
-    });
-  }
-
-  // Unconditional .name / .length on a variable that might be null
-  const dotAccess = code.match(/(\w+)\[(\d+)\]\s*\.\s*\w+/);
-  if (dotAccess) {
-    findings.push({
-      lens: 'edge_cases',
-      category: 'edge_case',
-      severity: 'medium',
-      message: `Property access after index '${dotAccess[0]}' without optional chaining — unchecked null path`,
-      line: lineOf(code, dotAccess[0]),
     });
   }
 
@@ -123,7 +77,6 @@ function securityLens(code: string): CritiqueFinding[] {
     });
   }
 
-  // Prototype pollution: dynamic bracket write with external key
   const protoMatch = code.match(/\w+\[\w+\]\s*=/);
   if (protoMatch && !/const\s+\w+\s*=/.test(code.split('\n').find(l => /\[\w+\]\s*=/.test(l)) ?? '')) {
     findings.push({
@@ -135,7 +88,6 @@ function securityLens(code: string): CritiqueFinding[] {
     });
   }
 
-  // Path traversal: readFileSync / readFile with request-derived argument
   if (/readFile(Sync)?\s*\(\s*req\b/.test(code) || /readFile(Sync)?\s*\(\s*\w+\.params/.test(code)) {
     findings.push({
       lens: 'security',
@@ -152,23 +104,22 @@ function securityLens(code: string): CritiqueFinding[] {
 function cleanupLens(code: string): CritiqueFinding[] {
   const findings: CritiqueFinding[] = [];
 
-  // Promise chain without .catch() — check per line to avoid being silenced by unrelated await
+  // Per-line check: avoids global hasCatch suppressing unrelated .then() chains
   const lines = code.split('\n');
   const thenLines = lines
     .map((l, i) => ({ line: l, num: i + 1 }))
     .filter(({ line }) => /\.then\s*\(/.test(line) && !/await\s/.test(line));
-  const hasCatch = /.catch\s*\(/.test(code);
-  if (thenLines.length > 0 && !hasCatch) {
+  const unhandledThenLine = thenLines.find(({ line }) => !/.catch\s*\(/.test(line));
+  if (unhandledThenLine) {
     findings.push({
       lens: 'cleanup',
       category: 'cleanup',
       severity: 'high',
       message: 'Promise `.then()` without `.catch()` — unhandled rejection will crash Node ≥15 / Bun silently',
-      line: thenLines[0].num,
+      line: unhandledThenLine.num,
     });
   }
 
-  // Empty catch block
   if (/catch\s*\([^)]*\)\s*\{\s*\}/.test(code)) {
     findings.push({
       lens: 'cleanup',
@@ -185,7 +136,6 @@ function cleanupLens(code: string): CritiqueFinding[] {
 function invariantsLens(code: string): CritiqueFinding[] {
   const findings: CritiqueFinding[] = [];
 
-  // Mutating a parameter that looks like a config/options object
   const paramMutation = code.match(/function\s+\w+\s*\(\s*(\w+)\s*:\s*\w+\s*\)[^{]*\{[^}]*\1\.\w+\s*=/s);
   if (paramMutation) {
     findings.push({
@@ -203,7 +153,6 @@ function invariantsLens(code: string): CritiqueFinding[] {
 function coverageGapsLens(code: string, testContent: string): CritiqueFinding[] {
   const findings: CritiqueFinding[] = [];
 
-  // Find exported function names — both `export function f()` and `export const f = () =>`
   const exportedFns = [
     ...code.matchAll(/export\s+(?:async\s+)?function\s+(\w+)|export\s+const\s+(\w+)\s*=\s*(?:async\s*)?\([^)]*\)\s*=>/g)
   ].map(m => m[1] || m[2]);
@@ -222,10 +171,6 @@ function coverageGapsLens(code: string, testContent: string): CritiqueFinding[] 
 
   return findings;
 }
-
-// ---------------------------------------------------------------
-// Public API
-// ---------------------------------------------------------------
 
 export function runCritiqueLens(
   lens: CritiqueLens,
@@ -291,18 +236,13 @@ export function buildCritiqueReport(
   };
 }
 
-// ---------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------
-
 function lineOf(code: string, snippet: string): number {
   const idx = code.indexOf(snippet);
   if (idx === -1) return 1;
   return code.slice(0, idx).split('\n').length;
 }
 
-// Mandatory investigative prompts injected when real findings fall short of minimum.
-// These force the reviewing agent to actively look rather than declare "all clear".
+// Investigative prompts injected when real findings fall short of minimum — forces active search over declaring "all clear"
 const SYNTHETIC_PROMPTS: string[] = [
   'Verify: are there any boundary values (0, -1, MAX_SAFE_INTEGER) that produce incorrect output?',
   'Verify: does concurrent execution of this code cause race conditions or shared-state corruption?',

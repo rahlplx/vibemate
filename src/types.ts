@@ -328,17 +328,24 @@ export interface HarnessCheck {
   duration: number;
 }
 
+export type CritiqueLens = 'edge_cases' | 'security' | 'cleanup' | 'invariants' | 'coverage_gaps';
+export type FindingSeverity = 'critical' | 'high' | 'medium' | 'low';
+export type FindingCategory = 'edge_case' | 'security' | 'cleanup' | 'invariant' | 'coverage' | 'synthetic';
+export type CritiqueVerdict = 'pass' | 'warn' | 'fail';
+
+export interface CritiqueFinding {
+  lens: CritiqueLens;
+  category: FindingCategory;
+  severity: FindingSeverity;
+  message: string;
+  line?: number;
+}
+
 export interface CritiqueReport {
   timestamp: string;
-  findings: Array<{
-    lens: string;
-    category: string;
-    severity: string;
-    message: string;
-    line?: number;
-  }>;
+  findings: CritiqueFinding[];
   score: number;
-  verdict: 'pass' | 'warn' | 'fail';
+  verdict: CritiqueVerdict;
   blocksHarness: boolean;
   summary: string;
 }

@@ -244,8 +244,8 @@ async function runAutoPipeline(description: string, options: AutoOptions): Promi
         console.log(`⏭️  Skipping ${transition.next} (no UI)`);
         const skipTransition = PHASE_TRANSITIONS[transition.next];
         state.phase = skipTransition?.next ?? transition.next;
-      } else if (transition.condition === 'has_more_tasks' && !result.hasMoreTasks) {
-        state.phase = transition.next;
+      } else if (transition.condition === 'has_more_tasks' && result.hasMoreTasks) {
+        state.phase = justCompleted;
       } else if (transition.condition === 'critique_passed' && !result.allChecksPassed) {
         console.log('🔄 Critique found blocking issues — looping back to build');
         state.phase = 'build';
@@ -433,7 +433,6 @@ Reference OKF bundle for pre-populated decisions.
 
     case 'critique': {
       console.log('🔬 Running adversarial critique (5 lenses)...');
-      // Gather actual TypeScript source and test files for static analysis
       let sourceCode = '';
       let testCode = '';
       try {
@@ -446,7 +445,6 @@ Reference OKF bundle for pre-populated decisions.
       const critiqueReport = buildCritiqueReport(sourceCode, testCode);
       await writeFile(join(vibeDir, 'critique-report.json'), JSON.stringify(critiqueReport, null, 2));
 
-      // Print findings to console
       console.log(`\n   📊 Critique score: ${critiqueReport.score} — verdict: ${critiqueReport.verdict.toUpperCase()}`);
       for (const f of critiqueReport.findings) {
         const icon = f.severity === 'critical' ? '🚨' : f.severity === 'high' ? '⚠️ ' : f.severity === 'medium' ? '🔶' : 'ℹ️ ';
@@ -456,10 +454,8 @@ Reference OKF bundle for pre-populated decisions.
 
       if (critiqueReport.blocksHarness) {
         console.log(`\n   🚫 Critique BLOCKS harness — fix critical findings before proceeding`);
-        circuitBreaker.consecutiveFailures++;
       } else {
         console.log(`\n   ✅ Critique passed — proceeding to harness`);
-        circuitBreaker.consecutiveFailures = 0;
       }
 
       return {
@@ -566,7 +562,7 @@ async function gatherTsFiles(dir: string): Promise<string> {
       const fullPath = join(dir, entry.name);
       if (entry.isDirectory()) {
         content += await gatherTsFiles(fullPath);
-      } else if (entry.name.endsWith('.ts') && !entry.name.endsWith('.d.ts')) {
+      } else if ((entry.name.endsWith('.ts') || entry.name.endsWith('.tsx')) && !entry.name.endsWith('.d.ts')) {
         try { content += '\n' + await readFile(fullPath, 'utf-8'); } catch { /* skip unreadable */ }
       }
     }

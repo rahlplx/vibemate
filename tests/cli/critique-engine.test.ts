@@ -9,9 +9,6 @@ import {
   type CritiqueLens,
 } from '../../src/cli/critique-engine.js';
 
-// ---------------------------------------------------------------
-// Lens: edge-case hunter
-// ---------------------------------------------------------------
 describe('runCritiqueLens — edge_cases', () => {
   it('detects unchecked zero in numeric logic', () => {
     const findings = runCritiqueLens('edge_cases', `
@@ -35,9 +32,6 @@ const x = 42;
   });
 });
 
-// ---------------------------------------------------------------
-// Lens: security adversary
-// ---------------------------------------------------------------
 describe('runCritiqueLens — security', () => {
   it('flags eval usage', () => {
     const findings = runCritiqueLens('security', `eval(userInput);`);
@@ -62,9 +56,6 @@ const data = fs.readFileSync(req.params.file);
   });
 });
 
-// ---------------------------------------------------------------
-// Lens: cleanup / error handling
-// ---------------------------------------------------------------
 describe('runCritiqueLens — cleanup', () => {
   it('flags missing error handler on promise chain', () => {
     const findings = runCritiqueLens('cleanup', `
@@ -88,9 +79,6 @@ try { doThing(); } catch (e) { console.error(e); }
   });
 });
 
-// ---------------------------------------------------------------
-// Lens: invariant violations
-// ---------------------------------------------------------------
 describe('runCritiqueLens — invariants', () => {
   it('flags mutation of a parameter object', () => {
     const findings = runCritiqueLens('invariants', `
@@ -107,9 +95,6 @@ function add(a: number, b: number): number { return a + b; }
   });
 });
 
-// ---------------------------------------------------------------
-// Lens: test coverage gaps
-// ---------------------------------------------------------------
 describe('runCritiqueLens — coverage_gaps', () => {
   it('flags a function with no corresponding test reference', () => {
     const findings = runCritiqueLens('coverage_gaps', `
@@ -130,9 +115,6 @@ export function parseCSV(input: string): string[][] {
   });
 });
 
-// ---------------------------------------------------------------
-// scoreCritique — severity → numeric score
-// ---------------------------------------------------------------
 describe('scoreCritique()', () => {
   it('returns 0 for empty findings', () => {
     expect(scoreCritique([])).toBe(0);
@@ -155,9 +137,6 @@ describe('scoreCritique()', () => {
   });
 });
 
-// ---------------------------------------------------------------
-// enforceMinimumFindings — curiosity enforcement
-// ---------------------------------------------------------------
 describe('enforceMinimumFindings()', () => {
   it('adds synthetic findings when count is below minimum', () => {
     const result = enforceMinimumFindings([], 3);
@@ -168,6 +147,7 @@ describe('enforceMinimumFindings()', () => {
     const result = enforceMinimumFindings([], 2);
     const synthetic = result.filter(f => f.category === 'synthetic');
     expect(synthetic.length).toBeGreaterThanOrEqual(2);
+    expect(synthetic.every(f => f.severity === 'low')).toBe(true);
   });
 
   it('does not add synthetic if already above minimum', () => {
@@ -184,9 +164,6 @@ describe('enforceMinimumFindings()', () => {
   });
 });
 
-// ---------------------------------------------------------------
-// buildCritiqueReport — orchestrator
-// ---------------------------------------------------------------
 describe('buildCritiqueReport()', () => {
   it('returns a CritiqueReport with all required fields', () => {
     const report = buildCritiqueReport('const x = 1;', '');
@@ -199,7 +176,7 @@ describe('buildCritiqueReport()', () => {
 
   it('verdict is pass when score is low', () => {
     const report = buildCritiqueReport('const x = 1;', '');
-    expect(['pass', 'warn', 'fail']).toContain(report.verdict);
+    expect(report.verdict).toBe('pass');
   });
 
   it('blocksHarness is true when critical findings exist', () => {
