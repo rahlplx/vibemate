@@ -1,0 +1,47 @@
+services:
+  vibemate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+    image: vibemate:latest
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      VIBEMATE_LOG_LEVEL: ${VIBEMATE_LOG_LEVEL:-info}
+      VIBEMATE_AGENT_TYPE: ${VIBEMATE_AGENT_TYPE:-claude-code}
+      CI: "0"
+    volumes:
+      # Mount the current project so vibemate can analyse and modify it
+      - .:/workspace
+      # Persist SQLite state and learnings across container runs
+      - vibemate-state:/app/.vibe
+    working_dir: /workspace
+
+  vibemate-mcp:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+    image: vibemate:latest
+    entrypoint: ["bun", "run", "/app/dist/mcp/index.js"]
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      JWT_SECRET: ${JWT_SECRET:-changeme-in-production}
+      VIBEMATE_LOG_LEVEL: ${VIBEMATE_LOG_LEVEL:-info}
+      PORT: ${PORT:-3000}
+    volumes:
+      - .:/workspace
+      - vibemate-state:/app/.vibe
+    working_dir: /workspace
+    stdin_open: true
+    tty: false
+
+volumes:
+  vibemate-state:
+    driver: local

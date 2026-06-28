@@ -31,6 +31,28 @@ vibemate evolve --cron
 
 Prefer `bun test` over `npm test`. Tests use Bun's native test runner (configured via `bunfig.toml`). `tsconfig.json` excludes `tests/` from compilation — type-check only runs over `src/`.
 
+## Docker
+
+```bash
+# First-time setup
+cp .env.example .env          # fill in ANTHROPIC_API_KEY and JWT_SECRET
+
+# Build the image
+docker compose build
+
+# Run the CLI against the current project
+docker compose run --rm vibemate --help
+docker compose run --rm vibemate auto "build me a REST API"
+
+# Run the MCP server (stdio transport — spawn via AI tool config)
+docker compose run --rm vibemate-mcp
+
+# Run tests inside the container
+docker compose run --rm --entrypoint bun vibemate test
+```
+
+Build outputs: `dist/cli/index.js` (CLI) and `dist/mcp/index.js` (MCP server). Both are self-contained Bun bundles — no `node_modules` needed at runtime. The `.vibe/` directory is mounted as a named volume (`vibemate-state`) to persist SQLite state and learnings across container runs.
+
 ## Architecture
 
 ### Entry Points

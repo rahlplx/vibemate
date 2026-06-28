@@ -10,7 +10,7 @@
     "vibemate-mcp": "./dist/mcp/index.js"
   },
   "scripts": {
-    "build": "bun build src/cli/index.ts --outdir ./dist --target bun && bun build src/mcp/index.ts --outdir ./dist --target bun",
+    "build": "bun build src/cli/index.ts --outdir ./dist/cli --target bun && bun build src/mcp/index.ts --outdir ./dist/mcp --target bun",
     "build:types": "tsc --emitDeclarationOnly",
     "build:mcp": "bun build src/mcp/index.ts --outdir ./dist --target bun",
     "dev": "bun --watch src/cli/index.ts",
