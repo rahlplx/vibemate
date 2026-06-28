@@ -55,4 +55,19 @@ describe('discoverCommand', () => {
     }
     expect(logs.some(l => l.includes('Progress:'))).toBe(true);
   });
+
+  it('action: creates db directory when it does not exist', async () => {
+    const dbPath = path.join(TEST_DIR, 'subdir', 'nested', 'test.db');
+    const cmd = discoverCommand();
+    const logs: string[] = [];
+    const orig = console.log;
+    console.log = (...args) => logs.push(args.join(' '));
+    try {
+      await cmd.parseAsync(['--type', 'saas', '--db', dbPath], { from: 'user' });
+    } finally {
+      console.log = orig;
+    }
+    expect(fs.existsSync(path.dirname(dbPath))).toBe(true);
+    expect(logs.some(l => l.includes('Question:'))).toBe(true);
+  });
 });

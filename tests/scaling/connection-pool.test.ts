@@ -72,4 +72,17 @@ describe('ConnectionPool', () => {
     await pool.destroy();
     expect(pool.getStats().total).toBe(0);
   });
+
+  it('should reject with acquire timeout when pool is at max and no connection released', async () => {
+    const tinyPool = new ConnectionPool(
+      async () => ({ id: connectionId++ }),
+      async () => {},
+      { min: 1, max: 1, idleTimeoutMs: 1000, acquireTimeoutMs: 50 }
+    );
+    await tinyPool.initialize();
+    const held = await tinyPool.acquire(); // occupies the only slot
+    void held; // prevent unused warning
+    await expect(tinyPool.acquire()).rejects.toThrow('Acquire timeout');
+    await tinyPool.destroy();
+  }, 2000);
 });

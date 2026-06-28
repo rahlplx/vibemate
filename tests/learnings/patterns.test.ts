@@ -74,6 +74,16 @@ describe("findPatterns", () => {
     const errInsight = insights.find(i => i.applicableTo.includes("error-handling"))
     expect(errInsight).toBeDefined()
   })
+
+  it("returns generic error handling insight when errorHandling is generic", () => {
+    const data = makeData()
+    data.quality.errorHandling = "generic"
+    const insights = findPatterns(data)
+    const genericInsight = insights.find(i => i.pattern.name === "Generic Errors")
+    expect(genericInsight).toBeDefined()
+    expect(genericInsight!.pattern.type).toBe("anti")
+    expect(genericInsight!.applicableTo).toContain("error-handling")
+  })
 })
 
 describe("summarizePatterns", () => {
