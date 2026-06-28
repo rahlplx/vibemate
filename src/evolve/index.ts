@@ -146,8 +146,10 @@ export class RetroAgent {
   }
 
   private async loadBundle(): Promise<OKFBundle> {
+    const bundleRoot = join(this.okfGenerator.root, '.agents', 'okf-bundle');
+    await mkdir(join(bundleRoot, 'learnings'), { recursive: true });
     return {
-      root: '',
+      root: bundleRoot,
       version: '0.1',
       concepts: []
     };
@@ -491,8 +493,10 @@ export class LearnAgent {
   }
 
   private async loadBundle(): Promise<OKFBundle> {
+    const bundleRoot = join(this.okfGenerator.root, '.agents', 'okf-bundle');
+    await mkdir(join(bundleRoot, 'learnings'), { recursive: true });
     return {
-      root: '',
+      root: bundleRoot,
       version: '0.1',
       concepts: []
     };
