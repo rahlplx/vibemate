@@ -40,7 +40,7 @@ export function resolveModel(rawModel: string): ModelInfo {
 
   // Prefix match: 'claude-sonnet-4-6-preview' → matches 'claude-sonnet-4-6'
   for (const [key, info] of Object.entries(MODEL_MAP)) {
-    if (lower.startsWith(key)) return info;
+    if (lower.startsWith(key) || key.startsWith(lower)) return info;
   }
 
   // Provider inference from name fragments
