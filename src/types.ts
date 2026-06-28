@@ -85,12 +85,86 @@ export interface TelemetrySpan {
   status: 'ok' | 'error';
 }
 
+// LLM content types for deep-learning capture
+export interface LLMMessage {
+  role: 'system' | 'user' | 'assistant' | 'tool';
+  content: string;
+  toolCallId?: string;
+}
+
+export interface LLMPrompt {
+  system?: string;
+  messages: LLMMessage[];
+}
+
+export interface LLMResponse {
+  content: string;
+  thinking?: string;
+  stopReason?: string;
+}
+
+export interface ToolCallContent {
+  name: string;
+  input: unknown;
+  output: unknown;
+  duration: number;
+  success: boolean;
+}
+
+export interface SubAgentContent {
+  agentId: string;
+  model: string;
+  prompt?: LLMPrompt;
+  response?: LLMResponse;
+}
+
+// Stored in .vibe/traces/<spanId>.json — full content separate from span metadata
+export interface SpanContent {
+  spanId: string;
+  traceId: string;
+  name: string;
+  timestamp: string;
+  prompt?: LLMPrompt;
+  response?: LLMResponse;
+  toolCalls: ToolCallContent[];
+  subAgents: SubAgentContent[];
+  metadata: Record<string, unknown>;
+}
+
+// One row in the JSONL deep-learning export
+export interface DeepLearningRecord {
+  id: string;
+  timestamp: string;
+  type: 'agent_turn' | 'sub_agent' | 'tool_call' | 'handoff';
+  prompt?: LLMPrompt;
+  response?: LLMResponse;
+  toolCalls?: ToolCallContent[];
+  subAgents?: SubAgentContent[];
+  metadata: {
+    model?: string;
+    agentId?: string;
+    phase?: string;
+    inputTokens?: number;
+    outputTokens?: number;
+    cost?: number;
+    success?: boolean;
+    traceId?: string;
+    [key: string]: unknown;
+  };
+}
+
 export interface AgentTurn extends TelemetrySpan {
   agentId: string;
   inputTokens: number;
   outputTokens: number;
   model: string;
   cost: number;
+}
+
+export interface SubAgentSpan extends TelemetrySpan {
+  parentAgentId: string;
+  childAgentId: string;
+  model: string;
 }
 
 export interface ToolCall extends TelemetrySpan {

@@ -72,8 +72,8 @@ describe('TelemetryCollector', () => {
   });
 
   describe('recordAgentTurn', () => {
-    it('should record agent turn with ATSC attributes', () => {
-      const turn = collector.recordAgentTurn(
+    it('should record agent turn with ATSC attributes', async () => {
+      const turn = await collector.recordAgentTurn(
         'agent-1',
         'claude-sonnet',
         1000,
@@ -93,8 +93,8 @@ describe('TelemetryCollector', () => {
   });
 
   describe('recordToolCall', () => {
-    it('should record tool call with ATSC attributes', () => {
-      const call = collector.recordToolCall(
+    it('should record tool call with ATSC attributes', async () => {
+      const call = await collector.recordToolCall(
         'read_file',
         { path: '/test' },
         { content: 'hello' },
@@ -109,8 +109,8 @@ describe('TelemetryCollector', () => {
       expect(call.attributes['tool.success']).toBe(true);
     });
 
-    it('should handle failed tool calls', () => {
-      const call = collector.recordToolCall(
+    it('should handle failed tool calls', async () => {
+      const call = await collector.recordToolCall(
         'write_file',
         { path: '/test' },
         { error: 'permission denied' },

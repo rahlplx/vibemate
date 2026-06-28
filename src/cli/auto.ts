@@ -210,7 +210,7 @@ async function runAutoPipeline(description: string, options: AutoOptions): Promi
     circuitBreaker.dispatchCount++;
 
     if (state.telemetry) {
-      telemetryCollector.recordAgentTurn(
+      await telemetryCollector.recordAgentTurn(
         `auto-${justCompleted}`,
         'vibemate',
         0,
