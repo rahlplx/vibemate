@@ -79,15 +79,15 @@ function generateApiTests(spec: SpecOutput, framework: TestFramework, outputDir:
   }));
 
   const blocks = spec.apiContract.endpoints.map(ep =>
-    `  describe('${ep.method} ${ep.path}', () => {\n` +
-    `    it.todo('${ep.description}');\n` +
-    `    it.todo('returns error for invalid input');\n` +
-    `  });`
+    '  describe(' + JSON.stringify(ep.method + ' ' + ep.path) + ', () => {\n' +
+    '    it.todo(' + JSON.stringify(ep.description) + ');\n' +
+    "    it.todo('returns error for invalid input');\n" +
+    '  });'
   ).join('\n\n');
 
   const content =
-    `${importLine(framework)}\n\n` +
-    `describe('API Contract — ${spec.product.name}', () => {\n${blocks}\n});\n`;
+    importLine(framework) + '\n\n' +
+    'describe(' + JSON.stringify('API Contract — ' + spec.product.name) + ', () => {\n' + blocks + '\n});\n';
 
   return { path: `${outputDir}/api.test.ts`, framework, cases, content };
 }
@@ -118,18 +118,18 @@ function generateFlowTests(spec: SpecOutput, framework: TestFramework, outputDir
   }
 
   const blocks = spec.userFlows.map(flow => {
-    const stepLines = flow.steps.map(s => `    it.todo('${escapeQuotes(s)}');`).join('\n');
+    const stepLines = flow.steps.map(s => '    it.todo(' + JSON.stringify(s) + ');').join('\n');
     return (
-      `  describe('${escapeQuotes(flow.name)}', () => {\n` +
-      `${stepLines}\n` +
-      `    it.todo('completes end-to-end');\n` +
-      `  });`
+      '  describe(' + JSON.stringify(flow.name) + ', () => {\n' +
+      stepLines + '\n' +
+      "    it.todo('completes end-to-end');\n" +
+      '  });'
     );
   }).join('\n\n');
 
   const content =
-    `${importLine(framework)}\n\n` +
-    `describe('User Flows — ${spec.product.name}', () => {\n${blocks}\n});\n`;
+    importLine(framework) + '\n\n' +
+    'describe(' + JSON.stringify('User Flows — ' + spec.product.name) + ', () => {\n' + blocks + '\n});\n';
 
   return { path: `${outputDir}/flows.test.ts`, framework, cases, content };
 }
@@ -162,19 +162,19 @@ function generateModelTests(spec: SpecOutput, framework: TestFramework, outputDi
   const blocks = spec.dataModel.entities.map(entity => {
     const requiredFields = entity.fields.filter(f => f.required);
     const fieldLines = requiredFields
-      .map(f => `    it.todo('rejects missing required field: ${f.name}');`)
+      .map(f => '    it.todo(' + JSON.stringify('rejects missing required field: ' + f.name) + ');')
       .join('\n');
     return (
-      `  describe('${entity.name}', () => {\n` +
-      `${fieldLines ? fieldLines + '\n' : ''}` +
-      `    it.todo('accepts valid ${entity.name} data');\n` +
-      `  });`
+      '  describe(' + JSON.stringify(entity.name) + ', () => {\n' +
+      (fieldLines ? fieldLines + '\n' : '') +
+      '    it.todo(' + JSON.stringify('accepts valid ' + entity.name + ' data') + ');\n' +
+      '  });'
     );
   }).join('\n\n');
 
   const content =
-    `${importLine(framework)}\n\n` +
-    `describe('Data Models — ${spec.product.name}', () => {\n${blocks}\n});\n`;
+    importLine(framework) + '\n\n' +
+    'describe(' + JSON.stringify('Data Models — ' + spec.product.name) + ', () => {\n' + blocks + '\n});\n';
 
   return { path: `${outputDir}/models.test.ts`, framework, cases, content };
 }
@@ -202,19 +202,16 @@ function generateSecurityTests(spec: SpecOutput, framework: TestFramework, outpu
   }
 
   const blocks = actionableRisks.map(risk =>
-    `  describe('[${risk.severity.toUpperCase()}] ${escapeQuotes(risk.category)}: ${escapeQuotes(risk.description)}', () => {\n` +
-    `    it.todo('${escapeQuotes(risk.description)}');\n` +
-    `    it.todo('mitigation: ${escapeQuotes(risk.mitigation)}');\n` +
-    `  });`
+    '  describe(' + JSON.stringify('[' + risk.severity.toUpperCase() + '] ' + risk.category + ': ' + risk.description) + ', () => {\n' +
+    '    it.todo(' + JSON.stringify(risk.description) + ');\n' +
+    '    it.todo(' + JSON.stringify('mitigation: ' + risk.mitigation) + ');\n' +
+    '  });'
   ).join('\n\n');
 
   const content =
-    `${importLine(framework)}\n\n` +
-    `describe('Security & Risk — ${spec.product.name}', () => {\n${blocks}\n});\n`;
+    importLine(framework) + '\n\n' +
+    'describe(' + JSON.stringify('Security & Risk — ' + spec.product.name) + ', () => {\n' + blocks + '\n});\n';
 
   return { path: `${outputDir}/security.test.ts`, framework, cases, content };
 }
 
-function escapeQuotes(s: string): string {
-  return s.replace(/'/g, "\\'");
-}

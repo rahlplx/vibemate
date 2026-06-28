@@ -7,7 +7,7 @@ import { createAuthManager, createOAuthClient, type OAuthConfig } from '../mcp/a
 import { createAutoFix } from '../mcp/tools/auto-fix.js';
 import { generateTests } from '../sdd/test-generator.js';
 import { writeFileSync, mkdirSync } from 'fs';
-import { dirname, join } from 'path';
+import { dirname, resolve } from 'path';
 
 const VIBEMATE_OAUTH: OAuthConfig = {
   clientId: 'vibemate-cli',
@@ -106,17 +106,28 @@ program
       }
 
       if (options.genTests) {
-        const result = generateTests(spec, {
-          framework: options.testFramework ?? 'bun',
-          outputDir: options.testOutput ?? 'tests/spec',
-        });
-        console.log(`\n## Generated Tests (${result.totalCases} cases across ${result.files.length} files)`);
-        for (const file of result.files) {
-          mkdirSync(dirname(join(process.cwd(), file.path)), { recursive: true });
-          writeFileSync(join(process.cwd(), file.path), file.content, 'utf-8');
-          console.log(`  ✓ ${file.path} (${file.cases.length} cases)`);
+        const framework = options.testFramework ?? 'bun';
+        if (framework !== 'bun' && framework !== 'vitest' && framework !== 'jest') {
+          console.error(`Error: Unsupported test framework "${framework}". Supported frameworks are: bun, vitest, jest.`);
+          process.exit(1);
         }
-        console.log(`\nCoverage areas: ${result.coverageAreas.join(', ')}`);
+        try {
+          const result = generateTests(spec, {
+            framework,
+            outputDir: options.testOutput ?? 'tests/spec',
+          });
+          console.log(`\n## Generated Tests (${result.totalCases} cases across ${result.files.length} files)`);
+          for (const file of result.files) {
+            const fullPath = resolve(file.path);
+            mkdirSync(dirname(fullPath), { recursive: true });
+            writeFileSync(fullPath, file.content, 'utf-8');
+            console.log(`  ✓ ${file.path} (${file.cases.length} cases)`);
+          }
+          console.log(`\nCoverage areas: ${result.coverageAreas.join(', ')}`);
+        } catch (testError) {
+          console.error('Test generation failed:', testError instanceof Error ? testError.message : testError);
+          process.exit(1);
+        }
       }
     } catch (error) {
       console.error('Spec generation failed:', error instanceof Error ? error.message : error);
