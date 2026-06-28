@@ -2,6 +2,14 @@ import { GovernanceEngine } from '../governance/engine.js';
 import { AutoState, CircuitBreaker } from '../types.js';
 import { AmbiguityResult } from '../discovery/scoring.js';
 
+export function computeObservationScore(
+  errorCount: number,
+  durationMs: number,
+  consecutiveFailures: number
+): number {
+  return Math.max(0, 1 - errorCount * 0.3 - (durationMs > 30000 ? 0.2 : 0) - consecutiveFailures * 0.1);
+}
+
 export function applyAmbiguityGate(
   ambiguity: AmbiguityResult,
   circuitBreaker: CircuitBreaker

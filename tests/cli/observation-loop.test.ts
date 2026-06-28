@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'bun:test';
 import { CostAwareRouter } from '../../src/router/index.js';
+import { computeObservationScore } from '../../src/cli/auto-helpers.js';
 import type { PhaseObservation, AutoPhase } from '../../src/types.js';
 
 // -------------------------------------------------------------------
@@ -25,9 +26,10 @@ describe('PhaseObservation shape', () => {
     expect(obs.circuitBreakerState.consecutiveFailures).toBe(0);
   });
 
-  it('observation score is clamped to [0, 1]', () => {
-    const scores = [0, 0.5, 1, 0.3, 0.7];
-    for (const s of scores) {
+  it('observation score is clamped to [0, 1] for any inputs', () => {
+    const cases: [number, number, number][] = [[0, 0, 0], [1, 0, 0], [0, 60000, 0], [5, 60000, 20]];
+    for (const [e, d, f] of cases) {
+      const s = computeObservationScore(e, d, f);
       expect(s).toBeGreaterThanOrEqual(0);
       expect(s).toBeLessThanOrEqual(1);
     }
@@ -105,6 +107,19 @@ describe('CostAwareRouter — phase-aware routing', () => {
     });
     expect(highDecision.level).toBe('high');
   });
+
+  it('high-complexity task in a low-tier phase still gets high tier (floor not ceiling)', () => {
+    const router = new CostAwareRouter([], 100);
+    // harness defaults to 'low', but highly complex task should escalate to 'high'
+    const decision = router.route({
+      ...baseCriteria,
+      phase: 'harness',
+      filesImplicated: 20,
+      requiresReasoning: true,
+      requiresSecurity: true,
+    });
+    expect(decision.level).toBe('high');
+  });
 });
 
 // -------------------------------------------------------------------
@@ -155,31 +170,31 @@ describe('CostAwareRouter — observation score escalation', () => {
 });
 
 // -------------------------------------------------------------------
-// M3-C: observationScore computation logic (pure unit test)
+// M3-C: observationScore computation — imports the real production function
 // -------------------------------------------------------------------
-describe('observationScore computation', () => {
-  function computeScore(errorCount: number, durationMs: number, consecutiveFailures: number): number {
-    return Math.max(0, 1 - errorCount * 0.3 - (durationMs > 30000 ? 0.2 : 0) - consecutiveFailures * 0.1);
-  }
-
+describe('computeObservationScore (production function)', () => {
   it('perfect phase → score 1.0', () => {
-    expect(computeScore(0, 1000, 0)).toBe(1);
+    expect(computeObservationScore(0, 1000, 0)).toBe(1);
   });
 
   it('one error → score 0.7', () => {
-    expect(computeScore(1, 1000, 0)).toBeCloseTo(0.7);
+    expect(computeObservationScore(1, 1000, 0)).toBeCloseTo(0.7);
   });
 
   it('slow phase (> 30s) → penalty applied', () => {
-    expect(computeScore(0, 31000, 0)).toBeCloseTo(0.8);
+    expect(computeObservationScore(0, 31000, 0)).toBeCloseTo(0.8);
   });
 
   it('consecutive failures also penalise score', () => {
-    expect(computeScore(0, 1000, 3)).toBeCloseTo(0.7);
+    expect(computeObservationScore(0, 1000, 3)).toBeCloseTo(0.7);
   });
 
-  it('score is clamped to 0, never negative', () => {
-    expect(computeScore(1, 31000, 10)).toBe(0);
+  it('score is clamped to 0 — never negative even with many errors', () => {
+    expect(computeObservationScore(5, 60000, 10)).toBe(0);
+  });
+
+  it('score clamped to 0 for extreme consecutive failures', () => {
+    expect(computeObservationScore(0, 0, 100)).toBe(0);
   });
 });
 

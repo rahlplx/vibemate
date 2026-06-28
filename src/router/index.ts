@@ -187,9 +187,13 @@ export class CostAwareRouter {
     const score = this.calculateComplexity(criteria);
     let level = this.getComplexityLevel(score);
 
-    // Phase-aware routing overrides complexity score when phase is known
+    // Phase-aware routing sets a minimum tier; highly complex tasks may still escalate higher
     if (criteria.phase && criteria.phase !== 'done') {
-      level = PHASE_MODEL_TIER[criteria.phase];
+      const phaseLevel = PHASE_MODEL_TIER[criteria.phase];
+      const levelOrder: Record<string, number> = { low: 0, medium: 1, high: 2 };
+      if (levelOrder[phaseLevel] > levelOrder[level]) {
+        level = phaseLevel;
+      }
     }
 
     // Escalate one tier if observation score from previous phase was poor (< 0.5)
