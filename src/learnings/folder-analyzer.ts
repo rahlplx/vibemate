@@ -1,5 +1,5 @@
 import { readdirSync, statSync } from 'fs';
-import { join } from 'path';
+import { basename, join } from 'path';
 
 export interface FolderNode {
   name: string;
@@ -38,7 +38,7 @@ export function analyzeFolder(repoPath: string): FolderAnalysis {
   const languages: Record<string, number> = {};
   const tree = buildTree(repoPath, repoPath, languages, 0);
   const entries = safeReaddir(repoPath);
-  const detectedPatterns = detectPatterns(entries);
+  const detectedPatterns = detectPatterns(repoPath, entries);
   const configFiles = CONFIG_FILES.filter(f => entries.includes(f));
   const testCoverage = determineTestCoverage(repoPath, entries);
   return { tree, languages, detectedPatterns, testCoverage, configFiles };
@@ -50,8 +50,7 @@ function buildTree(
   langs: Record<string, number>,
   depth: number
 ): FolderNode {
-  const segments = currentPath.slice(rootPath.length).split('/').filter(Boolean);
-  const name = segments[segments.length - 1] ?? '.';
+  const name = currentPath === rootPath ? '.' : basename(currentPath);
 
   if (depth > 3) return { name, type: 'dir' };
 
@@ -76,12 +75,15 @@ function buildTree(
   return { name, type: 'dir', children };
 }
 
-function detectPatterns(entries: string[]): string[] {
+function detectPatterns(repoPath: string, entries: string[]): string[] {
   const patterns: string[] = [];
-  if (entries.includes('packages') || entries.includes('apps')) patterns.push('monorepo');
-  if (entries.some(e => ['controllers', 'models', 'views'].includes(e))) patterns.push('mvc');
-  if (entries.some(e => ['domain', 'application', 'infrastructure'].includes(e))) patterns.push('hexagonal');
-  if (entries.some(e => ['features', 'modules'].includes(e))) patterns.push('feature-sliced');
+  const combined = entries.includes('src')
+    ? [...entries, ...safeReaddir(join(repoPath, 'src'))]
+    : entries;
+  if (combined.includes('packages') || combined.includes('apps')) patterns.push('monorepo');
+  if (combined.some(e => ['controllers', 'models', 'views'].includes(e))) patterns.push('mvc');
+  if (combined.some(e => ['domain', 'application', 'infrastructure'].includes(e))) patterns.push('hexagonal');
+  if (combined.some(e => ['features', 'modules'].includes(e))) patterns.push('feature-sliced');
   if (entries.includes('src') && entries.includes('tests')) patterns.push('src-tests-separation');
   return patterns;
 }

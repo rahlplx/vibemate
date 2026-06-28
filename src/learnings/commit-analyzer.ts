@@ -62,7 +62,9 @@ export function analyzeCommits(repoPath: string, depth: number = 100): CommitAna
       .slice(0, 10);
 
     const commitFrequency = inferFrequency(recentCommits.map(c => c.date));
-    const languagesFromDiffs = extractLanguagesFromDiffs(repoPath, Math.min(depth, 20));
+    const languagesFromDiffs = lines.length > 1
+      ? extractLanguagesFromDiffs(repoPath, Math.min(lines.length - 1, 20))
+      : [];
 
     return { totalCommits: lines.length, topContributors, commitFrequency, recentCommits, languagesFromDiffs };
   } catch {
