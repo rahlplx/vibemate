@@ -11,6 +11,7 @@ import { join } from 'path';
 import { execFileSync } from 'child_process';
 import { AutoPhase, CircuitBreaker, AutoState, HarnessCheck, HarnessReport, PhaseObservation } from '../types.js';
 import { applyAmbiguityGate, checkGovernancePermission, handleHarnessFailure, computeObservationScore } from './auto-helpers.js';
+import { tokenBudgetGate, dlpGate, passRateGate } from './harness-gates.js';
 import { createObservationEngine } from '../improve/observation.js';
 
 interface AutoOptions {
@@ -426,7 +427,7 @@ Reference OKF bundle for pre-populated decisions.
 
     case 'harness': {
       console.log('🔍 Running harness checks...');
-      const harnessResult = await runHarnessChecks(root);
+      const harnessResult = await runHarnessChecks(root, circuitBreaker);
       await writeFile(join(vibeDir, 'harness-report.json'), JSON.stringify(harnessResult, null, 2));
       return { artifact: 'harness-report.json', allChecksPassed: harnessResult.overall === 'pass' };
     }
@@ -554,7 +555,7 @@ async function runBuild(root: string): Promise<{ hasMoreTasks: boolean }> {
   return { hasMoreTasks: false };
 }
 
-async function runHarnessChecks(root: string): Promise<HarnessReport> {
+async function runHarnessChecks(root: string, circuitBreaker: CircuitBreaker): Promise<HarnessReport> {
   const checks: HarnessCheck[] = [];
 
   // Type check
@@ -584,7 +585,7 @@ async function runHarnessChecks(root: string): Promise<HarnessReport> {
     console.log('   ❌ Type Check');
   }
 
-  // Tests
+  // Tests — capture pass/fail counts for pass rate gate
   const testStart = performance.now();
   try {
     const output = execFileSync('bun', ['test'], {
@@ -593,17 +594,28 @@ async function runHarnessChecks(root: string): Promise<HarnessReport> {
       timeout: 120000,
       stdio: ['pipe', 'pipe', 'pipe']
     });
-    const testMatch = output.match(/(\d+) pass/);
-    const testCount = testMatch ? parseInt(testMatch[1]) : 0;
+    const passMatch = output.match(/(\d+) pass/);
+    const failMatch = output.match(/(\d+) fail/);
+    const passed = passMatch ? parseInt(passMatch[1]) : 0;
+    const failed = failMatch ? parseInt(failMatch[1]) : 0;
+    const total = passed + failed;
     checks.push({
       name: 'Unit Tests',
       status: 'pass',
-      message: `${testCount} tests passing`,
+      message: `${passed} tests passing`,
       duration: Math.round(performance.now() - testStart)
     });
-    console.log(`   ✅ Unit Tests (${testCount} passing)`);
+    console.log(`   ✅ Unit Tests (${passed} passing)`);
+    // Pass rate gate
+    const rateCheck = passRateGate(passed, total);
+    checks.push(rateCheck);
+    console.log(`   ${rateCheck.status === 'pass' ? '✅' : rateCheck.status === 'warn' ? '⚠️ ' : '❌'} ${rateCheck.name}: ${rateCheck.message}`);
   } catch (error) {
-    console.error(`[Auto] Unit tests failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    const errOutput = error instanceof Error && 'stderr' in error ? String((error as NodeJS.ErrnoException & { stderr?: string }).stderr || '') : '';
+    const passMatch = errOutput.match(/(\d+) pass/);
+    const failMatch = errOutput.match(/(\d+) fail/);
+    const passed = passMatch ? parseInt(passMatch[1]) : 0;
+    const failed = failMatch ? parseInt(failMatch[1]) : 0;
     checks.push({
       name: 'Unit Tests',
       status: 'fail',
@@ -611,7 +623,25 @@ async function runHarnessChecks(root: string): Promise<HarnessReport> {
       duration: Math.round(performance.now() - testStart)
     });
     console.log('   ❌ Unit Tests');
+    const rateCheck = passRateGate(passed, passed + failed);
+    checks.push(rateCheck);
+    console.log(`   ❌ ${rateCheck.name}: ${rateCheck.message}`);
   }
+
+  // Token budget gate
+  const budgetCheck = tokenBudgetGate(circuitBreaker.totalCost, circuitBreaker.maxBudget);
+  checks.push(budgetCheck);
+  console.log(`   ${budgetCheck.status === 'pass' ? '✅' : budgetCheck.status === 'warn' ? '⚠️ ' : budgetCheck.status === 'skip' ? '⏭️ ' : '❌'} ${budgetCheck.name}: ${budgetCheck.message}`);
+
+  // DLP gate — scan handoff doc for unmasked secrets
+  const handoffPath = join(root, '.vibe', 'handoff.md');
+  let handoffContent = '';
+  try {
+    handoffContent = await readFile(handoffPath, 'utf-8');
+  } catch { /* no handoff doc yet — scan empty string */ }
+  const dlpCheck = dlpGate(handoffContent);
+  checks.push(dlpCheck);
+  console.log(`   ${dlpCheck.status === 'pass' ? '✅' : '❌'} ${dlpCheck.name}: ${dlpCheck.message}`);
 
   // Lint (if eslint config exists)
   const lintStart = performance.now();
