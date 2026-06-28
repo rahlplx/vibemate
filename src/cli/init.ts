@@ -3,9 +3,13 @@ import { Command } from 'commander';
 import { OKFGenerator } from '../okf/generator.js';
 import { MCPConfigGenerator } from '../mcp/config.js';
 import { TelemetryCollector } from '../telemetry/collector.js';
+import { StackDetector } from '../mcp/stack-detector.js';
+import { resolveLSPConfig } from './lsp.js';
 import { writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
 import inquirer from 'inquirer';
+
+export { resolveLSPConfig };
 
 interface InitOptions {
   description?: string;
@@ -92,7 +96,7 @@ async function initVibemate(description: string | undefined, options: InitOption
   const mcpGenerator = new MCPConfigGenerator({
     projectRoot: root,
     includeVibemateServers: true,
-    enabledServers: ['context7', 'github', 'playwright', 'filesystem', 'vibemate-telemetry', 'vibemate-okf']
+    enabledServers: ['context7', 'github', 'playwright', 'filesystem', 'memory', 'sequentialthinking', 'vibemate-telemetry', 'vibemate-okf']
   });
   const mcpConfigPath = await mcpGenerator.writeConfig();
   console.log(`   ✓ Created ${mcpConfigPath}`);
@@ -124,16 +128,38 @@ async function initVibemate(description: string | undefined, options: InitOption
   await writeFile(join(root, '.vibe', 'state.json'), JSON.stringify(stateJson, null, 2));
   console.log('   ✓ Created .vibe/state.json');
 
-  // Step 5: Create stack.json
+  // Step 5: Create stack.json + resolve LSP configs
+  const stackDetector = new StackDetector(root);
+  let detectedStack: Awaited<ReturnType<StackDetector['detect']>> | null = null;
+  try {
+    detectedStack = await stackDetector.detect();
+  } catch {
+    // Stack detection is best-effort
+  }
+
   const stackJson = {
     type: 'skill-repo',
-    frameworks: [],
+    frameworks: detectedStack ? [detectedStack.framework] : [],
+    language: detectedStack?.language ?? 'unknown',
     buildCommand: '',
     testCommand: '',
     detectedAt: new Date().toISOString()
   };
   await writeFile(join(root, '.vibe', 'stack.json'), JSON.stringify(stackJson, null, 2));
   console.log('   ✓ Created .vibe/stack.json');
+
+  // Write LSP configs as MCP server entries
+  if (detectedStack) {
+    const lspConfigs = resolveLSPConfig(detectedStack);
+    if (lspConfigs.length > 0) {
+      const lspMcpEntries: Record<string, { command: string; args: string[] }> = {};
+      for (const lsp of lspConfigs) {
+        lspMcpEntries[`lsp-${lsp.name}`] = { command: lsp.command, args: lsp.args };
+      }
+      await writeFile(join(root, '.vibe', 'lsp-config.json'), JSON.stringify({ mcpServers: lspMcpEntries }, null, 2));
+      console.log(`   ✓ LSP configs resolved: ${lspConfigs.map(l => l.name).join(', ')}`);
+    }
+  }
 
   // Step 6: Create evolution.json
   const evolutionJson = {

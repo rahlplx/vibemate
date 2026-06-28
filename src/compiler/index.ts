@@ -33,6 +33,27 @@ const AGENT_CONFIGS: Record<AgentType, AgentConfig> = {
     skillDir: '.codex/skills',
     configFiles: ['AGENTS.md']
   },
+  'kilocode': {
+    type: 'kilocode',
+    pathPrefix: '~/.kilocode/skills/',
+    nonInteractiveFlag: '',
+    skillDir: '.kilocode/skills',
+    configFiles: ['KILOCODE.md', '.kilocode/plugin.json']
+  },
+  'antigravity': {
+    type: 'antigravity',
+    pathPrefix: '~/.config/antigravity/skills/',
+    nonInteractiveFlag: '',
+    skillDir: '.antigravity/skills',
+    configFiles: ['.antigravity/context.md', '.antigravity/config.json']
+  },
+  'openhands': {
+    type: 'openhands',
+    pathPrefix: '~/.openhands/skills/',
+    nonInteractiveFlag: '',
+    skillDir: '.openhands/skills',
+    configFiles: ['AGENTS.md', '.openhands/skills.toml']
+  },
   'unknown': {
     type: 'unknown',
     pathPrefix: '',
@@ -61,6 +82,12 @@ export class HarnessCompiler {
         return this.compileCursor(okfBundle, skills);
       case 'codex':
         return this.compileCodex(okfBundle, skills);
+      case 'kilocode':
+        return this.compileKilocode(okfBundle, skills);
+      case 'antigravity':
+        return this.compileAntigravity(okfBundle, skills);
+      case 'openhands':
+        return this.compileOpenhands(okfBundle, skills);
       default:
         throw new Error(`Unsupported agent type: ${this.agentType}`);
     }
@@ -192,10 +219,104 @@ export class HarnessCompiler {
     };
   }
 
+  private async compileKilocode(okfBundle: OKFBundle, skills: string[]): Promise<CompiledArtifacts> {
+    const skillDir = join(this.root, '.kilocode', 'skills');
+    await mkdir(skillDir, { recursive: true });
+
+    const kilocodeMd = this.generateContextMd('KILOCODE', okfBundle);
+    await writeFile(join(this.root, 'KILOCODE.md'), kilocodeMd);
+
+    for (const skill of skills) {
+      const skillContent = await this.generateSkillContent(skill, okfBundle);
+      await writeFile(join(skillDir, `${skill}.md`), skillContent);
+    }
+
+    const pluginJson = { name: 'vibemate', version: '1.0.0', skills: skills.map(s => `.kilocode/skills/${s}.md`) };
+    await mkdir(join(this.root, '.kilocode'), { recursive: true });
+    await writeFile(join(this.root, '.kilocode', 'plugin.json'), JSON.stringify(pluginJson, null, 2));
+
+    return {
+      agent: 'kilocode',
+      skills: skills.map(s => `.kilocode/skills/${s}.md`),
+      config: '.kilocode/plugin.json',
+      context: 'KILOCODE.md',
+      hooks: []
+    };
+  }
+
+  private async compileAntigravity(okfBundle: OKFBundle, skills: string[]): Promise<CompiledArtifacts> {
+    const skillDir = join(this.root, '.antigravity', 'skills');
+    await mkdir(skillDir, { recursive: true });
+
+    const contextMd = this.generateContextMd('Antigravity', okfBundle);
+    await writeFile(join(this.root, '.antigravity', 'context.md'), contextMd);
+
+    for (const skill of skills) {
+      const skillContent = await this.generateSkillContent(skill, okfBundle);
+      await writeFile(join(skillDir, `${skill}.md`), skillContent);
+    }
+
+    const configJson = { name: 'vibemate', version: '1.0.0', skills: skills.map(s => `.antigravity/skills/${s}.md`) };
+    await writeFile(join(this.root, '.antigravity', 'config.json'), JSON.stringify(configJson, null, 2));
+
+    return {
+      agent: 'antigravity',
+      skills: skills.map(s => `.antigravity/skills/${s}.md`),
+      config: '.antigravity/config.json',
+      context: '.antigravity/context.md',
+      hooks: []
+    };
+  }
+
+  private async compileOpenhands(okfBundle: OKFBundle, skills: string[]): Promise<CompiledArtifacts> {
+    const skillDir = join(this.root, '.openhands', 'skills');
+    await mkdir(skillDir, { recursive: true });
+
+    const agentsMd = this.generateAgentsMd(okfBundle);
+    await writeFile(join(this.root, 'AGENTS.md'), agentsMd);
+
+    for (const skill of skills) {
+      const skillContent = await this.generateSkillContent(skill, okfBundle);
+      await writeFile(join(skillDir, `${skill}.md`), skillContent);
+    }
+
+    // skills.toml — minimal TOML manifest
+    const tomlLines = ['[vibemate]', `version = "1.0.0"`, 'skills = ['];
+    for (const skill of skills) {
+      tomlLines.push(`  ".openhands/skills/${skill}.md",`);
+    }
+    tomlLines.push(']');
+    await writeFile(join(this.root, '.openhands', 'skills.toml'), tomlLines.join('\n') + '\n');
+
+    return {
+      agent: 'openhands',
+      skills: skills.map(s => `.openhands/skills/${s}.md`),
+      config: '.openhands/skills.toml',
+      context: 'AGENTS.md',
+      hooks: []
+    };
+  }
+
+  private generateContextMd(agentName: string, okfBundle: OKFBundle): string {
+    const architectureDocs = okfBundle.concepts
+      .filter(c => c.frontmatter.type === 'architecture-decision')
+      .map(c => `- **${c.frontmatter.title ?? 'Untitled'}**: ${c.frontmatter.description ?? 'No description'}`)
+      .join('\n');
+
+    return `# ${agentName} Context — Vibemate
+
+## Architecture Decisions
+${architectureDocs || 'No architecture decisions recorded yet.'}
+
+## Project Root
+${okfBundle.root}
+`;
+  }
+
   private generateClaudeMd(okfBundle: OKFBundle): string {
     const architectureDocs = okfBundle.concepts
       .filter(c => c.frontmatter.type === 'architecture-decision')
-      .map(c => `- **${c.frontmatter.title}**: ${c.frontmatter.description}`)
+      .map(c => `- **${c.frontmatter.title ?? 'Untitled'}**: ${c.frontmatter.description ?? 'No description'}`)
       .join('\n');
 
     return `# Claude Code Context - Vibemate
@@ -235,7 +356,7 @@ All actions are logged to \`.vibe/telemetry/\` for retrospective analysis.
   private generateCursorRules(okfBundle: OKFBundle): string {
     const architectureDocs = okfBundle.concepts
       .filter(c => c.frontmatter.type === 'architecture-decision')
-      .map(c => `- ${c.frontmatter.title}: ${c.frontmatter.description}`)
+      .map(c => `- ${c.frontmatter.title ?? 'Untitled'}: ${c.frontmatter.description ?? 'No description'}`)
       .join('\n');
 
     return `# Cursor Rules - Vibemate
@@ -260,7 +381,7 @@ ${architectureDocs}
   private generateAgentsMd(okfBundle: OKFBundle): string {
     const architectureDocs = okfBundle.concepts
       .filter(c => c.frontmatter.type === 'architecture-decision')
-      .map(c => `## ${c.frontmatter.title}\n\n${c.frontmatter.description}\n\n${c.body}`)
+      .map(c => `## ${c.frontmatter.title ?? 'Untitled'}\n\n${c.frontmatter.description ?? 'No description'}\n\n${c.body}`)
       .join('\n\n');
 
     return `# AGENTS.md - Vibemate Context

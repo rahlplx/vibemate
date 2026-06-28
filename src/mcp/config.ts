@@ -54,6 +54,12 @@ const PINNED_MCP_SERVERS: Record<string, MCPServerConfig> = {
     args: ['-y', '@modelcontextprotocol/server-sequentialthinking@0.1.0'],
     version: '0.1.0',
     env: {}
+  },
+  memory: {
+    command: 'npx',
+    args: ['-y', '@modelcontextprotocol/server-memory@0.6.0'],
+    version: '0.6.0',
+    env: {}
   }
 };
 

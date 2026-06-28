@@ -1,7 +1,7 @@
 // Core types for Vibemate unified plugin platform
 
 // Agent Types
-export type AgentType = 'claude-code' | 'opencode' | 'cursor' | 'codex' | 'unknown';
+export type AgentType = 'claude-code' | 'opencode' | 'cursor' | 'codex' | 'kilocode' | 'antigravity' | 'openhands' | 'unknown';
 
 export interface AgentConfig {
   type: AgentType;
@@ -161,6 +161,10 @@ export interface AutoState {
   mode: 'guided' | 'auto' | 'quick';
   telemetry: boolean;
   artifacts: Record<string, string>;
+  sessionId?: string;
+  agentId?: string;
+  harnessRetried?: boolean;
+  routerDowngrade?: boolean;
 }
 
 export interface CircuitBreaker {
@@ -181,6 +185,7 @@ export interface RoutingDecision {
   provider: string;
   estimatedCost: number;
   reason: string;
+  contextWindow?: number;
 }
 
 // Harness Types
@@ -230,4 +235,29 @@ export interface CloudProvider {
   models: string[];
   maxTokens: number;
   costPer1kTokens: number;
+}
+
+export interface LSPConfig {
+  name: string;
+  command: string;
+  args: string[];
+  language: string;
+  installCmd?: string;
+}
+
+export interface LoopReport {
+  detected: boolean;
+  cycle: string[];
+  frequency: number;
+  severity: 'rapid' | 'normal' | 'slow';
+  parentPhase?: string;
+}
+
+export interface AnomalyEvent {
+  spanId: string;
+  spanName: string;
+  type: 'latency_spike' | 'error_surge' | 'throughput_drop';
+  zScore: number;
+  severity: 'warning' | 'critical';
+  detectedAt: number;
 }

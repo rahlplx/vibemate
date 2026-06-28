@@ -1,5 +1,5 @@
 // Telemetry & Observability - OpenTelemetry + ATSC semantic conventions
-import { TelemetrySpan, AgentTurn, ToolCall, HandoffSpan, TelemetryMetrics } from '../types.js';
+import { TelemetrySpan, AgentTurn, ToolCall, HandoffSpan, TelemetryMetrics, LoopReport, AnomalyEvent } from '../types.js';
 import { writeFile, readFile, mkdir, readdir } from 'fs/promises';
 import { join } from 'path';
 import { randomUUID } from 'crypto';
@@ -12,17 +12,108 @@ export interface TelemetryConfig {
   serviceName: string;
   serviceVersion: string;
   persistence?: PersistenceManager;
+  maxSpanCount?: number;
+  evictionStrategy?: 'lru' | 'priority';
+  anomalyThreshold?: number;
+}
+
+export interface RetentionStats {
+  currentCount: number;
+  totalEvicted: number;
+  maxSpanCount: number;
+}
+
+class SpanRetentionPolicy {
+  private maxSpanCount: number;
+  private strategy: 'lru' | 'priority';
+  private totalEvicted: number = 0;
+
+  constructor(maxSpanCount: number, strategy: 'lru' | 'priority') {
+    this.maxSpanCount = maxSpanCount;
+    this.strategy = strategy;
+  }
+
+  evictIfNeeded(spans: TelemetrySpan[], traces: Map<string, TelemetrySpan[]>): TelemetrySpan[] {
+    if (spans.length <= this.maxSpanCount) return spans;
+
+    const overflow = spans.length - this.maxSpanCount;
+    let toEvict: Set<string>;
+
+    if (this.strategy === 'priority') {
+      // Sort: errors last (keep), ok first (evict), then oldest first within each group
+      const sorted = [...spans].sort((a, b) => {
+        if (a.status === 'error' && b.status !== 'error') return 1;
+        if (a.status !== 'error' && b.status === 'error') return -1;
+        return a.startTime - b.startTime;
+      });
+      toEvict = new Set(sorted.slice(0, overflow).map(s => s.spanId));
+    } else {
+      // LRU: evict oldest by startTime
+      const sorted = [...spans].sort((a, b) => a.startTime - b.startTime);
+      toEvict = new Set(sorted.slice(0, overflow).map(s => s.spanId));
+    }
+
+    this.totalEvicted += toEvict.size;
+
+    // Prune only affected traces by grouping evicted spans by traceId (O(evicted) vs O(all traces))
+    const evictedByTrace = new Map<string, Set<string>>();
+    for (const span of spans) {
+      if (!toEvict.has(span.spanId)) continue;
+      const ids = evictedByTrace.get(span.traceId) ?? new Set();
+      ids.add(span.spanId);
+      evictedByTrace.set(span.traceId, ids);
+    }
+    for (const [traceId, evictedIds] of evictedByTrace) {
+      const traceSpans = traces.get(traceId);
+      if (!traceSpans) continue;
+      const remaining = traceSpans.filter(ts => !evictedIds.has(ts.spanId));
+      if (remaining.length === 0) {
+        traces.delete(traceId);
+      } else {
+        traces.set(traceId, remaining);
+      }
+    }
+
+    return spans.filter(s => !toEvict.has(s.spanId));
+  }
+
+  getTotalEvicted(): number {
+    return this.totalEvicted;
+  }
+
+  getMaxSpanCount(): number {
+    return this.maxSpanCount;
+  }
+
+  reset(): void {
+    this.totalEvicted = 0;
+  }
+}
+
+interface WelfordBaseline {
+  mean: number;
+  m2: number;
+  count: number;
 }
 
 export class TelemetryCollector {
   private config: TelemetryConfig;
-  private spans: TelemetrySpan[] = [];
+  private spanMap: Map<string, TelemetrySpan> = new Map();
   private traces: Map<string, TelemetrySpan[]> = new Map();
   private persistence?: PersistenceManager;
+  private retentionPolicy: SpanRetentionPolicy;
+  // Welford running stats per span name (latency baseline)
+  private baseline: Map<string, WelfordBaseline> = new Map();
+  // Spans added since last export (for anomaly scanning)
+  private spansSinceExport: TelemetrySpan[] = [];
 
   constructor(config: TelemetryConfig) {
     this.config = config;
     this.persistence = config.persistence;
+    this.retentionPolicy = new SpanRetentionPolicy(
+      config.maxSpanCount ?? 10_000,
+      config.evictionStrategy ?? 'priority'
+    );
   }
 
   // Start a new span
@@ -41,8 +132,8 @@ export class TelemetryCollector {
       status: 'ok'
     };
 
-    this.spans.push(span);
-    
+    this.spanMap.set(span.spanId, span);
+
     // Add to trace
     const traceSpans = this.traces.get(span.traceId) || [];
     traceSpans.push(span);
@@ -65,16 +156,117 @@ export class TelemetryCollector {
       });
     }
 
+    const spansArray = Array.from(this.spanMap.values());
+    const kept = this.retentionPolicy.evictIfNeeded(spansArray, this.traces);
+    if (kept.length < spansArray.length) {
+      const keptIds = new Set(kept.map(s => s.spanId));
+      for (const id of this.spanMap.keys()) {
+        if (!keptIds.has(id)) this.spanMap.delete(id);
+      }
+    }
+    this.spansSinceExport.push(span);
+    // Keep spansSinceExport bounded to the same limit as spans
+    const maxCount = this.retentionPolicy.getMaxSpanCount();
+    if (this.spansSinceExport.length > maxCount) {
+      this.spansSinceExport.splice(0, this.spansSinceExport.length - maxCount);
+    }
+
     return span;
+  }
+
+  // Clear the anomaly scan window without flushing to disk (call after each quality gate check)
+  flushAnomalyWindow(): void {
+    this.spansSinceExport = [];
+  }
+
+  getRetentionStats(): RetentionStats {
+    return {
+      currentCount: this.spanMap.size,
+      totalEvicted: this.retentionPolicy.getTotalEvicted(),
+      maxSpanCount: this.retentionPolicy.getMaxSpanCount(),
+    };
   }
 
   // End a span
   endSpan(spanId: string, status: 'ok' | 'error' = 'ok'): void {
-    const span = this.spans.find(s => s.spanId === spanId);
+    const span = this.spanMap.get(spanId);
     if (span) {
       span.endTime = Date.now();
       span.status = status;
+      this.updateBaseline(span);
     }
+  }
+
+  // Welford single-pass mean/variance update
+  private updateBaseline(span: TelemetrySpan): void {
+    if (!span.endTime) return;
+    const duration = span.endTime - span.startTime;
+    const key = span.name;
+    const b = this.baseline.get(key) ?? { mean: 0, m2: 0, count: 0 };
+    b.count++;
+    const delta = duration - b.mean;
+    b.mean += delta / b.count;
+    const delta2 = duration - b.mean;
+    b.m2 += delta * delta2;
+    this.baseline.set(key, b);
+  }
+
+  // Return detected anomalies using Z-score against Welford baseline
+  getAnomalies(): AnomalyEvent[] {
+    const threshold = this.config.anomalyThreshold ?? 3;
+    const anomalies: AnomalyEvent[] = [];
+    const now = Date.now();
+
+    // Scan completed spans
+    for (const span of this.spansSinceExport) {
+      if (!span.endTime) continue;
+      const duration = span.endTime - span.startTime;
+      const b = this.baseline.get(span.name);
+      // Need at least 5 samples for meaningful baseline
+      if (!b || b.count < 5) continue;
+
+      const variance = b.count > 1 ? b.m2 / (b.count - 1) : 0;
+      const stddev = Math.sqrt(variance);
+      // Enforce minimum stddev floor to prevent false positives from near-zero variance
+      const MIN_STDDEV_MS = 10;
+      if (stddev < MIN_STDDEV_MS) continue;
+
+      const zScore = (duration - b.mean) / stddev;
+      if (Math.abs(zScore) > threshold) {
+        anomalies.push({
+          spanId: span.spanId,
+          spanName: span.name,
+          type: 'latency_spike',
+          zScore,
+          severity: Math.abs(zScore) > threshold * 2 ? 'critical' : 'warning',
+          detectedAt: now,
+        });
+      }
+    }
+
+    // Scan for error surges: compare last 10 spans to historical rate
+    const completed = this.spansSinceExport.filter(s => s.endTime);
+    if (completed.length >= 10) {
+      const recent10 = completed.slice(-10);
+      const recentErrors = recent10.filter(s => s.status === 'error').length;
+      const recentErrorRate = recentErrors / 10;
+
+      const allErrors = completed.filter(s => s.status === 'error').length;
+      const historicalErrorRate = allErrors / completed.length;
+
+      if (historicalErrorRate > 0 && recentErrorRate > 2 * historicalErrorRate) {
+        anomalies.push({
+          spanId: recent10[recent10.length - 1].spanId,
+          spanName: 'error_rate',
+          type: 'error_surge',
+          zScore: recentErrorRate / historicalErrorRate,
+          severity: recentErrorRate > 0.3 ? 'critical' : 'warning',
+          detectedAt: now,
+        });
+      }
+    }
+
+    return anomalies;
   }
 
   // Record an agent turn (ATSC semantic conventions)
@@ -97,11 +289,8 @@ export class TelemetryCollector {
       cost
     };
 
-    // Update the span in this.spans with the full turn object
-    const index = this.spans.findIndex(s => s.spanId === span.spanId);
-    if (index !== -1) {
-      this.spans[index] = turn;
-    }
+    // Update the span in spanMap with the full turn object
+    this.spanMap.set(span.spanId, turn);
 
     this.endSpan(span.spanId);
     return turn;
@@ -177,29 +366,83 @@ export class TelemetryCollector {
     return span;
   }
 
-  // Detect stuck loops
+  // Detect loops using sliding-window cycle detection on tool call sequences
+  detectLoop(traceId?: string): LoopReport {
+    const sourceSpans = traceId
+      ? (this.traces.get(traceId) || [])
+      : Array.from(this.spanMap.values());
+
+    const toolCalls = sourceSpans
+      .filter(s => s.name === 'tool.call')
+      .sort((a, b) => a.startTime - b.startTime);
+
+    if (toolCalls.length < 2) {
+      return { detected: false, cycle: [], frequency: 0, severity: 'normal' };
+    }
+
+    const sequence = toolCalls.map(s => `tool.call:${s.attributes['tool.name'] as string || 'unknown'}`);
+
+    // Sliding window: check if the last patLen elements match the patLen elements before them
+    const maxPatLen = Math.floor(sequence.length / 2);
+    let detectedCycle: string[] = [];
+
+    for (let patLen = 1; patLen <= maxPatLen; patLen++) {
+      const tail = sequence.slice(sequence.length - patLen);
+      const prev = sequence.slice(sequence.length - 2 * patLen, sequence.length - patLen);
+      if (prev.length === patLen && tail.join(',') === prev.join(',')) {
+        detectedCycle = tail;
+        break;
+      }
+    }
+
+    if (detectedCycle.length === 0) {
+      return { detected: false, cycle: [], frequency: 0, severity: 'normal' };
+    }
+
+    // Use only the cycle window (last 2*patLen spans) for accurate severity — not full history
+    const cycleSpans = toolCalls.slice(-2 * detectedCycle.length);
+    const windowMs = cycleSpans[cycleSpans.length - 1].startTime - cycleSpans[0].startTime;
+    const frequency = windowMs > 0 ? (cycleSpans.length / windowMs) * 1000 : cycleSpans.length;
+
+    let severity: 'rapid' | 'normal' | 'slow';
+    if (windowMs < 500) {
+      severity = 'rapid';
+    } else if (windowMs > 5000) {
+      severity = 'slow';
+    } else {
+      severity = 'normal';
+    }
+
+    const parentPhase = toolCalls[0]?.attributes?.['auto.phase'] as string | undefined;
+
+    return { detected: true, cycle: detectedCycle, frequency, severity, parentPhase };
+  }
+
+  // Deprecated — use detectLoop() instead
   detectStuckLoop(toolName: string, threshold: number = 5): boolean {
-    const recentCalls = this.spans
+    const recentCalls = Array.from(this.spanMap.values())
       .filter(s => s.name === 'tool.call' && s.attributes['tool.name'] === toolName)
       .slice(-threshold);
-    
-    return recentCalls.length >= threshold;
+
+    if (recentCalls.length >= threshold) return true;
+    return this.detectLoop().detected;
   }
 
   // Get metrics
   getMetrics(): TelemetryMetrics {
-    const agentTurns = this.spans.filter(s => s.name === 'agent.turn') as AgentTurn[];
-    const toolCalls = this.spans.filter(s => s.name === 'tool.call') as ToolCall[];
-    
+    const allSpans = Array.from(this.spanMap.values());
+    const agentTurns = allSpans.filter(s => s.name === 'agent.turn') as AgentTurn[];
+    const toolCalls = allSpans.filter(s => s.name === 'tool.call') as ToolCall[];
+
     const totalTokens = agentTurns.reduce((sum, t) => sum + t.inputTokens + t.outputTokens, 0);
     const totalCost = agentTurns.reduce((sum, t) => sum + t.cost, 0);
-    
+
     const latencies = agentTurns.map(t => (t.endTime || t.startTime) - t.startTime);
     const averageLatency = latencies.length > 0 ? latencies.reduce((a, b) => a + b, 0) / latencies.length : 0;
-    
-    const errors = this.spans.filter(s => s.status === 'error').length;
-    const errorRate = this.spans.length > 0 ? errors / this.spans.length : 0;
-    
+
+    const errors = allSpans.filter(s => s.status === 'error').length;
+    const errorRate = allSpans.length > 0 ? errors / allSpans.length : 0;
+
     const toolFailures = toolCalls.filter(t => t.status === 'error').length;
     const toolFailureRate = toolCalls.length > 0 ? toolFailures / toolCalls.length : 0;
 
@@ -228,15 +471,18 @@ export class TelemetryCollector {
       serviceName: this.config.serviceName,
       serviceVersion: this.config.serviceVersion,
       exportTime: new Date().toISOString(),
-      spans: this.spans,
+      spans: Array.from(this.spanMap.values()),
       metrics: this.getMetrics(),
       traces: Object.fromEntries(this.traces)
     };
 
     await writeFile(exportFile, JSON.stringify(exportData, null, 2));
 
-    this.spans = [];
+    this.spanMap.clear();
     this.traces.clear();
+    this.spansSinceExport = [];
+    this.baseline.clear();
+    this.retentionPolicy.reset();
   }
 
   // Load historical telemetry
@@ -245,7 +491,7 @@ export class TelemetryCollector {
       const files = await readdir(this.config.exportDir);
       const metrics: TelemetryMetrics[] = [];
       
-      for (const file of files.filter(f => f.startsWith('telemetry-') && f.endsWith('.json'))) {
+      for (const file of files.filter((f: string) => f.startsWith('telemetry-') && f.endsWith('.json'))) {
         const content = await readFile(join(this.config.exportDir, file), 'utf-8');
         const data = JSON.parse(content);
         metrics.push(data.metrics);
@@ -271,18 +517,25 @@ export class TelemetryCollector {
 
   // Get span by ID
   getSpan(spanId: string): TelemetrySpan | undefined {
-    return this.spans.find(s => s.spanId === spanId);
+    return this.spanMap.get(spanId);
   }
 
   private getTraceId(spanId: string): string {
-    const span = this.spans.find(s => s.spanId === spanId);
+    const span = this.spanMap.get(spanId);
     return span?.traceId || randomUUID();
   }
 
   // Clear old spans (for memory management)
   clearOldSpans(maxAgeMs: number = 3600000): void {
     const cutoff = Date.now() - maxAgeMs;
-    this.spans = this.spans.filter(s => s.startTime > cutoff);
+    for (const [spanId, span] of this.spanMap) {
+      if (span.startTime <= cutoff) this.spanMap.delete(spanId);
+    }
+    for (const [traceId, traceSpans] of this.traces) {
+      const remaining = traceSpans.filter(s => s.startTime > cutoff);
+      if (remaining.length === 0) this.traces.delete(traceId);
+      else this.traces.set(traceId, remaining);
+    }
   }
 }
 

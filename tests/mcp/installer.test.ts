@@ -9,8 +9,8 @@ import {
 } from '../../src/mcp/installer.js';
 
 describe('PLATFORMS', () => {
-  it('has 5 platforms', () => {
-    expect(Object.keys(PLATFORMS)).toHaveLength(5);
+  it('has 7 platforms', () => {
+    expect(Object.keys(PLATFORMS)).toHaveLength(7);
   });
 
   it('claude has correct config', () => {

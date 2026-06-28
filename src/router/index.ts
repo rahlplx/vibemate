@@ -1,5 +1,7 @@
 // Cost-Aware Dynamic Routing - Route tasks to optimal model based on complexity
 import { ComplexityLevel, RoutingDecision, CloudProvider } from '../types.js';
+import { VibemateExtendedConfig } from '../shared/config.js';
+import { ObservationEngine } from '../improve/observation.js';
 
 // Model configurations with pricing (June 2026)
 const MODEL_CONFIGS: Record<string, {
@@ -101,9 +103,29 @@ interface ComplexityCriteria {
 export class CostAwareRouter {
   private budget: number;
   private totalCost: number = 0;
+  private modelConfigs: typeof MODEL_CONFIGS;
+  private observationEngine?: ObservationEngine;
 
-  constructor(_providers: CloudProvider[], budget: number) {
+  constructor(_providers: CloudProvider[], budget: number, config?: VibemateExtendedConfig, observationEngine?: ObservationEngine) {
     this.budget = budget;
+    this.observationEngine = observationEngine;
+    // Deep-copy so per-instance overrides don't pollute the shared module constant
+    this.modelConfigs = Object.fromEntries(
+      Object.entries(MODEL_CONFIGS).map(([k, v]) => [k, { ...v }])
+    ) as typeof MODEL_CONFIGS;
+    if (config?.llmProviders) {
+      for (const provider of config.llmProviders) {
+        const key = provider.model;
+        if (this.modelConfigs[key]) {
+          this.modelConfigs[key] = {
+            ...this.modelConfigs[key],
+            costPer1kInput: provider.costPer1kInput,
+            costPer1kOutput: provider.costPer1kOutput,
+            ...(provider.maxTokens ? { maxTokens: provider.maxTokens } : {})
+          };
+        }
+      }
+    }
   }
 
   // Calculate task complexity score
@@ -141,7 +163,16 @@ export class CostAwareRouter {
   // Route task to optimal model
   route(criteria: ComplexityCriteria): RoutingDecision {
     const score = this.calculateComplexity(criteria);
-    const level = this.getComplexityLevel(score);
+    let level = this.getComplexityLevel(score);
+
+    // Escalate if ObservationEngine reports 3+ recent high-confidence failures
+    if (level === 'low' && this.observationEngine) {
+      const recentFailures = this.observationEngine.getInsights(0.9)
+        .filter(o => o.type === 'failure').length;
+      if (recentFailures >= 3) {
+        level = 'medium';
+      }
+    }
     
     // Select model based on complexity
     let selectedModel: string;
@@ -165,7 +196,7 @@ export class CostAwareRouter {
         break;
     }
 
-    const modelConfig = MODEL_CONFIGS[selectedModel];
+    const modelConfig = this.modelConfigs[selectedModel];
     const estimatedTokens = this.estimateTokens(criteria);
     const estimatedCost = this.calculateCost(selectedModel, estimatedTokens);
 
@@ -174,7 +205,7 @@ export class CostAwareRouter {
       // Downgrade to cheaper model
       const cheaperModel = this.selectCheapest(modelConfig.capability);
       const cheaperCost = this.calculateCost(cheaperModel, estimatedTokens);
-      
+
       if (this.totalCost + cheaperCost <= this.budget) {
         selectedModel = cheaperModel;
         reason += ` (downgraded due to budget: $${(this.budget - this.totalCost).toFixed(2)} remaining)`;
@@ -183,20 +214,21 @@ export class CostAwareRouter {
 
     return {
       level,
-      model: MODEL_CONFIGS[selectedModel].model,
-      provider: MODEL_CONFIGS[selectedModel].provider,
+      model: this.modelConfigs[selectedModel].model,
+      provider: this.modelConfigs[selectedModel].provider,
       estimatedCost,
-      reason
+      reason,
+      contextWindow: this.modelConfigs[selectedModel].maxTokens
     };
   }
 
   private selectCheapest(minCapability: 'basic' | 'intermediate' | 'advanced'): string {
     const capabilityOrder = { basic: 0, intermediate: 1, advanced: 2 };
-    
+
     let cheapest: string | null = null;
     let cheapestCost = Infinity;
-    
-    for (const [name, config] of Object.entries(MODEL_CONFIGS)) {
+
+    for (const [name, config] of Object.entries(this.modelConfigs)) {
       if (capabilityOrder[config.capability] >= capabilityOrder[minCapability]) {
         const cost = config.costPer1kInput + config.costPer1kOutput;
         if (cost < cheapestCost) {
@@ -205,41 +237,41 @@ export class CostAwareRouter {
         }
       }
     }
-    
+
     return cheapest || 'claude-haiku';
   }
 
   private selectBalanced(minCapability: 'basic' | 'intermediate' | 'advanced'): string {
     // Balance cost and capability
     const capabilityOrder = { basic: 0, intermediate: 1, advanced: 2 };
-    
+
     let best: string | null = null;
     let bestScore = -Infinity;
-    
-    for (const [name, config] of Object.entries(MODEL_CONFIGS)) {
+
+    for (const [name, config] of Object.entries(this.modelConfigs)) {
       if (capabilityOrder[config.capability] >= capabilityOrder[minCapability]) {
         // Score = capability - normalized cost
         const cost = config.costPer1kInput + config.costPer1kOutput;
         const normalizedCost = cost / 0.1; // Normalize to 0-1 range
         const score = capabilityOrder[config.capability] - normalizedCost;
-        
+
         if (score > bestScore) {
           bestScore = score;
           best = name;
         }
       }
     }
-    
+
     return best || 'claude-sonnet';
   }
 
   private selectMostCapable(minCapability: 'basic' | 'intermediate' | 'advanced'): string {
     const capabilityOrder = { basic: 0, intermediate: 1, advanced: 2 };
-    
+
     let mostCapable: string | null = null;
     let highestCapability = -1;
-    
-    for (const [name, config] of Object.entries(MODEL_CONFIGS)) {
+
+    for (const [name, config] of Object.entries(this.modelConfigs)) {
       if (capabilityOrder[config.capability] >= capabilityOrder[minCapability]) {
         if (capabilityOrder[config.capability] > highestCapability) {
           highestCapability = capabilityOrder[config.capability];
@@ -247,7 +279,7 @@ export class CostAwareRouter {
         }
       }
     }
-    
+
     return mostCapable || 'claude-opus';
   }
 
@@ -261,7 +293,7 @@ export class CostAwareRouter {
   }
 
   private calculateCost(modelName: string, tokens: number): number {
-    const config = MODEL_CONFIGS[modelName];
+    const config = this.modelConfigs[modelName];
     if (!config) return 0;
     
     const inputTokens = Math.floor(tokens * 0.7); // 70% input

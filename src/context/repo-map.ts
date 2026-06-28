@@ -46,16 +46,18 @@ export class RepoMap {
 
     this.buildPageRank();
     this.lastMtime = currentMtime;
-    this.buildTime = Date.now();
+    // Use monotonically increasing value so rapid successive builds are always distinguishable
+    this.buildTime = Math.max(Date.now(), this.buildTime + 1);
   }
 
   private async getMtimeFromFiles(files: string[]): Promise<number> {
-    let latest = 0;
+    let sum = 0;
     for (const file of files) {
       const s = await stat(file);
-      if (s.mtimeMs > latest) latest = s.mtimeMs;
+      sum += s.mtimeMs;
     }
-    return latest;
+    // Include file count so additions/deletions trigger rebuild even when mtime sum is unchanged
+    return sum + files.length;
   }
 
   private async findFiles(dir: string): Promise<string[]> {
