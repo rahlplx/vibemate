@@ -260,7 +260,7 @@ export class TelemetryCollector {
       const allErrors = completed.filter(s => s.status === 'error').length;
       const historicalErrorRate = allErrors / completed.length;
 
-      if (historicalErrorRate > 0 && recentErrorRate > 2 * historicalErrorRate) {
+      if (historicalErrorRate > 0 && recentErrorRate > 1.5 * historicalErrorRate) {
         anomalies.push({
           spanId: recent10[recent10.length - 1].spanId,
           spanName: 'error_rate',
@@ -327,8 +327,12 @@ export class TelemetryCollector {
         subAgents: [],
         metadata: { model, agentId, phase: content.phase, inputTokens, outputTokens, cost, success: true }
       };
-      await this.contentStore.save(span.spanId, spanContent);
-      this.contentSpanIds.add(span.spanId);
+      try {
+        await this.contentStore.save(span.spanId, spanContent);
+        this.contentSpanIds.add(span.spanId);
+      } catch (err) {
+        console.warn(`[Telemetry] Failed to save agent turn content: ${err instanceof Error ? err.message : err}`);
+      }
     }
 
     return turn;
@@ -366,8 +370,12 @@ export class TelemetryCollector {
         subAgents: [],
         metadata: { model, parentAgentId, childAgentId, success: true }
       };
-      await this.contentStore.save(span.spanId, spanContent);
-      this.contentSpanIds.add(span.spanId);
+      try {
+        await this.contentStore.save(span.spanId, spanContent);
+        this.contentSpanIds.add(span.spanId);
+      } catch (err) {
+        console.warn(`[Telemetry] Failed to save sub-agent content: ${err instanceof Error ? err.message : err}`);
+      }
     }
 
     return subSpan;
@@ -398,8 +406,12 @@ export class TelemetryCollector {
         subAgents: [],
         metadata: { toolName, duration, success }
       };
-      await this.contentStore.save(span.spanId, spanContent);
-      this.contentSpanIds.add(span.spanId);
+      try {
+        await this.contentStore.save(span.spanId, spanContent);
+        this.contentSpanIds.add(span.spanId);
+      } catch (err) {
+        console.warn(`[Telemetry] Failed to save tool call content: ${err instanceof Error ? err.message : err}`);
+      }
     }
 
     return call;
@@ -495,7 +507,7 @@ export class TelemetryCollector {
       severity = 'normal';
     }
 
-    const parentPhase = toolCalls[0]?.attributes?.['auto.phase'] as string | undefined;
+    const parentPhase = cycleSpans[0]?.attributes?.['auto.phase'] as string | undefined;
 
     return { detected: true, cycle: detectedCycle, frequency, severity, parentPhase };
   }
@@ -626,6 +638,7 @@ export class TelemetryCollector {
     this.spansSinceExport = [];
     this.baseline.clear();
     this.retentionPolicy.reset();
+    this.contentSpanIds.clear();
   }
 
   // Load historical telemetry
@@ -672,7 +685,10 @@ export class TelemetryCollector {
   clearOldSpans(maxAgeMs: number = 3600000): void {
     const cutoff = Date.now() - maxAgeMs;
     for (const [spanId, span] of this.spanMap) {
-      if (span.startTime <= cutoff) this.spanMap.delete(spanId);
+      if (span.startTime <= cutoff) {
+        this.spanMap.delete(spanId);
+        this.contentSpanIds.delete(spanId);
+      }
     }
     for (const [traceId, traceSpans] of this.traces) {
       const remaining = traceSpans.filter(s => s.startTime > cutoff);

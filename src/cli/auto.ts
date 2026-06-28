@@ -162,7 +162,9 @@ async function runAutoPipeline(description: string, options: AutoOptions): Promi
     if (result.allChecksPassed === false && state.phase === 'harness') {
       const shouldRetry = handleHarnessFailure(state, circuitBreaker);
       if (shouldRetry) {
-        console.log('⚠️  HARNESS failed — retrying with simpler model');
+        console.log('⚠️  HARNESS failed — retrying build with simpler model');
+        state.phase = 'build';
+        await writeFile(statePath, JSON.stringify(state, null, 2));
         continue;
       }
     } else if (result.allChecksPassed === false) {

@@ -115,10 +115,14 @@ export class CostAwareRouter {
     ) as typeof MODEL_CONFIGS;
     if (config?.llmProviders) {
       for (const provider of config.llmProviders) {
-        const key = provider.model;
-        if (this.modelConfigs[key]) {
-          this.modelConfigs[key] = {
-            ...this.modelConfigs[key],
+        // Match by shorthand key (e.g. 'claude-haiku') OR full model ID (e.g. 'claude-3-5-haiku-20241022')
+        const entry = Object.entries(this.modelConfigs).find(
+          ([k, v]) => k === provider.model || v.model === provider.model
+        );
+        if (entry) {
+          const [configKey] = entry;
+          this.modelConfigs[configKey] = {
+            ...this.modelConfigs[configKey],
             costPer1kInput: provider.costPer1kInput,
             costPer1kOutput: provider.costPer1kOutput,
             ...(provider.maxTokens ? { maxTokens: provider.maxTokens } : {})

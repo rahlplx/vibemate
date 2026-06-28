@@ -73,6 +73,40 @@ describe('Router pricing override via VibemateExtendedConfig', () => {
     expect(d1.estimatedCost).toBe(d2.estimatedCost);
   });
 
+  it('overrides price when config uses full model ID instead of shorthand key', () => {
+    // MODEL_CONFIGS shorthand 'claude-opus' has model: 'claude-opus-4-20250514'
+    // A user might pass the full model ID — should match via v.model lookup, not just key match
+    const configWithFullModelId: VibemateExtendedConfig = {
+      version: '1.0.0',
+      stateDir: '.vibe',
+      databaseFile: 'state.db',
+      telemetryEnabled: true,
+      evolutionCadence: 'task',
+      maxComplexityForInline: 5,
+      maxComplexityForSession: 15,
+      budget: 100,
+      llmProviders: [
+        {
+          name: 'anthropic',
+          apiKey: '',
+          model: 'claude-opus-4-20250514', // full model ID, not the shorthand key 'claude-opus'
+          maxTokens: 8192,
+          costPer1kInput: 1.0,  // 66x default 0.015
+          costPer1kOutput: 4.0  // 53x default 0.075
+        }
+      ]
+    };
+
+    const defaultRouter = new CostAwareRouter([], 100);
+    const overrideRouter = new CostAwareRouter([], 100, configWithFullModelId);
+
+    // High complexity so claude-opus (advanced) is selected by selectMostCapable
+    const highCriteria = { ...baseCriteria, requiresReasoning: true, requiresSecurity: true, filesImplicated: 5 };
+    expect(overrideRouter.route(highCriteria).estimatedCost).toBeGreaterThan(
+      defaultRouter.route(highCriteria).estimatedCost
+    );
+  });
+
   it('ignores unknown model names in llmProviders', () => {
     const configWithUnknown: VibemateExtendedConfig = {
       version: '1.0.0',
