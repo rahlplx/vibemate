@@ -70,6 +70,30 @@ const MIGRATIONS = [
     CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);
     CREATE INDEX IF NOT EXISTS idx_observations_session ON observations(session_id);
   `,
+
+  // Migration 2: Repo analyses for enterprise repo mining
+  `
+    CREATE TABLE IF NOT EXISTS repo_analyses (
+      id TEXT PRIMARY KEY,
+      url TEXT NOT NULL,
+      cloned_at TEXT NOT NULL,
+      languages TEXT NOT NULL,
+      folder_structure TEXT,
+      commit_count INTEGER NOT NULL DEFAULT 0,
+      top_contributors TEXT NOT NULL DEFAULT '[]',
+      architecture_patterns TEXT,
+      file_count INTEGER NOT NULL DEFAULT 0,
+      has_tests INTEGER NOT NULL DEFAULT 0,
+      has_ci INTEGER NOT NULL DEFAULT 0,
+      package_manager TEXT,
+      okf_path TEXT,
+      jsonl_path TEXT,
+      metadata TEXT
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_repo_analyses_url ON repo_analyses(url);
+    CREATE INDEX IF NOT EXISTS idx_repo_analyses_cloned_at ON repo_analyses(cloned_at);
+  `,
 ];
 
 export function runMigrations(conn: DatabaseConnection): void {

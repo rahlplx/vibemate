@@ -149,6 +149,9 @@ export interface DeepLearningRecord {
     cost?: number;
     success?: boolean;
     traceId?: string;
+    provider?: string;
+    modelFamily?: string;
+    agentType?: string;
     [key: string]: unknown;
   };
 }

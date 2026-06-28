@@ -368,20 +368,74 @@ program
       const { SelfImprovementOrchestrator } = await import('../evolve/index.js');
       const { OKFGenerator } = await import('../okf/generator.js');
       const { runEvolveCron } = await import('./evolve-helpers.js');
+      const { mineRepo } = await import('../learnings/repo-miner.js');
+      const { createDefaultConfig } = await import('../shared/config.js');
+      const { join } = await import('path');
 
       const root = process.cwd();
       const okf = new OKFGenerator(root);
       const orchestrator = new SelfImprovementOrchestrator(okf);
+      const config = createDefaultConfig();
 
       if (options.cron) {
         console.log('🔄 Vibemate EvolveAgent — cron run');
         await runEvolveCron(orchestrator);
+
+        const repos = config.mineRepos ?? [];
+        if (repos.length > 0) {
+          console.log(`\n📦 Mining ${repos.length} configured repo(s)...`);
+          const vibeDir = join(root, config.stateDir);
+          for (const url of repos) {
+            try {
+              console.log(`  Mining: ${url}`);
+              const result = await mineRepo(url, { depth: config.mineDepth ?? 100, vibeDir });
+              console.log(`  ✓ ${result.analysis.fileCount} files, ${result.jsonlRecordsWritten} JSONL records`);
+            } catch (e) {
+              console.warn(`  ⚠ Failed to mine ${url}: ${e instanceof Error ? e.message : e}`);
+            }
+          }
+        }
+
         console.log('✅ EvolveAgent cron complete.');
       } else {
         console.log('Run with --cron to trigger the weekly reflection cycle.');
       }
     } catch (error) {
       console.error('Evolve failed:', error instanceof Error ? error.message : error);
+      process.exit(1);
+    }
+  });
+
+program
+  .command('mine')
+  .description('Mine a GitHub/Git repo for architecture patterns and deep-learning data')
+  .argument('<url>', 'Git repository URL to mine')
+  .option('--depth <n>', 'Number of commits to analyze', '100')
+  .option('--dry-run', 'Print what would be mined without writing files')
+  .option('--vibe-dir <dir>', 'Output directory (default: .vibe)', '.vibe')
+  .action(async (url, options) => {
+    try {
+      const { mineRepo } = await import('../learnings/repo-miner.js');
+      const { join } = await import('path');
+
+      const vibeDir = join(process.cwd(), options.vibeDir);
+      const depth = parseInt(options.depth, 10);
+      const dryRun = !!options.dryRun;
+
+      console.log(`\n🔍 Mining: ${url}`);
+      if (dryRun) console.log('   (dry run — no files will be written)');
+
+      const result = await mineRepo(url, { depth, vibeDir, dryRun });
+
+      console.log(`\n📊 Results:`);
+      console.log(`   Languages: ${Object.keys(result.analysis.languages).join(', ') || 'none detected'}`);
+      console.log(`   Files: ${result.analysis.fileCount}`);
+      console.log(`   Commits analyzed: ${result.analysis.commitCount}`);
+      console.log(`   Patterns: ${result.analysis.detectedPatterns.join(', ') || 'none'}`);
+      if (result.okfPath) console.log(`   OKF: ${result.okfPath}`);
+      if (result.jsonlRecordsWritten) console.log(`   JSONL records: ${result.jsonlRecordsWritten}`);
+    } catch (error) {
+      console.error('Mine failed:', error instanceof Error ? error.message : error);
       process.exit(1);
     }
   });

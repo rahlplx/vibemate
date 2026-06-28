@@ -6,6 +6,7 @@ import { randomUUID } from 'crypto';
 import type { PersistenceManager } from '../shared/persistence.js';
 import { classifyFailure } from '../shared/failure-classification.js';
 import { ContentStore } from './content-store.js';
+import { resolveModel, resolveAgentType } from './model-registry.js';
 
 export interface TelemetryConfig {
   enabled: boolean;
@@ -299,16 +300,20 @@ export class TelemetryCollector {
     inputTokens: number,
     outputTokens: number,
     cost: number,
-    content?: { prompt?: LLMPrompt; response?: LLMResponse; phase?: string }
+    content?: { prompt?: LLMPrompt; response?: LLMResponse; phase?: string; agentType?: string }
   ): Promise<AgentTurn> {
+    const modelInfo = resolveModel(model);
     const span = this.startSpan('agent.turn', undefined, {
       'agent.id': agentId,
       'agent.model': model,
+      'gen_ai.provider': modelInfo.provider,
+      'gen_ai.model_family': modelInfo.family,
       'gen_ai.usage.input_tokens': inputTokens,
       'gen_ai.usage.output_tokens': outputTokens,
       'gen_ai.usage.total_tokens': inputTokens + outputTokens,
       'gen_ai.cost': cost,
-      ...(content?.phase ? { 'auto.phase': content.phase } : {})
+      ...(content?.phase ? { 'auto.phase': content.phase } : {}),
+      ...(content?.agentType ? { 'agent.type': content.agentType } : {})
     });
 
     const turn: AgentTurn = { ...span, agentId, inputTokens, outputTokens, model, cost };
@@ -316,6 +321,7 @@ export class TelemetryCollector {
     this.endSpan(span.spanId);
 
     if (this.contentStore && content) {
+      const resolvedAgentType = resolveAgentType(content.agentType);
       const spanContent: SpanContent = {
         spanId: span.spanId,
         traceId: span.traceId,
@@ -325,7 +331,18 @@ export class TelemetryCollector {
         response: content.response,
         toolCalls: [],
         subAgents: [],
-        metadata: { model, agentId, phase: content.phase, inputTokens, outputTokens, cost, success: true }
+        metadata: {
+          model,
+          agentId,
+          phase: content.phase,
+          inputTokens,
+          outputTokens,
+          cost,
+          success: true,
+          provider: modelInfo.provider,
+          modelFamily: modelInfo.family,
+          agentType: resolvedAgentType
+        }
       };
       try {
         await this.contentStore.save(span.spanId, spanContent);
@@ -359,6 +376,7 @@ export class TelemetryCollector {
     this.endSpan(span.spanId);
 
     if (this.contentStore && content) {
+      const subModelInfo = resolveModel(model);
       const spanContent: SpanContent = {
         spanId: span.spanId,
         traceId: span.traceId,
@@ -368,7 +386,14 @@ export class TelemetryCollector {
         response: content.response,
         toolCalls: [],
         subAgents: [],
-        metadata: { model, parentAgentId, childAgentId, success: true }
+        metadata: {
+          model,
+          parentAgentId,
+          childAgentId,
+          success: true,
+          provider: subModelInfo.provider,
+          modelFamily: subModelInfo.family
+        }
       };
       try {
         await this.contentStore.save(span.spanId, spanContent);

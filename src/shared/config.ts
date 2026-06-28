@@ -19,6 +19,8 @@ export interface VibemateExtendedConfig {
   maxComplexityForSession: number;
   budget: number;
   llmProviders: LLMProviderConfig[];
+  mineRepos?: string[];
+  mineDepth?: number;
 }
 
 type ConfigOverrides = Partial<VibemateExtendedConfig>;
@@ -33,6 +35,8 @@ const DEFAULT_CONFIG: VibemateExtendedConfig = {
   maxComplexityForSession: 15,
   budget: 10.0,
   llmProviders: [],
+  mineRepos: [],
+  mineDepth: 100,
 };
 
 export function createDefaultConfig(overrides?: ConfigOverrides): VibemateExtendedConfig {

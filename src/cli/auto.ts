@@ -217,7 +217,8 @@ async function runAutoPipeline(description: string, options: AutoOptions): Promi
         'vibemate',
         0,
         0,
-        0
+        0,
+        { phase: justCompleted, agentType: state.agent }
       );
     }
 
