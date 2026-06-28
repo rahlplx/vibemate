@@ -6,14 +6,16 @@ import {
   logPhase,
   logDecision,
   logMetric,
+  logViolation,
+  logUserAction,
   getLogs,
+  clearLogs,
   TelemetryEvent,
 } from '../../src/sdd/telemetry-logger';
 
 describe('Telemetry Logger', () => {
   beforeEach(() => {
-    // Clear logs before each test
-    getLogs().length = 0;
+    clearLogs();
   });
 
   describe('logEvent', () => {
@@ -80,6 +82,41 @@ describe('Telemetry Logger', () => {
       logMetric('test_count', 344, 'tests');
       const logs = getLogs();
       expect(logs[logs.length - 1].type).toBe('metric');
+    });
+  });
+
+  describe('logViolation', () => {
+    it('should log violation with ruleId and severity', () => {
+      logViolation('rule-001', 'error', 'Missing null check');
+      const logs = getLogs();
+      expect(logs[logs.length - 1].type).toBe('violation');
+      expect(logs[logs.length - 1].message).toContain('error');
+      expect(logs[logs.length - 1].metadata?.ruleId).toBe('rule-001');
+    });
+  });
+
+  describe('logUserAction', () => {
+    it('should log user action without detail', () => {
+      logUserAction('submit');
+      const logs = getLogs();
+      const last = logs[logs.length - 1];
+      expect(last.type).toBe('user_action');
+      expect(last.message).toBe('User: submit');
+    });
+
+    it('should log user action with detail', () => {
+      logUserAction('select-template', 'saas');
+      const logs = getLogs();
+      const last = logs[logs.length - 1];
+      expect(last.message).toContain('saas');
+    });
+  });
+
+  describe('clearLogs', () => {
+    it('clears all logs', () => {
+      logPhase('think', 'start');
+      clearLogs();
+      expect(getLogs().length).toBe(0);
     });
   });
 

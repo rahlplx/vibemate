@@ -341,7 +341,7 @@ title: Update History
 `;
 
 export class OKFGenerator {
-  private root: string;
+  readonly root: string;
 
   constructor(root: string) {
     this.root = root;

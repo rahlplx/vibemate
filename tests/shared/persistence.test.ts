@@ -329,7 +329,7 @@ describe('EvolveStore', () => {
     const manager = new PersistenceManager({ dbPath });
     await manager.initialize();
     const store = await manager.getEvolveStore();
-    
+
     await store.saveLearning({
       id: 'l1',
       timestamp: new Date(),
@@ -342,7 +342,71 @@ describe('EvolveStore', () => {
     const learning = await store.getLearning('l1');
     expect(learning).toBeDefined();
     expect(learning?.lesson).toBe('Learned something');
-    
+
+    await manager.close();
+    cleanupDb(dbPath);
+  });
+
+  it('should get all principles', async () => {
+    const dbPath = getTestDb();
+    const manager = new PersistenceManager({ dbPath });
+    await manager.initialize();
+    const store = await manager.getEvolveStore();
+
+    await store.savePrinciple({ id: 'p1', principle: 'P1', context: 'c', effectiveness: 0.9, usageCount: 1, lastUsed: new Date() });
+    await store.savePrinciple({ id: 'p2', principle: 'P2', context: 'c', effectiveness: 0.5, usageCount: 2, lastUsed: new Date() });
+    const principles = await store.getAllPrinciples();
+    expect(principles.length).toBe(2);
+    expect(principles[0].effectiveness).toBeGreaterThanOrEqual(principles[1].effectiveness);
+
+    await manager.close();
+    cleanupDb(dbPath);
+  });
+
+  it('should delete principle', async () => {
+    const dbPath = getTestDb();
+    const manager = new PersistenceManager({ dbPath });
+    await manager.initialize();
+    const store = await manager.getEvolveStore();
+
+    await store.savePrinciple({ id: 'p1', principle: 'P1', context: 'c', effectiveness: 0.9, usageCount: 1, lastUsed: new Date() });
+    const deleted = await store.deletePrinciple('p1');
+    expect(deleted).toBe(true);
+    const gone = await store.getPrinciple('p1');
+    expect(gone).toBeUndefined();
+
+    await manager.close();
+    cleanupDb(dbPath);
+  });
+
+  it('should get all learnings', async () => {
+    const dbPath = getTestDb();
+    const manager = new PersistenceManager({ dbPath });
+    await manager.initialize();
+    const store = await manager.getEvolveStore();
+
+    await store.saveLearning({ id: 'l1', timestamp: new Date(), type: 'success', description: 'D1', lesson: 'L1', tags: ['a'], utilityScore: 0.8 });
+    await store.saveLearning({ id: 'l2', timestamp: new Date(), type: 'failure', description: 'D2', lesson: 'L2', tags: ['b', 'c'], utilityScore: 0.3 });
+    const learnings = await store.getAllLearnings();
+    expect(learnings.length).toBe(2);
+    expect(Array.isArray(learnings[0].tags)).toBe(true);
+
+    await manager.close();
+    cleanupDb(dbPath);
+  });
+
+  it('should delete learning', async () => {
+    const dbPath = getTestDb();
+    const manager = new PersistenceManager({ dbPath });
+    await manager.initialize();
+    const store = await manager.getEvolveStore();
+
+    await store.saveLearning({ id: 'l1', timestamp: new Date(), type: 'success', description: 'D1', lesson: 'L1', tags: [], utilityScore: 0.5 });
+    const deleted = await store.deleteLearning('l1');
+    expect(deleted).toBe(true);
+    const gone = await store.getLearning('l1');
+    expect(gone).toBeUndefined();
+
     await manager.close();
     cleanupDb(dbPath);
   });

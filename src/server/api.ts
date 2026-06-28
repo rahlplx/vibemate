@@ -129,7 +129,7 @@ app.get('/api/scaffold/templates', (c) => c.json(getTemplateNames()));
 app.post('/api/scaffold/generate', async (c) => {
   const { template, variables, outputDir } = await c.req.json();
   const gen = createScaffoldGenerator();
-  return c.json(gen.generate(template, variables, outputDir));
+  return c.json(gen.generate(outputDir, template, variables));
 });
 
 app.post('/api/execution/assess', async (c) => {

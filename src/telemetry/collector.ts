@@ -1,7 +1,7 @@
 // Telemetry & Observability - OpenTelemetry + ATSC semantic conventions
 import { TelemetrySpan, AgentTurn, ToolCall, HandoffSpan, TelemetryMetrics, LoopReport, AnomalyEvent, SubAgentSpan, LLMPrompt, LLMResponse, DeepLearningRecord, SpanContent, InferenceParams } from '../types.js';
 import { writeFile, readFile, mkdir, readdir } from 'fs/promises';
-import { join } from 'path';
+import { join, resolve, relative, isAbsolute } from 'path';
 import { randomUUID } from 'crypto';
 import type { PersistenceManager } from '../shared/persistence.js';
 import { classifyFailure } from '../shared/failure-classification.js';
@@ -121,6 +121,15 @@ export class TelemetryCollector {
       config.maxSpanCount ?? 10_000,
       config.evictionStrategy ?? 'priority'
     );
+  }
+
+  // Restore in-memory contentSpanIds from disk after a process restart.
+  // Call once after construction when a ContentStore is configured.
+  async init(): Promise<void> {
+    if (this.contentStore) {
+      const ids = await this.contentStore.listAll();
+      for (const id of ids) this.contentSpanIds.add(id);
+    }
   }
 
   // Start a new span
@@ -287,8 +296,7 @@ export class TelemetryCollector {
       'gen_ai.cost': cost,
       ...(phase ? { 'auto.phase': phase } : {})
     });
-    const turn: AgentTurn = { ...span, agentId, inputTokens, outputTokens, model, cost };
-    this.spanMap.set(span.spanId, turn);
+    const turn = Object.assign(span, { agentId, inputTokens, outputTokens, model, cost }) as AgentTurn;
     this.endSpan(span.spanId);
     return turn;
   }
@@ -330,8 +338,7 @@ export class TelemetryCollector {
       ...(content?.agentType ? { 'agent.type': content.agentType } : {})
     });
 
-    const turn: AgentTurn = { ...span, agentId, inputTokens, outputTokens, model, cost };
-    this.spanMap.set(span.spanId, turn);
+    const turn = Object.assign(span, { agentId, inputTokens, outputTokens, model, cost }) as AgentTurn;
     this.endSpan(span.spanId);
 
     if (this.contentStore && content) {
@@ -391,8 +398,7 @@ export class TelemetryCollector {
     const parentAgent = this.spanMap.get(parentSpanId);
     const parentAgentId = (parentAgent as AgentTurn | undefined)?.agentId ?? '';
 
-    const subSpan: SubAgentSpan = { ...span, parentAgentId, childAgentId, model };
-    this.spanMap.set(span.spanId, subSpan);
+    const subSpan = Object.assign(span, { parentAgentId, childAgentId, model }) as SubAgentSpan;
     this.endSpan(span.spanId);
 
     if (this.contentStore && content) {
@@ -429,10 +435,18 @@ export class TelemetryCollector {
   // Record a tool call (ATSC semantic conventions)
   // Span attributes hold a 500-char preview for fast scanning; full I/O saved to content store.
   async recordToolCall(toolName: string, input: unknown, output: unknown, duration: number, success: boolean): Promise<ToolCall> {
+    const safePreview = (value: unknown): string => {
+      try {
+        const json = JSON.stringify(value);
+        return (json ?? String(value)).slice(0, 500);
+      } catch {
+        return String(value).slice(0, 500);
+      }
+    };
     const span = this.startSpan('tool.call', undefined, {
       'tool.name': toolName,
-      'tool.input_preview': JSON.stringify(input).substring(0, 500),
-      'tool.output_preview': JSON.stringify(output).substring(0, 500),
+      'tool.input_preview': safePreview(input),
+      'tool.output_preview': safePreview(output),
       'tool.duration_ms': duration,
       'tool.success': success
     });
@@ -663,14 +677,28 @@ export class TelemetryCollector {
 
   // Export a JSONL deep-learning dataset from all captured content
   async exportDeepLearning(outputPath?: string): Promise<number> {
-    const outPath = outputPath ?? join(this.config.exportDir, `deeplearning-${new Date().toISOString().replace(/[:.]/g, '-')}.jsonl`);
-    await mkdir(this.config.exportDir, { recursive: true });
+    const exportDirAbs = resolve(this.config.exportDir);
+    let outPath: string;
+    if (outputPath !== undefined) {
+      const requested = resolve(outputPath);
+      const rel = relative(exportDirAbs, requested);
+      if (rel.startsWith('..') || isAbsolute(rel)) {
+        throw new Error(`Export path must be within the configured export directory (${this.config.exportDir})`);
+      }
+      outPath = requested;
+    } else {
+      outPath = join(exportDirAbs, `deeplearning-${new Date().toISOString().replace(/[:.]/g, '-')}.jsonl`);
+    }
+    await mkdir(exportDirAbs, { recursive: true });
 
     const lines: string[] = [];
 
-    if (this.contentStore && this.contentSpanIds.size > 0) {
-      // Rich path: assemble from content store
-      for (const spanId of this.contentSpanIds) {
+    const diskIds = this.contentStore ? await this.contentStore.listAll() : [];
+    const allSpanIds = new Set([...this.contentSpanIds, ...diskIds]);
+
+    if (this.contentStore && allSpanIds.size > 0) {
+      // Rich path: assemble from content store (merges in-memory + disk-backed IDs)
+      for (const spanId of allSpanIds) {
         const content = await this.contentStore.load(spanId);
         if (!content) continue;
         const span = this.spanMap.get(spanId);
@@ -707,7 +735,7 @@ export class TelemetryCollector {
             ...content.metadata,
             ...bashMeta,
             traceId: content.traceId,
-            success: span?.status === 'ok'
+            success: span ? span.status === 'ok' : Boolean(content.metadata.success)
           }
         };
         lines.push(JSON.stringify(record));

@@ -47,6 +47,31 @@ describe('Governance Engine', () => {
       const result = enforceRules(context);
       expect(result.blocked).toBe(true);
     });
+
+    it('should enforce success metric requirement', () => {
+      const context = { successMetric: 'successful completion' };
+      const result = enforceRules(context);
+      expect(result.violations.some(v => v.ruleId === 'rule-intent-003')).toBe(true);
+    });
+
+    it('should enforce readability floor', () => {
+      const context = { readability: 45 };
+      const result = enforceRules(context);
+      expect(result.violations.some(v => v.ruleId === 'rule-quality-002')).toBe(true);
+    });
+
+    it('should trigger circuit breaker on 3+ consecutive failures', () => {
+      const context = { consecutiveFailures: 3 };
+      const result = enforceRules(context);
+      expect(result.violations.some(v => v.ruleId === 'rule-pipeline-002')).toBe(true);
+      expect(result.criticals.length).toBeGreaterThan(0);
+    });
+
+    it('does not trigger circuit breaker below threshold', () => {
+      const context = { consecutiveFailures: 2 };
+      const result = enforceRules(context);
+      expect(result.violations.some(v => v.ruleId === 'rule-pipeline-002')).toBe(false);
+    });
   });
 
   describe('checkGovernance', () => {

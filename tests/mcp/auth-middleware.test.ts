@@ -58,6 +58,15 @@ describe('AuthMiddleware', () => {
       const result = middleware.requireTier('pro', 'default');
       expect(result.upgradeUrl).toContain('vibemate.dev');
     });
+
+    it('blocks pro skills with expired token', () => {
+      const token: AuthToken = { token: 'vib-exp', tier: 'pro', expiresAt: Date.now() - 1000 };
+      auth.storeToken('default', token);
+      const result = middleware.requireTier('pro', 'default');
+      expect(result.allowed).toBe(false);
+      expect(result.reason).toContain('expired');
+      expect(result.upgradeUrl).toContain('vibemate.dev');
+    });
   });
 
   describe('requireAuth', () => {

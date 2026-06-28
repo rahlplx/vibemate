@@ -123,4 +123,29 @@ describe('mineRepo', () => {
     expect(JSON.parse(row!.languages as string)).toBeDefined();
     closeConnection(conn);
   });
+
+  it('getCommitStats parses real git log when localPath is a git repo', async () => {
+    // Use the current repo itself — it has real commits, so git log returns data
+    const repoRoot = process.cwd();
+    const result = await mineRepo('file://' + repoRoot, {
+      vibeDir,
+      skipClone: true,
+      localPath: repoRoot,
+    });
+    // A real git repo has commits, so commitCount > 0 and contributors are populated
+    expect(result.analysis.commitCount).toBeGreaterThan(0);
+    expect(result.analysis.topContributors.length).toBeGreaterThan(0);
+  });
+
+  it('clones from local file:// URL when skipClone is false', async () => {
+    // Use file:// protocol to clone locally without network access
+    const repoRoot = process.cwd();
+    const result = await mineRepo(`file://${repoRoot}`, {
+      vibeDir,
+      dryRun: false,
+      skipClone: false,
+    });
+    expect(result.analysis).toBeDefined();
+    expect(result.analysis.commitCount).toBeGreaterThanOrEqual(0);
+  }, 30000);
 });

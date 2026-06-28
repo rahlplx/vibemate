@@ -77,6 +77,46 @@ describe('QuestionBank', () => {
       }
     });
 
+    it('QuestionBank getQuestions returns questions for type', () => {
+      const { QuestionBank } = require('../../src/discovery/questions.js');
+      const bank = new QuestionBank();
+      const questions = bank.getQuestions('saas');
+      expect(Array.isArray(questions)).toBe(true);
+      expect(questions.length).toBeGreaterThan(0);
+    });
+
+    it('QuestionBank getQuestion returns question by id', () => {
+      const { QuestionBank } = require('../../src/discovery/questions.js');
+      const bank = new QuestionBank();
+      const q = bank.getQuestion('saas-purpose');
+      expect(q).toBeDefined();
+    });
+
+    it('QuestionBank addCustomQuestion adds to new type', () => {
+      const { QuestionBank } = require('../../src/discovery/questions.js');
+      const bank = new QuestionBank();
+      bank.addCustomQuestion('custom', {
+        id: 'custom-q1',
+        text: 'Custom?',
+        type: 'single',
+        options: [{ value: 'yes', label: 'Yes' }],
+      });
+      expect(bank.getQuestions('custom').length).toBe(1);
+    });
+
+    it('QuestionBank addCustomQuestion appends to existing type', () => {
+      const { QuestionBank } = require('../../src/discovery/questions.js');
+      const bank = new QuestionBank();
+      const before = bank.getQuestions('saas').length;
+      bank.addCustomQuestion('saas', {
+        id: 'saas-extra',
+        text: 'Extra?',
+        type: 'single',
+        options: [{ value: 'x', label: 'X' }],
+      });
+      expect(bank.getQuestions('saas').length).toBe(before + 1);
+    });
+
     it('question ids are unique', () => {
       const allQuestions = [
         ...getQuestionsForType('saas'),

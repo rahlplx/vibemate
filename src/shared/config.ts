@@ -1,4 +1,6 @@
 // Extended VibemateConfig for new modules
+import { readFileSync, existsSync } from 'fs';
+import { join } from 'path';
 
 export interface LLMProviderConfig {
   name: string;
@@ -46,6 +48,20 @@ export function createDefaultConfig(overrides?: ConfigOverrides): VibemateExtend
 export interface ConfigValidationResult {
   valid: boolean;
   errors: string[];
+}
+
+export function loadConfig(rootDir: string = process.cwd()): VibemateExtendedConfig {
+  const configPath = join(rootDir, 'vibemate.config.json');
+  if (!existsSync(configPath)) {
+    return createDefaultConfig();
+  }
+  try {
+    const raw = readFileSync(configPath, 'utf-8');
+    const parsed = JSON.parse(raw) as Partial<VibemateExtendedConfig>;
+    return createDefaultConfig(parsed);
+  } catch {
+    return createDefaultConfig();
+  }
 }
 
 export function validateConfig(config: VibemateExtendedConfig): ConfigValidationResult {

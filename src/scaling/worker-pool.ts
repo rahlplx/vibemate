@@ -17,6 +17,7 @@ export interface WorkerInfo {
   tasksCompleted: number;
   lastActive: number;
   activeReject?: (err: Error) => void;
+  activeTimeout?: ReturnType<typeof setTimeout>;
 }
 
 export interface WorkerTask<T, R> {
@@ -86,6 +87,10 @@ export class WorkerPool {
   }
 
   private handleWorkerError(worker: WorkerInfo, err: Error): void {
+    if (worker.activeTimeout) {
+      clearTimeout(worker.activeTimeout);
+      worker.activeTimeout = undefined;
+    }
     if (worker.activeReject) {
       worker.activeReject(err);
       worker.activeReject = undefined;
@@ -126,13 +131,16 @@ export class WorkerPool {
       worker!.activeReject = reject;
       const timeout = setTimeout(() => {
         worker!.activeReject = undefined;
+        worker!.activeTimeout = undefined;
         worker!.worker.removeListener('message', messageHandler);
         worker!.busy = false;
         reject(new Error(`Task ${id} timeout`));
       }, this.config.taskTimeoutMs);
+      worker!.activeTimeout = timeout;
 
       const messageHandler = (result: R) => {
         worker!.activeReject = undefined;
+        worker!.activeTimeout = undefined;
         worker!.worker.removeListener('message', messageHandler);
         clearTimeout(timeout);
         worker!.busy = false;

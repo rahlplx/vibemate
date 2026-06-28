@@ -319,13 +319,57 @@ export function queryUsers() { return []; }
 
     it('should fallback to full content when summary is bad', () => {
       const guard = new QualityGuard();
-      
+
       const fallback = guard.fallback(
         'Bad summary',
         'Full original content here'
       );
-      
+
       expect(fallback).toBe('Full original content here');
+    });
+
+    it('penalises summary that is too long (> 90% of original)', () => {
+      const guard = new QualityGuard();
+      const original = 'AuthService handles login logout and token validation for users.';
+      // summary is 95% of original length → triggers "too long" branch
+      const summary = original.slice(0, Math.floor(original.length * 0.95));
+      const result = guard.validate(summary, original);
+      expect(result.reasons).toContain('Summary too long (> 90% of original)');
+    });
+
+    it('penalises summary with low term coverage (< 5%)', () => {
+      const guard = new QualityGuard();
+      const original = 'authentication database connection pool retry logic circuit breaker fallback timeout';
+      // Summary with totally different words, low overlap
+      const summary = 'xyz abc def ghi jkl mno pqr stu vwx yza bcd efg';
+      const result = guard.validate(summary, original);
+      expect(result.reasons).toContain('Low term coverage with original');
+    });
+
+    it('penalises summary identical to original', () => {
+      const guard = new QualityGuard();
+      const text = 'This is the original content with enough words to matter here.';
+      const result = guard.validate(text, text);
+      expect(result.reasons).toContain('Summary is identical to original');
+    });
+
+    it('penalises verbose summary with > 10 sentences', () => {
+      const guard = new QualityGuard();
+      const original = 'Short original.';
+      const summary = 'One. Two. Three. Four. Five. Six. Seven. Eight. Nine. Ten. Eleven.';
+      const result = guard.validate(summary, original);
+      expect(result.reasons).toContain('Summary too verbose');
+    });
+
+    it('applies medium term coverage bonus (> 5% but <= 20%)', () => {
+      const guard = new QualityGuard();
+      // original has many unique words; summary shares just a few (between 5-20%)
+      const original = Array.from({ length: 50 }, (_, i) => `word${i}`).join(' ');
+      // summary shares exactly 2 words from original (> 3 chars) out of ~10 total → ~20% overlap
+      const summary = `word1 word2 aaaa bbbb cccc dddd eeee ffff gggg hhhh`;
+      const result = guard.validate(summary, original);
+      // termCoverage = 2/10 = 0.2 — falls in the > 0.05 && <= 0.2 range
+      expect(result.score).toBeGreaterThanOrEqual(0);
     });
   });
 

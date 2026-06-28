@@ -156,4 +156,39 @@ describe('MCPConfigGenerator', () => {
       expect(info).toBeUndefined();
     });
   });
+
+  describe('checkHealth', () => {
+    it('returns error when no config exists', async () => {
+      // No config written — readConfig returns null
+      const result = await generator.checkHealth();
+      expect(result.global).toBeDefined();
+      expect(result.global.healthy).toBe(false);
+      expect(result.global.error).toContain('No config found');
+    });
+
+    it('marks npx server healthy when npx is available', async () => {
+      const { writeFile } = await import('fs/promises');
+      await writeFile(join(testDir, '.mcp.json'), JSON.stringify({
+        mcpServers: {
+          myserver: { command: 'npx', args: ['-y', 'something'], version: '1.0.0' },
+        },
+      }));
+      const result = await generator.checkHealth();
+      expect(result.myserver).toBeDefined();
+      expect(result.myserver.healthy).toBe(true);
+    });
+
+    it('marks server unhealthy when command not found', async () => {
+      const { writeFile } = await import('fs/promises');
+      await writeFile(join(testDir, '.mcp.json'), JSON.stringify({
+        mcpServers: {
+          badserver: { command: 'this-command-definitely-does-not-exist-vibemate', args: [], version: '1.0.0' },
+        },
+      }));
+      const result = await generator.checkHealth();
+      expect(result.badserver).toBeDefined();
+      expect(result.badserver.healthy).toBe(false);
+      expect(result.badserver.error).toContain('Command not found');
+    });
+  });
 });
