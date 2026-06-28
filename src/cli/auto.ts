@@ -9,7 +9,7 @@ import { writeFile, readFile, mkdir } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join } from 'path';
 import { execFileSync } from 'child_process';
-import { AutoPhase, CircuitBreaker, AutoState, HarnessCheck, HarnessReport } from '../types.js';
+import { AutoPhase, CircuitBreaker, AutoState, HarnessCheck, HarnessReport, PhaseObservation } from '../types.js';
 import { applyAmbiguityGate, checkGovernancePermission, handleHarnessFailure } from './auto-helpers.js';
 import { createObservationEngine } from '../improve/observation.js';
 
@@ -190,6 +190,34 @@ async function runAutoPipeline(description: string, options: AutoOptions): Promi
         circuitBreaker.consecutiveFailures++;
       }
     }
+
+    // M3: Capture per-phase observation and feed score into next routing decision
+    const phaseErrorCount = result.allChecksPassed === false ? 1 : 0;
+    const observationScore = Math.max(0, 1 - phaseErrorCount * 0.3 - (duration > 30000 ? 0.2 : 0) - circuitBreaker.consecutiveFailures * 0.1);
+    const obsSessionId = state.sessionId ?? `auto-${justCompleted}`;
+    const observationId = observationEngine.recordObservation(obsSessionId, {
+      type: phaseErrorCount > 0 ? 'failure' : 'success',
+      description: `Phase ${justCompleted} completed in ${duration}ms`,
+      lesson: phaseErrorCount > 0 ? `Phase ${justCompleted} had errors; consider escalating model tier` : `Phase ${justCompleted} succeeded`,
+      tags: ['phase-observation', justCompleted],
+      confidence: observationScore,
+    });
+    const phaseObservation: PhaseObservation = {
+      phase: justCompleted,
+      durationMs: duration,
+      tokenCost: 0,
+      errorCount: phaseErrorCount,
+      circuitBreakerState: {
+        consecutiveFailures: circuitBreaker.consecutiveFailures,
+        dispatchCount: circuitBreaker.dispatchCount,
+        totalCost: circuitBreaker.totalCost,
+      },
+      observationScore,
+      timestamp: new Date().toISOString(),
+      observationId,
+    };
+    if (!state.observations) state.observations = [];
+    state.observations.push(phaseObservation);
 
     const transition = PHASE_TRANSITIONS[state.phase];
     if (transition.next) {

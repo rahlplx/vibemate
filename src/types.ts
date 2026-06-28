@@ -259,10 +259,25 @@ export interface ExperiencePrinciple {
 }
 
 // Auto-Mode Types
-export type AutoPhase = 
-  | 'think' | 'plan' | 'design' | 'break' 
-  | 'build' | 'harness' | 'review' | 'qa' 
+export type AutoPhase =
+  | 'think' | 'plan' | 'design' | 'break'
+  | 'build' | 'harness' | 'review' | 'qa'
   | 'ship' | 'retro' | 'learn' | 'done';
+
+export interface PhaseObservation {
+  phase: AutoPhase;
+  durationMs: number;
+  tokenCost: number;
+  errorCount: number;
+  circuitBreakerState: {
+    consecutiveFailures: number;
+    dispatchCount: number;
+    totalCost: number;
+  };
+  observationScore: number;
+  timestamp: string;
+  observationId: string;
+}
 
 export interface AutoState {
   phase: AutoPhase;
@@ -277,6 +292,7 @@ export interface AutoState {
   agentId?: string;
   harnessRetried?: boolean;
   routerDowngrade?: boolean;
+  observations?: PhaseObservation[];
 }
 
 export interface CircuitBreaker {
@@ -298,6 +314,8 @@ export interface RoutingDecision {
   estimatedCost: number;
   reason: string;
   contextWindow?: number;
+  phase?: AutoPhase;
+  observationScore?: number;
 }
 
 // Harness Types
