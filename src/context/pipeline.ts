@@ -49,6 +49,8 @@ export class ContextPipeline {
   private cache: Map<string, CacheEntry> = new Map();
   private maxEntries = 500;
   private maxBytes = 50 * 1024 * 1024;
+  private hits = 0;
+  private misses = 0;
 
   constructor(root: string) {
     this.root = root;
@@ -177,8 +179,10 @@ export class ContextPipeline {
     // Check cache
     const cached = this.cache.get(hash);
     if (cached) {
+      this.hits++;
       return cached.key;
     }
+    this.misses++;
     
     // Store in cache
     const entry: CacheEntry = {
@@ -270,7 +274,7 @@ export class ContextPipeline {
     return {
       totalEntries: this.cache.size,
       totalSize,
-      hitRate: 0 // Would need to track hits/misses
+      hitRate: (this.hits + this.misses) > 0 ? this.hits / (this.hits + this.misses) : 0
     };
   }
 }
