@@ -3,13 +3,13 @@ type: retro-learning
 title: "Retro: test-task"
 description: "Task test-task: success"
 tags: [testing]
-timestamp: "2026-06-28T13:05:01.780Z"
+timestamp: "2026-06-28T13:08:47.517Z"
 learningType: "success"
 ---
 
 ## Learning
 
-Successfully completed task test-task. Key pattern: incremental delivery
+Successfully completed task test-task. Key pattern: modular design
 
 ## Context
 
