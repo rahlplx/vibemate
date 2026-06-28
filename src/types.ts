@@ -92,15 +92,37 @@ export interface LLMMessage {
   toolCallId?: string;
 }
 
+// Schema for a single tool made available to the model in a call
+export interface ToolDefinition {
+  name: string;
+  description: string;
+  inputSchema: {
+    type: 'object';
+    properties?: Record<string, unknown>;
+    required?: string[];
+    [key: string]: unknown;
+  };
+}
+
 export interface LLMPrompt {
   system?: string;
   messages: LLMMessage[];
+  tools?: ToolDefinition[];
 }
 
 export interface LLMResponse {
   content: string;
   thinking?: string;
   stopReason?: string;
+}
+
+// Model sampling/generation hyperparameters — needed for reproducibility in fine-tuning
+export interface InferenceParams {
+  temperature?: number;
+  maxTokens?: number;
+  topP?: number;
+  topK?: number;
+  stopSequences?: string[];
 }
 
 export interface ToolCallContent {
@@ -126,6 +148,7 @@ export interface SpanContent {
   timestamp: string;
   prompt?: LLMPrompt;
   response?: LLMResponse;
+  inferenceParams?: InferenceParams;
   toolCalls: ToolCallContent[];
   subAgents: SubAgentContent[];
   metadata: Record<string, unknown>;
@@ -138,6 +161,7 @@ export interface DeepLearningRecord {
   type: 'agent_turn' | 'sub_agent' | 'tool_call' | 'handoff';
   prompt?: LLMPrompt;
   response?: LLMResponse;
+  inferenceParams?: InferenceParams;
   toolCalls?: ToolCallContent[];
   subAgents?: SubAgentContent[];
   metadata: {
@@ -147,11 +171,16 @@ export interface DeepLearningRecord {
     inputTokens?: number;
     outputTokens?: number;
     cost?: number;
+    inputCost?: number;
+    outputCost?: number;
     success?: boolean;
     traceId?: string;
     provider?: string;
     modelFamily?: string;
     agentType?: string;
+    latencyMs?: number;
+    cacheReadTokens?: number;
+    cacheCreationTokens?: number;
     [key: string]: unknown;
   };
 }

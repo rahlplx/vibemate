@@ -1,5 +1,5 @@
 // Telemetry & Observability - OpenTelemetry + ATSC semantic conventions
-import { TelemetrySpan, AgentTurn, ToolCall, HandoffSpan, TelemetryMetrics, LoopReport, AnomalyEvent, SubAgentSpan, LLMPrompt, LLMResponse, DeepLearningRecord, SpanContent } from '../types.js';
+import { TelemetrySpan, AgentTurn, ToolCall, HandoffSpan, TelemetryMetrics, LoopReport, AnomalyEvent, SubAgentSpan, LLMPrompt, LLMResponse, DeepLearningRecord, SpanContent, InferenceParams } from '../types.js';
 import { writeFile, readFile, mkdir, readdir } from 'fs/promises';
 import { join } from 'path';
 import { randomUUID } from 'crypto';
@@ -300,7 +300,18 @@ export class TelemetryCollector {
     inputTokens: number,
     outputTokens: number,
     cost: number,
-    content?: { prompt?: LLMPrompt; response?: LLMResponse; phase?: string; agentType?: string }
+    content?: {
+      prompt?: LLMPrompt;
+      response?: LLMResponse;
+      phase?: string;
+      agentType?: string;
+      inferenceParams?: InferenceParams;
+      latencyMs?: number;
+      cacheReadTokens?: number;
+      cacheCreationTokens?: number;
+      inputCost?: number;
+      outputCost?: number;
+    }
   ): Promise<AgentTurn> {
     const modelInfo = resolveModel(model);
     const span = this.startSpan('agent.turn', undefined, {
@@ -312,6 +323,9 @@ export class TelemetryCollector {
       'gen_ai.usage.output_tokens': outputTokens,
       'gen_ai.usage.total_tokens': inputTokens + outputTokens,
       'gen_ai.cost': cost,
+      ...(content?.latencyMs !== undefined ? { 'gen_ai.latency_ms': content.latencyMs } : {}),
+      ...(content?.cacheReadTokens !== undefined ? { 'gen_ai.cache_read_tokens': content.cacheReadTokens } : {}),
+      ...(content?.cacheCreationTokens !== undefined ? { 'gen_ai.cache_creation_tokens': content.cacheCreationTokens } : {}),
       ...(content?.phase ? { 'auto.phase': content.phase } : {}),
       ...(content?.agentType ? { 'agent.type': content.agentType } : {})
     });
@@ -329,6 +343,7 @@ export class TelemetryCollector {
         timestamp: new Date(span.startTime).toISOString(),
         prompt: content.prompt,
         response: content.response,
+        inferenceParams: content.inferenceParams,
         toolCalls: [],
         subAgents: [],
         metadata: {
@@ -341,7 +356,12 @@ export class TelemetryCollector {
           success: true,
           provider: modelInfo.provider,
           modelFamily: modelInfo.family,
-          agentType: resolvedAgentType
+          agentType: resolvedAgentType,
+          ...(content.latencyMs !== undefined ? { latencyMs: content.latencyMs } : {}),
+          ...(content.cacheReadTokens !== undefined ? { cacheReadTokens: content.cacheReadTokens } : {}),
+          ...(content.cacheCreationTokens !== undefined ? { cacheCreationTokens: content.cacheCreationTokens } : {}),
+          ...(content.inputCost !== undefined ? { inputCost: content.inputCost } : {}),
+          ...(content.outputCost !== undefined ? { outputCost: content.outputCost } : {}),
         }
       };
       try {
@@ -601,6 +621,7 @@ export class TelemetryCollector {
           type,
           prompt: content.prompt,
           response: content.response,
+          inferenceParams: content.inferenceParams,
           toolCalls: content.toolCalls.length ? content.toolCalls : undefined,
           subAgents: content.subAgents.length ? content.subAgents : undefined,
           metadata: {
