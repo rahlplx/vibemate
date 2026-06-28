@@ -11,7 +11,7 @@ const PHASE_MODEL_TIER: Record<AutoPhase, ComplexityLevel> = {
   design:  'medium',
   break:   'medium',
   build:    'medium',
-  critique: 'high',
+  critique: 'low',
   harness:  'low',
   qa:      'low',
   ship:    'low',

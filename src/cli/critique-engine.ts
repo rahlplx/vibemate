@@ -152,14 +152,19 @@ function securityLens(code: string): CritiqueFinding[] {
 function cleanupLens(code: string): CritiqueFinding[] {
   const findings: CritiqueFinding[] = [];
 
-  // Promise chain without .catch()
-  if (/\.then\s*\(/.test(code) && !/.catch\s*\(/.test(code) && !/await/.test(code)) {
+  // Promise chain without .catch() — check per line to avoid being silenced by unrelated await
+  const lines = code.split('\n');
+  const thenLines = lines
+    .map((l, i) => ({ line: l, num: i + 1 }))
+    .filter(({ line }) => /\.then\s*\(/.test(line) && !/await\s/.test(line));
+  const hasCatch = /.catch\s*\(/.test(code);
+  if (thenLines.length > 0 && !hasCatch) {
     findings.push({
       lens: 'cleanup',
       category: 'cleanup',
       severity: 'high',
       message: 'Promise `.then()` without `.catch()` — unhandled rejection will crash Node ≥15 / Bun silently',
-      line: lineOf(code, '.then('),
+      line: thenLines[0].num,
     });
   }
 

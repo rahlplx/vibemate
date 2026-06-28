@@ -566,7 +566,7 @@ async function gatherTsFiles(dir: string): Promise<string> {
       const fullPath = join(dir, entry.name);
       if (entry.isDirectory()) {
         content += await gatherTsFiles(fullPath);
-      } else if (entry.name.endsWith('.ts')) {
+      } else if (entry.name.endsWith('.ts') && !entry.name.endsWith('.d.ts')) {
         try { content += '\n' + await readFile(fullPath, 'utf-8'); } catch { /* skip unreadable */ }
       }
     }
