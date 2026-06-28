@@ -285,10 +285,11 @@ app.get('/api/doctor', async (c) => {
       }),
   ]);
 
-  const results = checks.map(r =>
+  const checkNames = ['database', 'telemetry', 'governance', 'cache', 'router', 'pipeline'];
+  const results = checks.map((r, i) =>
     r.status === 'fulfilled'
       ? r.value
-      : { name: 'unknown', ok: false, detail: String((r as PromiseRejectedResult).reason) }
+      : { name: checkNames[i] ?? 'unknown', ok: false, detail: String((r as PromiseRejectedResult).reason) }
   );
   const allOk = results.every(r => r.ok);
 
