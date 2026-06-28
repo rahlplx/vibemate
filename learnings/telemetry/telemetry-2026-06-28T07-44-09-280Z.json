@@ -1,0 +1,2467 @@
+{
+  "serviceName": "vibemate-sim",
+  "serviceVersion": "1.0.0",
+  "exportTime": "2026-06-28T07:44:09.280Z",
+  "spans": [
+    {
+      "name": "sim.plugins",
+      "traceId": "349523ca-b82d-4948-b365-f9612013510d",
+      "spanId": "fc840079-cafa-4073-8bea-a6f7f1c2d572",
+      "startTime": 1782632649276,
+      "attributes": {
+        "service.name": "vibemate-sim",
+        "service.version": "1.0.0"
+      },
+      "status": "ok",
+      "endTime": 1782632649276
+    },
+    {
+      "name": "sim.tool_policy",
+      "traceId": "9a58804d-455e-48d1-b248-aa317d2ce90c",
+      "spanId": "b5cc4e48-e008-463f-9c1b-3a4ff64edb07",
+      "startTime": 1782632649276,
+      "attributes": {
+        "service.name": "vibemate-sim",
+        "service.version": "1.0.0"
+      },
+      "status": "ok",
+      "endTime": 1782632649276
+    },
+    {
+      "name": "sim.memory",
+      "traceId": "f2122f37-7307-4cdd-ae7f-4680b9ef6143",
+      "spanId": "808a0f2c-e374-489b-bb6f-491297d06ece",
+      "startTime": 1782632649276,
+      "attributes": {
+        "service.name": "vibemate-sim",
+        "service.version": "1.0.0"
+      },
+      "status": "ok",
+      "endTime": 1782632649278
+    },
+    {
+      "name": "sim.pipeline",
+      "traceId": "14ebd56b-e391-478d-8850-45859cef35a3",
+      "spanId": "4c443e3b-d566-4eea-a93b-153d06be85ea",
+      "startTime": 1782632649278,
+      "attributes": {
+        "service.name": "vibemate-sim",
+        "service.version": "1.0.0"
+      },
+      "status": "ok",
+      "endTime": 1782632649279
+    },
+    {
+      "name": "pipeline.think",
+      "traceId": "27c40dbb-703a-4717-8c6c-25ce8500bbc2",
+      "spanId": "bb3535c6-3c57-4c54-9965-5405705c253f",
+      "parentSpanId": "trace-0",
+      "startTime": 1782632649278,
+      "attributes": {
+        "service.name": "vibemate-sim",
+        "service.version": "1.0.0"
+      },
+      "status": "ok",
+      "endTime": 1782632649278
+    },
+    {
+      "name": "sim.concurrency",
+      "traceId": "dd1add8e-6a08-4ae2-8920-92ac4a4cdd89",
+      "spanId": "822367fb-8cc1-482d-ba97-cd772fb028ba",
+      "startTime": 1782632649278,
+      "attributes": {
+        "service.name": "vibemate-sim",
+        "service.version": "1.0.0"
+      },
+      "status": "ok",
+      "endTime": 1782632649278
+    },
+    {
+      "name": "pipeline.plan",
+      "traceId": "84ddcdde-0526-40e6-b3b8-32ab95e1f2df",
+      "spanId": "7261c183-6846-405f-be3d-747488d6c3ee",
+      "parentSpanId": "trace-0",
+      "startTime": 1782632649278,
+      "attributes": {
+        "service.name": "vibemate-sim",
+        "service.version": "1.0.0"
+      },
+      "status": "ok",
+      "endTime": 1782632649278
+    },
+    {
+      "name": "agent.handoff",
+      "traceId": "721b6fbe-889c-432d-85f4-a9556673a962",
+      "spanId": "dfc1a939-8ab9-49e0-8cc8-28200b671870",
+      "startTime": 1782632649278,
+      "attributes": {
+        "agent.handoff.from": "THINKER",
+        "agent.handoff.to": "PLANNER",
+        "agent.handoff.context_size": 1024,
+        "service.name": "vibemate-sim",
+        "service.version": "1.0.0"
+      },
+      "status": "ok",
+      "endTime": 1782632649278
+    },
+    {
+      "name": "pipeline.design",
+      "traceId": "0b58317e-0e2f-470f-9df6-ee5e327911c7",
+      "spanId": "40c50b56-b194-4879-aafc-6229ea93a792",
+      "parentSpanId": "trace-0",
+      "startTime": 1782632649278,
+      "attributes": {
+        "service.name": "vibemate-sim",
+        "service.version": "1.0.0"
+      },
+      "status": "ok",
+      "endTime": 1782632649278
+    },
+    {
+      "name": "pipeline.break",
+      "traceId": "102e5bb4-797f-4394-8f1d-e9b266c8e222",
+      "spanId": "4223214c-1283-4b9f-87b8-aa16a0960871",
+      "parentSpanId": "trace-0",
+      "startTime": 1782632649278,
+      "attributes": {
+        "service.name": "vibemate-sim",
+        "service.version": "1.0.0"
+      },
+      "status": "ok",
+      "endTime": 1782632649278
+    },
+    {
+      "name": "pipeline.build",
+      "traceId": "464c629e-e591-49bb-be07-599509657e50",
+      "spanId": "cd0c1f70-3a8c-4516-802d-19cb3dffd5d3",
+      "parentSpanId": "trace-0",
+      "startTime": 1782632649278,
+      "attributes": {
+        "service.name": "vibemate-sim",
+        "service.version": "1.0.0"
+      },
+      "status": "ok",
+      "endTime": 1782632649278
+    },
+    {
+      "name": "tool.call",
+      "traceId": "9b35b8a1-c3ab-4685-91ac-60c4227ab5b2",
+      "spanId": "b7931762-ffad-4924-8688-52c3446668a4",
+      "startTime": 1782632649278,
+      "attributes": {
+        "tool.name": "write_file",
+        "tool.input": "{\"path\":\"src/app.ts\"}",
+        "tool.output": "{\"status\":\"ok\"}",
+        "tool.duration_ms": 1,
+        "tool.success": true,
+        "service.name": "vibemate-sim",
+        "service.version": "1.0.0"
+      },
+      "status": "ok",
+      "endTime": 1782632649278
+    },
+    {
+      "name": "pipeline.harness",
+      "traceId": "845e6db3-3cf3-48ce-b1e7-70d2b9047318",
+      "spanId": "7cc9ccd6-8566-4753-a390-7ea3df993cc5",
+      "parentSpanId": "trace-0",
+      "startTime": 1782632649278,
+      "attributes": {
+        "service.name": "vibemate-sim",
+        "service.version": "1.0.0"
+      },
+      "status": "ok",
+      "endTime": 1782632649278
+    },
+    {
+      "name": "pipeline.review",
+      "traceId": "04fbe8a9-c4f3-49a9-ad3b-2692faa94ed4",
+      "spanId": "229edb89-57d8-48ca-8053-29957233e654",
+      "parentSpanId": "trace-0",
+      "startTime": 1782632649278,
+      "attributes": {
+        "service.name": "vibemate-sim",
+        "service.version": "1.0.0"
+      },
+      "status": "ok",
+      "endTime": 1782632649278
+    },
+    {
+      "name": "pipeline.qa",
+      "traceId": "9c2b5a8a-93fd-42eb-9885-73f0f020038a",
+      "spanId": "96874566-c102-4d0a-ae82-3658ab6cd2de",
+      "parentSpanId": "trace-0",
+      "startTime": 1782632649278,
+      "attributes": {
+        "service.name": "vibemate-sim",
+        "service.version": "1.0.0"
+      },
+      "status": "ok",
+      "endTime": 1782632649278
+    },
+    {
+      "name": "pipeline.ship",
+      "traceId": "5bb42235-ae37-4ab2-8d19-3988c737042d",
+      "spanId": "6dbad654-febb-4ede-a2af-931df3144183",
+      "parentSpanId": "trace-0",
+      "startTime": 1782632649278,
+      "attributes": {
+        "service.name": "vibemate-sim",
+        "service.version": "1.0.0"
+      },
+      "status": "ok",
+      "endTime": 1782632649278
+    },
+    {
+      "name": "pipeline.retro",
+      "traceId": "69f10f8d-a2e4-44e4-b446-4927b72d9bec",
+      "spanId": "9502b5a7-e354-43b5-821e-825e3d0870c9",
+      "parentSpanId": "trace-0",
+      "startTime": 1782632649278,
+      "attributes": {
+        "service.name": "vibemate-sim",
+        "service.version": "1.0.0"
+      },
+      "status": "ok",
+      "endTime": 1782632649278
+    },
+    {
+      "name": "pipeline.learn",
+      "traceId": "67bbc636-6e7d-463e-98a5-d52723b5d8ff",
+      "spanId": "23fea2a3-150a-48c6-ab97-43533ee89983",
+      "parentSpanId": "trace-0",
+      "startTime": 1782632649278,
+      "attributes": {
+        "service.name": "vibemate-sim",
+        "service.version": "1.0.0"
+      },
+      "status": "ok",
+      "endTime": 1782632649278
+    },
+    {
+      "name": "pipeline.evolve",
+      "traceId": "275f023f-7f4e-4e47-bf9b-af68c49350b7",
+      "spanId": "a4c9065a-3db1-4fdc-a844-19a185350843",
+      "parentSpanId": "trace-0",
+      "startTime": 1782632649278,
+      "attributes": {
+        "service.name": "vibemate-sim",
+        "service.version": "1.0.0"
+      },
+      "status": "ok",
+      "endTime": 1782632649278
+    },
+    {
+      "name": "pipeline.telemetry",
+      "traceId": "c1c26f1b-5ae6-43ee-b589-e8e8567be82d",
+      "spanId": "a157c62e-3757-4e3d-a8af-c0c7670771f2",
+      "parentSpanId": "trace-0",
+      "startTime": 1782632649278,
+      "attributes": {
+        "service.name": "vibemate-sim",
+        "service.version": "1.0.0"
+      },
+      "status": "ok",
+      "endTime": 1782632649278
+    },
+    {
+      "name": "agent.evaluation",
+      "traceId": "5ebd2f12-12e0-4b09-8222-21060a8ea62e",
+      "spanId": "a09bee84-14f9-4c67-84c0-915a0dacb168",
+      "startTime": 1782632649278,
+      "attributes": {
+        "evaluation.name": "task_success",
+        "evaluation.score": 1,
+        "evaluation.passed": true,
+        "service.name": "vibemate-sim",
+        "service.version": "1.0.0"
+      },
+      "status": "ok",
+      "endTime": 1782632649278
+    },
+    {
+      "name": "pipeline.think",
+      "traceId": "d66a9839-faed-42b1-960c-c8db6fc31b7b",
+      "spanId": "eb839a79-2b48-4e6c-8597-3a75d5555245",
+      "parentSpanId": "trace-1",
+      "startTime": 1782632649278,
+      "attributes": {
+        "service.name": "vibemate-sim",
+        "service.version": "1.0.0"
+      },
+      "status": "ok",
+      "endTime": 1782632649279
+    },
+    {
+      "name": "pipeline.plan",
+      "traceId": "7cb91267-a3f2-464c-9ad8-6f861c0bb43b",
+      "spanId": "a827fc55-1bfa-4452-a32f-6bda9e0fb885",
+      "parentSpanId": "trace-1",
+      "startTime": 1782632649279,
+      "attributes": {
+        "service.name": "vibemate-sim",
+        "service.version": "1.0.0"
+      },
+      "status": "ok",
+      "endTime": 1782632649279
+    },
+    {
+      "name": "agent.handoff",
+      "traceId": "75f9bc52-dd77-40ab-9ed8-d6f27ce7a6ea",
+      "spanId": "d517848f-7fba-4505-82e8-f18c0e9252fb",
+      "startTime": 1782632649279,
+      "attributes": {
+        "agent.handoff.from": "THINKER",
+        "agent.handoff.to": "PLANNER",
+        "agent.handoff.context_size": 1024,
+        "service.name": "vibemate-sim",
+        "service.version": "1.0.0"
+      },
+      "status": "ok",
+      "endTime": 1782632649279
+    },
+    {
+      "name": "pipeline.design",
+      "traceId": "e6dccfc0-9de0-48b6-8c64-cf4fd0cd5577",
+      "spanId": "bab9c4f3-4237-425e-a00d-245c9408e93a",
+      "parentSpanId": "trace-1",
+      "startTime": 1782632649279,
+      "attributes": {
+        "service.name": "vibemate-sim",
+        "service.version": "1.0.0"
+      },
+      "status": "ok",
+      "endTime": 1782632649279
+    },
+    {
+      "name": "pipeline.break",
+      "traceId": "96047138-e127-406d-b7f6-edcde946e0aa",
+      "spanId": "efba7633-0710-4883-9e9a-58fdccd23621",
+      "parentSpanId": "trace-1",
+      "startTime": 1782632649279,
+      "attributes": {
+        "service.name": "vibemate-sim",
+        "service.version": "1.0.0"
+      },
+      "status": "ok",
+      "endTime": 1782632649279
+    },
+    {
+      "name": "pipeline.build",
+      "traceId": "c67dd817-7b9c-40bf-93f0-7c54109eca22",
+      "spanId": "0915e1db-2625-4f08-a7f5-2d153ae82af6",
+      "parentSpanId": "trace-1",
+      "startTime": 1782632649279,
+      "attributes": {
+        "service.name": "vibemate-sim",
+        "service.version": "1.0.0"
+      },
+      "status": "ok",
+      "endTime": 1782632649279
+    },
+    {
+      "name": "tool.call",
+      "traceId": "41f020b0-f077-413b-b0f1-37d0b5e299ba",
+      "spanId": "5baea3c9-fce9-4b0b-95d3-86cbaefbfe15",
+      "startTime": 1782632649279,
+      "attributes": {
+        "tool.name": "write_file",
+        "tool.input": "{\"path\":\"src/app.ts\"}",
+        "tool.output": "{\"status\":\"ok\"}",
+        "tool.duration_ms": 1,
+        "tool.success": true,
+        "service.name": "vibemate-sim",
+        "service.version": "1.0.0"
+      },
+      "status": "ok",
+      "endTime": 1782632649279
+    },
+    {
+      "name": "pipeline.harness",
+      "traceId": "80dab1b8-5a1d-4a44-ab5c-35a6e7427534",
+      "spanId": "d85f539d-b058-4381-a31a-3c70cd5d8104",
+      "parentSpanId": "trace-1",
+      "startTime": 1782632649279,
+      "attributes": {
+        "service.name": "vibemate-sim",
+        "service.version": "1.0.0"
+      },
+      "status": "ok",
+      "endTime": 1782632649279
+    },
+    {
+      "name": "pipeline.review",
+      "traceId": "4fc21c1e-c2dc-4d0e-b6a4-3c7db858954f",
+      "spanId": "0ce775e0-49e3-42a8-af27-4764804bffc8",
+      "parentSpanId": "trace-1",
+      "startTime": 1782632649279,
+      "attributes": {
+        "service.name": "vibemate-sim",
+        "service.version": "1.0.0"
+      },
+      "status": "ok",
+      "endTime": 1782632649279
+    },
+    {
+      "name": "pipeline.qa",
+      "traceId": "4bc529eb-9dfb-462c-9c78-bdd9434e9dcd",
+      "spanId": "5e453598-154d-4ac4-879e-79156df04997",
+      "parentSpanId": "trace-1",
+      "startTime": 1782632649279,
+      "attributes": {
+        "service.name": "vibemate-sim",
+        "service.version": "1.0.0"
+      },
+      "status": "ok",
+      "endTime": 1782632649279
+    },
+    {
+      "name": "pipeline.ship",
+      "traceId": "cd373252-6291-4997-898a-dff6c1d6c5df",
+      "spanId": "8c79c316-0323-456e-954c-f80f59b5eea1",
+      "parentSpanId": "trace-1",
+      "startTime": 1782632649279,
+      "attributes": {
+        "service.name": "vibemate-sim",
+        "service.version": "1.0.0"
+      },
+      "status": "ok",
+      "endTime": 1782632649279
+    },
+    {
+      "name": "pipeline.retro",
+      "traceId": "132fa6f2-8604-4d36-aae5-c532a3605585",
+      "spanId": "464718eb-126b-47d0-bf1b-b925d354fb07",
+      "parentSpanId": "trace-1",
+      "startTime": 1782632649279,
+      "attributes": {
+        "service.name": "vibemate-sim",
+        "service.version": "1.0.0"
+      },
+      "status": "ok",
+      "endTime": 1782632649279
+    },
+    {
+      "name": "pipeline.learn",
+      "traceId": "4c1505cb-4895-4ede-b771-332ff89aa54d",
+      "spanId": "be887022-756f-4ab0-8de2-8d2bf3c0b361",
+      "parentSpanId": "trace-1",
+      "startTime": 1782632649279,
+      "attributes": {
+        "service.name": "vibemate-sim",
+        "service.version": "1.0.0"
+      },
+      "status": "ok",
+      "endTime": 1782632649279
+    },
+    {
+      "name": "pipeline.evolve",
+      "traceId": "0161c3d4-9329-471e-96ca-910e3dae84e2",
+      "spanId": "a2cd8cdb-da9b-4dbf-b296-bc400025e16f",
+      "parentSpanId": "trace-1",
+      "startTime": 1782632649279,
+      "attributes": {
+        "service.name": "vibemate-sim",
+        "service.version": "1.0.0"
+      },
+      "status": "ok",
+      "endTime": 1782632649279
+    },
+    {
+      "name": "pipeline.telemetry",
+      "traceId": "eed8719e-fa2b-4938-a195-43edf1a6477d",
+      "spanId": "a411144c-322f-4eae-a613-1bd6106e2a4d",
+      "parentSpanId": "trace-1",
+      "startTime": 1782632649279,
+      "attributes": {
+        "service.name": "vibemate-sim",
+        "service.version": "1.0.0"
+      },
+      "status": "ok",
+      "endTime": 1782632649279
+    },
+    {
+      "name": "agent.evaluation",
+      "traceId": "4be61343-7da0-45f4-a1b8-47048d3b0d02",
+      "spanId": "a70430c3-b571-489d-b839-89a1f746ca2f",
+      "startTime": 1782632649279,
+      "attributes": {
+        "evaluation.name": "task_success",
+        "evaluation.score": 1,
+        "evaluation.passed": true,
+        "service.name": "vibemate-sim",
+        "service.version": "1.0.0"
+      },
+      "status": "ok",
+      "endTime": 1782632649279
+    },
+    {
+      "name": "pipeline.think",
+      "traceId": "7f31efe7-f1ed-4c46-ba86-d6c40a64c725",
+      "spanId": "709302c6-f435-446b-8cfc-b9fa96340dbc",
+      "parentSpanId": "trace-2",
+      "startTime": 1782632649279,
+      "attributes": {
+        "service.name": "vibemate-sim",
+        "service.version": "1.0.0"
+      },
+      "status": "ok",
+      "endTime": 1782632649279
+    },
+    {
+      "name": "pipeline.plan",
+      "traceId": "d2b91426-f473-4329-a68a-f06476efa81c",
+      "spanId": "0d4957da-8e03-4e0a-b79b-fc7a9088d206",
+      "parentSpanId": "trace-2",
+      "startTime": 1782632649279,
+      "attributes": {
+        "service.name": "vibemate-sim",
+        "service.version": "1.0.0"
+      },
+      "status": "ok",
+      "endTime": 1782632649279
+    },
+    {
+      "name": "agent.handoff",
+      "traceId": "3c20ce1b-a60c-494a-b1ea-b93b91dbf69b",
+      "spanId": "f1f73c70-1d3c-423e-99f2-568eff206d62",
+      "startTime": 1782632649279,
+      "attributes": {
+        "agent.handoff.from": "THINKER",
+        "agent.handoff.to": "PLANNER",
+        "agent.handoff.context_size": 1024,
+        "service.name": "vibemate-sim",
+        "service.version": "1.0.0"
+      },
+      "status": "ok",
+      "endTime": 1782632649279
+    },
+    {
+      "name": "pipeline.design",
+      "traceId": "b611f02b-0f89-42ae-a16c-1670a8312343",
+      "spanId": "230c1bc4-de84-43a4-84c9-0cb2f95305db",
+      "parentSpanId": "trace-2",
+      "startTime": 1782632649279,
+      "attributes": {
+        "service.name": "vibemate-sim",
+        "service.version": "1.0.0"
+      },
+      "status": "ok",
+      "endTime": 1782632649279
+    },
+    {
+      "name": "pipeline.break",
+      "traceId": "5e305a96-5bcb-4019-95c3-0a4d8c1148bc",
+      "spanId": "3f4d5849-4b37-4d0a-9f97-c7800e4a2930",
+      "parentSpanId": "trace-2",
+      "startTime": 1782632649279,
+      "attributes": {
+        "service.name": "vibemate-sim",
+        "service.version": "1.0.0"
+      },
+      "status": "ok",
+      "endTime": 1782632649279
+    },
+    {
+      "name": "pipeline.build",
+      "traceId": "12e8e23f-a932-4ada-b361-de32f555b89d",
+      "spanId": "98cc6d93-dff7-4b61-967b-b576a9521973",
+      "parentSpanId": "trace-2",
+      "startTime": 1782632649279,
+      "attributes": {
+        "service.name": "vibemate-sim",
+        "service.version": "1.0.0"
+      },
+      "status": "ok",
+      "endTime": 1782632649279
+    },
+    {
+      "name": "tool.call",
+      "traceId": "0e611503-0ed8-4ff4-bfae-934a4188bc9c",
+      "spanId": "c48d6402-5f72-4a6b-a8c5-193071f43836",
+      "startTime": 1782632649279,
+      "attributes": {
+        "tool.name": "write_file",
+        "tool.input": "{\"path\":\"src/app.ts\"}",
+        "tool.output": "{\"status\":\"ok\"}",
+        "tool.duration_ms": 1,
+        "tool.success": true,
+        "service.name": "vibemate-sim",
+        "service.version": "1.0.0"
+      },
+      "status": "ok",
+      "endTime": 1782632649279
+    },
+    {
+      "name": "pipeline.harness",
+      "traceId": "67db1f0c-fb40-475f-a540-ed37b2546329",
+      "spanId": "00243cf4-8bd1-4ac0-b0c5-19bbd4c9bff6",
+      "parentSpanId": "trace-2",
+      "startTime": 1782632649279,
+      "attributes": {
+        "service.name": "vibemate-sim",
+        "service.version": "1.0.0"
+      },
+      "status": "ok",
+      "endTime": 1782632649279
+    },
+    {
+      "name": "pipeline.review",
+      "traceId": "80078150-c5ad-4548-afa4-959fdd15c237",
+      "spanId": "488517e7-250f-4ae9-b1c3-f2830b7d7129",
+      "parentSpanId": "trace-2",
+      "startTime": 1782632649279,
+      "attributes": {
+        "service.name": "vibemate-sim",
+        "service.version": "1.0.0"
+      },
+      "status": "ok",
+      "endTime": 1782632649279
+    },
+    {
+      "name": "pipeline.qa",
+      "traceId": "b4622493-524f-44ab-b9c7-c0c7a6b9ef13",
+      "spanId": "3232abc2-9ae6-4dde-80d2-5df26de99ad4",
+      "parentSpanId": "trace-2",
+      "startTime": 1782632649279,
+      "attributes": {
+        "service.name": "vibemate-sim",
+        "service.version": "1.0.0"
+      },
+      "status": "ok",
+      "endTime": 1782632649279
+    },
+    {
+      "name": "pipeline.ship",
+      "traceId": "415b3bb5-4aae-4c27-9dfa-fc5a98ad5554",
+      "spanId": "e222d9c2-fdb7-4c2e-99df-d0a43f2d4391",
+      "parentSpanId": "trace-2",
+      "startTime": 1782632649279,
+      "attributes": {
+        "service.name": "vibemate-sim",
+        "service.version": "1.0.0"
+      },
+      "status": "ok",
+      "endTime": 1782632649279
+    },
+    {
+      "name": "pipeline.retro",
+      "traceId": "871b5f77-a38b-422b-ba80-30746aada3bc",
+      "spanId": "cfea4712-3cd7-4a95-b899-849aff0c7713",
+      "parentSpanId": "trace-2",
+      "startTime": 1782632649279,
+      "attributes": {
+        "service.name": "vibemate-sim",
+        "service.version": "1.0.0"
+      },
+      "status": "ok",
+      "endTime": 1782632649279
+    },
+    {
+      "name": "pipeline.learn",
+      "traceId": "fd0e4fe5-c6e1-472a-b8a1-b9640251f6f4",
+      "spanId": "f820f283-349b-4fc1-91c2-05069acd6b81",
+      "parentSpanId": "trace-2",
+      "startTime": 1782632649279,
+      "attributes": {
+        "service.name": "vibemate-sim",
+        "service.version": "1.0.0"
+      },
+      "status": "ok",
+      "endTime": 1782632649279
+    },
+    {
+      "name": "pipeline.evolve",
+      "traceId": "5a6ed196-5f8a-48d0-9fe9-11d2c4866057",
+      "spanId": "93b63c9f-2b7d-4c27-be4b-f80fdeaeecf0",
+      "parentSpanId": "trace-2",
+      "startTime": 1782632649279,
+      "attributes": {
+        "service.name": "vibemate-sim",
+        "service.version": "1.0.0"
+      },
+      "status": "ok",
+      "endTime": 1782632649279
+    },
+    {
+      "name": "pipeline.telemetry",
+      "traceId": "a71a5641-22ea-4daf-b430-692845a3229d",
+      "spanId": "7f12b1f5-8f29-4dee-9090-c36199647bc1",
+      "parentSpanId": "trace-2",
+      "startTime": 1782632649279,
+      "attributes": {
+        "service.name": "vibemate-sim",
+        "service.version": "1.0.0"
+      },
+      "status": "ok",
+      "endTime": 1782632649279
+    },
+    {
+      "name": "agent.evaluation",
+      "traceId": "51d10047-9325-4df4-bca1-96d9a667b53d",
+      "spanId": "5312e45c-25ab-4a08-bd27-1298af968411",
+      "startTime": 1782632649279,
+      "attributes": {
+        "evaluation.name": "task_success",
+        "evaluation.score": 1,
+        "evaluation.passed": true,
+        "service.name": "vibemate-sim",
+        "service.version": "1.0.0"
+      },
+      "status": "ok",
+      "endTime": 1782632649279
+    },
+    {
+      "name": "pipeline.think",
+      "traceId": "e50558aa-ece8-4294-97ec-3679272d2f06",
+      "spanId": "1e9ece45-c6c3-4b97-aa45-fce230352301",
+      "parentSpanId": "trace-3",
+      "startTime": 1782632649279,
+      "attributes": {
+        "service.name": "vibemate-sim",
+        "service.version": "1.0.0"
+      },
+      "status": "ok",
+      "endTime": 1782632649279
+    },
+    {
+      "name": "pipeline.plan",
+      "traceId": "62dd0f44-9b1e-4b2c-b0f6-9bf8c8779822",
+      "spanId": "c1ed6b6d-c5ea-46af-94fd-baa485cd2f2c",
+      "parentSpanId": "trace-3",
+      "startTime": 1782632649279,
+      "attributes": {
+        "service.name": "vibemate-sim",
+        "service.version": "1.0.0"
+      },
+      "status": "ok",
+      "endTime": 1782632649279
+    },
+    {
+      "name": "agent.handoff",
+      "traceId": "a2d1a19a-1a9c-45f4-8d8b-c491fa69b425",
+      "spanId": "4993fe91-60c6-4e6d-8ffb-9f44ca42ae53",
+      "startTime": 1782632649279,
+      "attributes": {
+        "agent.handoff.from": "THINKER",
+        "agent.handoff.to": "PLANNER",
+        "agent.handoff.context_size": 1024,
+        "service.name": "vibemate-sim",
+        "service.version": "1.0.0"
+      },
+      "status": "ok",
+      "endTime": 1782632649279
+    },
+    {
+      "name": "pipeline.design",
+      "traceId": "9c95e381-8f0e-4fa4-b0a4-11421df80781",
+      "spanId": "d9869e45-e4f3-4d6d-b85f-ffbcad88f4a2",
+      "parentSpanId": "trace-3",
+      "startTime": 1782632649279,
+      "attributes": {
+        "service.name": "vibemate-sim",
+        "service.version": "1.0.0"
+      },
+      "status": "ok",
+      "endTime": 1782632649279
+    },
+    {
+      "name": "pipeline.break",
+      "traceId": "346287f1-21bf-436c-997c-e99e3087a30f",
+      "spanId": "7b2163cc-d62d-4b3e-84be-846711ac1072",
+      "parentSpanId": "trace-3",
+      "startTime": 1782632649279,
+      "attributes": {
+        "service.name": "vibemate-sim",
+        "service.version": "1.0.0"
+      },
+      "status": "ok",
+      "endTime": 1782632649279
+    },
+    {
+      "name": "pipeline.build",
+      "traceId": "a1d2cc93-aa30-43e1-b079-73790ae90330",
+      "spanId": "6abbb1e6-5e0f-40c0-8076-35d9454e54e6",
+      "parentSpanId": "trace-3",
+      "startTime": 1782632649279,
+      "attributes": {
+        "service.name": "vibemate-sim",
+        "service.version": "1.0.0"
+      },
+      "status": "ok",
+      "endTime": 1782632649279
+    },
+    {
+      "name": "tool.call",
+      "traceId": "4d719c1c-ec75-4e50-af98-9aadfe175d05",
+      "spanId": "876bf0d7-57cc-47ca-8bfa-47afe226788f",
+      "startTime": 1782632649279,
+      "attributes": {
+        "tool.name": "write_file",
+        "tool.input": "{\"path\":\"src/app.ts\"}",
+        "tool.output": "{\"status\":\"ok\"}",
+        "tool.duration_ms": 1,
+        "tool.success": true,
+        "service.name": "vibemate-sim",
+        "service.version": "1.0.0"
+      },
+      "status": "ok",
+      "endTime": 1782632649279
+    },
+    {
+      "name": "pipeline.harness",
+      "traceId": "d81f998c-6f3f-4dac-a24e-ba633744cd9e",
+      "spanId": "5a376c12-85d2-4317-b49b-0217456bc1dd",
+      "parentSpanId": "trace-3",
+      "startTime": 1782632649279,
+      "attributes": {
+        "service.name": "vibemate-sim",
+        "service.version": "1.0.0"
+      },
+      "status": "ok",
+      "endTime": 1782632649279
+    },
+    {
+      "name": "pipeline.review",
+      "traceId": "17c42b89-1c26-44df-bff0-94e12282963f",
+      "spanId": "13469301-3172-4834-a304-22a0ae56305d",
+      "parentSpanId": "trace-3",
+      "startTime": 1782632649279,
+      "attributes": {
+        "service.name": "vibemate-sim",
+        "service.version": "1.0.0"
+      },
+      "status": "ok",
+      "endTime": 1782632649279
+    },
+    {
+      "name": "pipeline.qa",
+      "traceId": "d30f8b6a-8295-43ef-a083-4348f6930229",
+      "spanId": "89607f84-e611-472b-b79b-541f4f910a2d",
+      "parentSpanId": "trace-3",
+      "startTime": 1782632649279,
+      "attributes": {
+        "service.name": "vibemate-sim",
+        "service.version": "1.0.0"
+      },
+      "status": "ok",
+      "endTime": 1782632649279
+    },
+    {
+      "name": "pipeline.ship",
+      "traceId": "d6fad0eb-251a-4d65-94e5-844ab25587a0",
+      "spanId": "8591f8c6-bb17-443b-8092-b615dfdcdea6",
+      "parentSpanId": "trace-3",
+      "startTime": 1782632649279,
+      "attributes": {
+        "service.name": "vibemate-sim",
+        "service.version": "1.0.0"
+      },
+      "status": "ok",
+      "endTime": 1782632649279
+    },
+    {
+      "name": "pipeline.retro",
+      "traceId": "f999546c-23c3-4459-96b2-fbdc97e1f695",
+      "spanId": "39d87cbc-af7d-4db0-86da-a666071616c6",
+      "parentSpanId": "trace-3",
+      "startTime": 1782632649279,
+      "attributes": {
+        "service.name": "vibemate-sim",
+        "service.version": "1.0.0"
+      },
+      "status": "ok",
+      "endTime": 1782632649279
+    },
+    {
+      "name": "pipeline.learn",
+      "traceId": "6c0b00ea-1284-461a-9fde-faab6c789afe",
+      "spanId": "895bc52d-69a1-44b9-8319-d799eff756e9",
+      "parentSpanId": "trace-3",
+      "startTime": 1782632649279,
+      "attributes": {
+        "service.name": "vibemate-sim",
+        "service.version": "1.0.0"
+      },
+      "status": "ok",
+      "endTime": 1782632649279
+    },
+    {
+      "name": "pipeline.evolve",
+      "traceId": "759349ab-332e-4548-848a-c74072071144",
+      "spanId": "4d9bbb02-c3a0-4c81-9964-96bf259c27d2",
+      "parentSpanId": "trace-3",
+      "startTime": 1782632649279,
+      "attributes": {
+        "service.name": "vibemate-sim",
+        "service.version": "1.0.0"
+      },
+      "status": "ok",
+      "endTime": 1782632649279
+    },
+    {
+      "name": "pipeline.telemetry",
+      "traceId": "80a1a96f-85e0-47e8-bca6-56faa59ce0b5",
+      "spanId": "58f33683-3eb7-40c1-b5a2-b5e14596232e",
+      "parentSpanId": "trace-3",
+      "startTime": 1782632649279,
+      "attributes": {
+        "service.name": "vibemate-sim",
+        "service.version": "1.0.0"
+      },
+      "status": "ok",
+      "endTime": 1782632649279
+    },
+    {
+      "name": "agent.evaluation",
+      "traceId": "4fb5d1e1-098a-4347-8acf-f035d8ae5036",
+      "spanId": "6d870f9f-0843-416b-a25e-a61f20961c7f",
+      "startTime": 1782632649279,
+      "attributes": {
+        "evaluation.name": "task_success",
+        "evaluation.score": 1,
+        "evaluation.passed": true,
+        "service.name": "vibemate-sim",
+        "service.version": "1.0.0"
+      },
+      "status": "ok",
+      "endTime": 1782632649279
+    },
+    {
+      "name": "pipeline.think",
+      "traceId": "22b653be-fc28-47f9-8efb-470bedb6df82",
+      "spanId": "a91a8bc7-b1a4-4b9d-a5b5-d7c6600d5acd",
+      "parentSpanId": "trace-4",
+      "startTime": 1782632649279,
+      "attributes": {
+        "service.name": "vibemate-sim",
+        "service.version": "1.0.0"
+      },
+      "status": "ok",
+      "endTime": 1782632649279
+    },
+    {
+      "name": "pipeline.plan",
+      "traceId": "5c1c1a82-27ff-4f28-a3ae-11840af83eaa",
+      "spanId": "abf89d5c-03ae-4371-b567-c10e13c1ad1b",
+      "parentSpanId": "trace-4",
+      "startTime": 1782632649279,
+      "attributes": {
+        "service.name": "vibemate-sim",
+        "service.version": "1.0.0"
+      },
+      "status": "ok",
+      "endTime": 1782632649279
+    },
+    {
+      "name": "agent.handoff",
+      "traceId": "232394c9-ce9f-48cf-b0d2-a106a856f508",
+      "spanId": "02801dee-4580-44ad-acc7-ee65c48dc1cf",
+      "startTime": 1782632649279,
+      "attributes": {
+        "agent.handoff.from": "THINKER",
+        "agent.handoff.to": "PLANNER",
+        "agent.handoff.context_size": 1024,
+        "service.name": "vibemate-sim",
+        "service.version": "1.0.0"
+      },
+      "status": "ok",
+      "endTime": 1782632649279
+    },
+    {
+      "name": "pipeline.design",
+      "traceId": "948679ae-39d9-48e0-9091-d87c2b2903d8",
+      "spanId": "920968fd-d2ad-4017-9893-e66133a69330",
+      "parentSpanId": "trace-4",
+      "startTime": 1782632649279,
+      "attributes": {
+        "service.name": "vibemate-sim",
+        "service.version": "1.0.0"
+      },
+      "status": "ok",
+      "endTime": 1782632649279
+    },
+    {
+      "name": "pipeline.break",
+      "traceId": "27cb8a95-cf3b-4ec2-9b6d-e3ad1a873a5e",
+      "spanId": "9c60ce4b-da9d-48f6-ac6b-67fe426eac4a",
+      "parentSpanId": "trace-4",
+      "startTime": 1782632649279,
+      "attributes": {
+        "service.name": "vibemate-sim",
+        "service.version": "1.0.0"
+      },
+      "status": "ok",
+      "endTime": 1782632649279
+    },
+    {
+      "name": "pipeline.build",
+      "traceId": "212b0408-ddc8-4d27-b4af-f10853dde2a7",
+      "spanId": "1c12b5b9-e2f4-4d7a-8879-f8f8825ca0fa",
+      "parentSpanId": "trace-4",
+      "startTime": 1782632649279,
+      "attributes": {
+        "service.name": "vibemate-sim",
+        "service.version": "1.0.0"
+      },
+      "status": "ok",
+      "endTime": 1782632649279
+    },
+    {
+      "name": "tool.call",
+      "traceId": "a0e5aa18-f623-4ed2-b021-e550c2c64fa6",
+      "spanId": "f693dd48-928c-4c4c-958d-d383d8df927e",
+      "startTime": 1782632649279,
+      "attributes": {
+        "tool.name": "write_file",
+        "tool.input": "{\"path\":\"src/app.ts\"}",
+        "tool.output": "{\"status\":\"ok\"}",
+        "tool.duration_ms": 1,
+        "tool.success": true,
+        "service.name": "vibemate-sim",
+        "service.version": "1.0.0"
+      },
+      "status": "ok",
+      "endTime": 1782632649279
+    },
+    {
+      "name": "pipeline.harness",
+      "traceId": "aa6b0a5e-eb11-4f9d-a7a8-e1d2e50fc77d",
+      "spanId": "f1104d9d-ebf6-45a5-9597-bc217363ecef",
+      "parentSpanId": "trace-4",
+      "startTime": 1782632649279,
+      "attributes": {
+        "service.name": "vibemate-sim",
+        "service.version": "1.0.0"
+      },
+      "status": "ok",
+      "endTime": 1782632649279
+    },
+    {
+      "name": "pipeline.review",
+      "traceId": "6c64a92b-fb41-48ae-912b-d88b4c567dae",
+      "spanId": "8fa97f0e-c5e4-487e-a8cf-41fe6edd1a5d",
+      "parentSpanId": "trace-4",
+      "startTime": 1782632649279,
+      "attributes": {
+        "service.name": "vibemate-sim",
+        "service.version": "1.0.0"
+      },
+      "status": "ok",
+      "endTime": 1782632649279
+    },
+    {
+      "name": "pipeline.qa",
+      "traceId": "b0638383-0283-4715-8f60-d33c6e63a21b",
+      "spanId": "8a757bec-3f06-4655-b602-5e0608377a86",
+      "parentSpanId": "trace-4",
+      "startTime": 1782632649279,
+      "attributes": {
+        "service.name": "vibemate-sim",
+        "service.version": "1.0.0"
+      },
+      "status": "ok",
+      "endTime": 1782632649279
+    },
+    {
+      "name": "pipeline.ship",
+      "traceId": "144d8567-b7f7-4c99-845f-1c338074036a",
+      "spanId": "e7f1c0d5-213c-429d-9c95-be69263087c1",
+      "parentSpanId": "trace-4",
+      "startTime": 1782632649279,
+      "attributes": {
+        "service.name": "vibemate-sim",
+        "service.version": "1.0.0"
+      },
+      "status": "ok",
+      "endTime": 1782632649279
+    },
+    {
+      "name": "pipeline.retro",
+      "traceId": "8627d7cd-5493-4bd9-8053-db9dc4740ddb",
+      "spanId": "83538f93-0cbc-4177-8aff-076e0b941de5",
+      "parentSpanId": "trace-4",
+      "startTime": 1782632649279,
+      "attributes": {
+        "service.name": "vibemate-sim",
+        "service.version": "1.0.0"
+      },
+      "status": "ok",
+      "endTime": 1782632649279
+    },
+    {
+      "name": "pipeline.learn",
+      "traceId": "ee6cc23b-95b4-492a-a749-5944470af468",
+      "spanId": "b8e13bc9-0817-49b7-8514-3eb998ece504",
+      "parentSpanId": "trace-4",
+      "startTime": 1782632649279,
+      "attributes": {
+        "service.name": "vibemate-sim",
+        "service.version": "1.0.0"
+      },
+      "status": "ok",
+      "endTime": 1782632649279
+    },
+    {
+      "name": "pipeline.evolve",
+      "traceId": "8f6adabb-ae5b-4aac-9d6e-96b70463cbba",
+      "spanId": "caeb7ace-c73c-4be9-8f34-ea97732380f2",
+      "parentSpanId": "trace-4",
+      "startTime": 1782632649279,
+      "attributes": {
+        "service.name": "vibemate-sim",
+        "service.version": "1.0.0"
+      },
+      "status": "ok",
+      "endTime": 1782632649279
+    },
+    {
+      "name": "pipeline.telemetry",
+      "traceId": "2cb0b56f-6485-4efd-a1e6-b49a34d30400",
+      "spanId": "03fe6010-346d-45be-abe9-1dee2a0a7b07",
+      "parentSpanId": "trace-4",
+      "startTime": 1782632649279,
+      "attributes": {
+        "service.name": "vibemate-sim",
+        "service.version": "1.0.0"
+      },
+      "status": "ok",
+      "endTime": 1782632649279
+    },
+    {
+      "name": "agent.evaluation",
+      "traceId": "bcac5703-bfe3-4f3c-a9ca-1d0fbaaa82b7",
+      "spanId": "0da975f5-791a-46fd-9a19-2f4bea076249",
+      "startTime": 1782632649279,
+      "attributes": {
+        "evaluation.name": "task_success",
+        "evaluation.score": 1,
+        "evaluation.passed": true,
+        "service.name": "vibemate-sim",
+        "service.version": "1.0.0"
+      },
+      "status": "ok",
+      "endTime": 1782632649279
+    }
+  ],
+  "metrics": {
+    "totalTokens": 0,
+    "totalCost": 0,
+    "averageLatency": 0,
+    "errorRate": 0,
+    "toolFailureRate": 0,
+    "stuckDetections": 1
+  },
+  "traces": {
+    "349523ca-b82d-4948-b365-f9612013510d": [
+      {
+        "name": "sim.plugins",
+        "traceId": "349523ca-b82d-4948-b365-f9612013510d",
+        "spanId": "fc840079-cafa-4073-8bea-a6f7f1c2d572",
+        "startTime": 1782632649276,
+        "attributes": {
+          "service.name": "vibemate-sim",
+          "service.version": "1.0.0"
+        },
+        "status": "ok",
+        "endTime": 1782632649276
+      }
+    ],
+    "9a58804d-455e-48d1-b248-aa317d2ce90c": [
+      {
+        "name": "sim.tool_policy",
+        "traceId": "9a58804d-455e-48d1-b248-aa317d2ce90c",
+        "spanId": "b5cc4e48-e008-463f-9c1b-3a4ff64edb07",
+        "startTime": 1782632649276,
+        "attributes": {
+          "service.name": "vibemate-sim",
+          "service.version": "1.0.0"
+        },
+        "status": "ok",
+        "endTime": 1782632649276
+      }
+    ],
+    "f2122f37-7307-4cdd-ae7f-4680b9ef6143": [
+      {
+        "name": "sim.memory",
+        "traceId": "f2122f37-7307-4cdd-ae7f-4680b9ef6143",
+        "spanId": "808a0f2c-e374-489b-bb6f-491297d06ece",
+        "startTime": 1782632649276,
+        "attributes": {
+          "service.name": "vibemate-sim",
+          "service.version": "1.0.0"
+        },
+        "status": "ok",
+        "endTime": 1782632649278
+      }
+    ],
+    "14ebd56b-e391-478d-8850-45859cef35a3": [
+      {
+        "name": "sim.pipeline",
+        "traceId": "14ebd56b-e391-478d-8850-45859cef35a3",
+        "spanId": "4c443e3b-d566-4eea-a93b-153d06be85ea",
+        "startTime": 1782632649278,
+        "attributes": {
+          "service.name": "vibemate-sim",
+          "service.version": "1.0.0"
+        },
+        "status": "ok",
+        "endTime": 1782632649279
+      }
+    ],
+    "27c40dbb-703a-4717-8c6c-25ce8500bbc2": [
+      {
+        "name": "pipeline.think",
+        "traceId": "27c40dbb-703a-4717-8c6c-25ce8500bbc2",
+        "spanId": "bb3535c6-3c57-4c54-9965-5405705c253f",
+        "parentSpanId": "trace-0",
+        "startTime": 1782632649278,
+        "attributes": {
+          "service.name": "vibemate-sim",
+          "service.version": "1.0.0"
+        },
+        "status": "ok",
+        "endTime": 1782632649278
+      }
+    ],
+    "dd1add8e-6a08-4ae2-8920-92ac4a4cdd89": [
+      {
+        "name": "sim.concurrency",
+        "traceId": "dd1add8e-6a08-4ae2-8920-92ac4a4cdd89",
+        "spanId": "822367fb-8cc1-482d-ba97-cd772fb028ba",
+        "startTime": 1782632649278,
+        "attributes": {
+          "service.name": "vibemate-sim",
+          "service.version": "1.0.0"
+        },
+        "status": "ok",
+        "endTime": 1782632649278
+      }
+    ],
+    "84ddcdde-0526-40e6-b3b8-32ab95e1f2df": [
+      {
+        "name": "pipeline.plan",
+        "traceId": "84ddcdde-0526-40e6-b3b8-32ab95e1f2df",
+        "spanId": "7261c183-6846-405f-be3d-747488d6c3ee",
+        "parentSpanId": "trace-0",
+        "startTime": 1782632649278,
+        "attributes": {
+          "service.name": "vibemate-sim",
+          "service.version": "1.0.0"
+        },
+        "status": "ok",
+        "endTime": 1782632649278
+      }
+    ],
+    "721b6fbe-889c-432d-85f4-a9556673a962": [
+      {
+        "name": "agent.handoff",
+        "traceId": "721b6fbe-889c-432d-85f4-a9556673a962",
+        "spanId": "dfc1a939-8ab9-49e0-8cc8-28200b671870",
+        "startTime": 1782632649278,
+        "attributes": {
+          "agent.handoff.from": "THINKER",
+          "agent.handoff.to": "PLANNER",
+          "agent.handoff.context_size": 1024,
+          "service.name": "vibemate-sim",
+          "service.version": "1.0.0"
+        },
+        "status": "ok",
+        "endTime": 1782632649278
+      }
+    ],
+    "0b58317e-0e2f-470f-9df6-ee5e327911c7": [
+      {
+        "name": "pipeline.design",
+        "traceId": "0b58317e-0e2f-470f-9df6-ee5e327911c7",
+        "spanId": "40c50b56-b194-4879-aafc-6229ea93a792",
+        "parentSpanId": "trace-0",
+        "startTime": 1782632649278,
+        "attributes": {
+          "service.name": "vibemate-sim",
+          "service.version": "1.0.0"
+        },
+        "status": "ok",
+        "endTime": 1782632649278
+      }
+    ],
+    "102e5bb4-797f-4394-8f1d-e9b266c8e222": [
+      {
+        "name": "pipeline.break",
+        "traceId": "102e5bb4-797f-4394-8f1d-e9b266c8e222",
+        "spanId": "4223214c-1283-4b9f-87b8-aa16a0960871",
+        "parentSpanId": "trace-0",
+        "startTime": 1782632649278,
+        "attributes": {
+          "service.name": "vibemate-sim",
+          "service.version": "1.0.0"
+        },
+        "status": "ok",
+        "endTime": 1782632649278
+      }
+    ],
+    "464c629e-e591-49bb-be07-599509657e50": [
+      {
+        "name": "pipeline.build",
+        "traceId": "464c629e-e591-49bb-be07-599509657e50",
+        "spanId": "cd0c1f70-3a8c-4516-802d-19cb3dffd5d3",
+        "parentSpanId": "trace-0",
+        "startTime": 1782632649278,
+        "attributes": {
+          "service.name": "vibemate-sim",
+          "service.version": "1.0.0"
+        },
+        "status": "ok",
+        "endTime": 1782632649278
+      }
+    ],
+    "9b35b8a1-c3ab-4685-91ac-60c4227ab5b2": [
+      {
+        "name": "tool.call",
+        "traceId": "9b35b8a1-c3ab-4685-91ac-60c4227ab5b2",
+        "spanId": "b7931762-ffad-4924-8688-52c3446668a4",
+        "startTime": 1782632649278,
+        "attributes": {
+          "tool.name": "write_file",
+          "tool.input": "{\"path\":\"src/app.ts\"}",
+          "tool.output": "{\"status\":\"ok\"}",
+          "tool.duration_ms": 1,
+          "tool.success": true,
+          "service.name": "vibemate-sim",
+          "service.version": "1.0.0"
+        },
+        "status": "ok",
+        "endTime": 1782632649278
+      }
+    ],
+    "845e6db3-3cf3-48ce-b1e7-70d2b9047318": [
+      {
+        "name": "pipeline.harness",
+        "traceId": "845e6db3-3cf3-48ce-b1e7-70d2b9047318",
+        "spanId": "7cc9ccd6-8566-4753-a390-7ea3df993cc5",
+        "parentSpanId": "trace-0",
+        "startTime": 1782632649278,
+        "attributes": {
+          "service.name": "vibemate-sim",
+          "service.version": "1.0.0"
+        },
+        "status": "ok",
+        "endTime": 1782632649278
+      }
+    ],
+    "04fbe8a9-c4f3-49a9-ad3b-2692faa94ed4": [
+      {
+        "name": "pipeline.review",
+        "traceId": "04fbe8a9-c4f3-49a9-ad3b-2692faa94ed4",
+        "spanId": "229edb89-57d8-48ca-8053-29957233e654",
+        "parentSpanId": "trace-0",
+        "startTime": 1782632649278,
+        "attributes": {
+          "service.name": "vibemate-sim",
+          "service.version": "1.0.0"
+        },
+        "status": "ok",
+        "endTime": 1782632649278
+      }
+    ],
+    "9c2b5a8a-93fd-42eb-9885-73f0f020038a": [
+      {
+        "name": "pipeline.qa",
+        "traceId": "9c2b5a8a-93fd-42eb-9885-73f0f020038a",
+        "spanId": "96874566-c102-4d0a-ae82-3658ab6cd2de",
+        "parentSpanId": "trace-0",
+        "startTime": 1782632649278,
+        "attributes": {
+          "service.name": "vibemate-sim",
+          "service.version": "1.0.0"
+        },
+        "status": "ok",
+        "endTime": 1782632649278
+      }
+    ],
+    "5bb42235-ae37-4ab2-8d19-3988c737042d": [
+      {
+        "name": "pipeline.ship",
+        "traceId": "5bb42235-ae37-4ab2-8d19-3988c737042d",
+        "spanId": "6dbad654-febb-4ede-a2af-931df3144183",
+        "parentSpanId": "trace-0",
+        "startTime": 1782632649278,
+        "attributes": {
+          "service.name": "vibemate-sim",
+          "service.version": "1.0.0"
+        },
+        "status": "ok",
+        "endTime": 1782632649278
+      }
+    ],
+    "69f10f8d-a2e4-44e4-b446-4927b72d9bec": [
+      {
+        "name": "pipeline.retro",
+        "traceId": "69f10f8d-a2e4-44e4-b446-4927b72d9bec",
+        "spanId": "9502b5a7-e354-43b5-821e-825e3d0870c9",
+        "parentSpanId": "trace-0",
+        "startTime": 1782632649278,
+        "attributes": {
+          "service.name": "vibemate-sim",
+          "service.version": "1.0.0"
+        },
+        "status": "ok",
+        "endTime": 1782632649278
+      }
+    ],
+    "67bbc636-6e7d-463e-98a5-d52723b5d8ff": [
+      {
+        "name": "pipeline.learn",
+        "traceId": "67bbc636-6e7d-463e-98a5-d52723b5d8ff",
+        "spanId": "23fea2a3-150a-48c6-ab97-43533ee89983",
+        "parentSpanId": "trace-0",
+        "startTime": 1782632649278,
+        "attributes": {
+          "service.name": "vibemate-sim",
+          "service.version": "1.0.0"
+        },
+        "status": "ok",
+        "endTime": 1782632649278
+      }
+    ],
+    "275f023f-7f4e-4e47-bf9b-af68c49350b7": [
+      {
+        "name": "pipeline.evolve",
+        "traceId": "275f023f-7f4e-4e47-bf9b-af68c49350b7",
+        "spanId": "a4c9065a-3db1-4fdc-a844-19a185350843",
+        "parentSpanId": "trace-0",
+        "startTime": 1782632649278,
+        "attributes": {
+          "service.name": "vibemate-sim",
+          "service.version": "1.0.0"
+        },
+        "status": "ok",
+        "endTime": 1782632649278
+      }
+    ],
+    "c1c26f1b-5ae6-43ee-b589-e8e8567be82d": [
+      {
+        "name": "pipeline.telemetry",
+        "traceId": "c1c26f1b-5ae6-43ee-b589-e8e8567be82d",
+        "spanId": "a157c62e-3757-4e3d-a8af-c0c7670771f2",
+        "parentSpanId": "trace-0",
+        "startTime": 1782632649278,
+        "attributes": {
+          "service.name": "vibemate-sim",
+          "service.version": "1.0.0"
+        },
+        "status": "ok",
+        "endTime": 1782632649278
+      }
+    ],
+    "5ebd2f12-12e0-4b09-8222-21060a8ea62e": [
+      {
+        "name": "agent.evaluation",
+        "traceId": "5ebd2f12-12e0-4b09-8222-21060a8ea62e",
+        "spanId": "a09bee84-14f9-4c67-84c0-915a0dacb168",
+        "startTime": 1782632649278,
+        "attributes": {
+          "evaluation.name": "task_success",
+          "evaluation.score": 1,
+          "evaluation.passed": true,
+          "service.name": "vibemate-sim",
+          "service.version": "1.0.0"
+        },
+        "status": "ok",
+        "endTime": 1782632649278
+      }
+    ],
+    "d66a9839-faed-42b1-960c-c8db6fc31b7b": [
+      {
+        "name": "pipeline.think",
+        "traceId": "d66a9839-faed-42b1-960c-c8db6fc31b7b",
+        "spanId": "eb839a79-2b48-4e6c-8597-3a75d5555245",
+        "parentSpanId": "trace-1",
+        "startTime": 1782632649278,
+        "attributes": {
+          "service.name": "vibemate-sim",
+          "service.version": "1.0.0"
+        },
+        "status": "ok",
+        "endTime": 1782632649279
+      }
+    ],
+    "7cb91267-a3f2-464c-9ad8-6f861c0bb43b": [
+      {
+        "name": "pipeline.plan",
+        "traceId": "7cb91267-a3f2-464c-9ad8-6f861c0bb43b",
+        "spanId": "a827fc55-1bfa-4452-a32f-6bda9e0fb885",
+        "parentSpanId": "trace-1",
+        "startTime": 1782632649279,
+        "attributes": {
+          "service.name": "vibemate-sim",
+          "service.version": "1.0.0"
+        },
+        "status": "ok",
+        "endTime": 1782632649279
+      }
+    ],
+    "75f9bc52-dd77-40ab-9ed8-d6f27ce7a6ea": [
+      {
+        "name": "agent.handoff",
+        "traceId": "75f9bc52-dd77-40ab-9ed8-d6f27ce7a6ea",
+        "spanId": "d517848f-7fba-4505-82e8-f18c0e9252fb",
+        "startTime": 1782632649279,
+        "attributes": {
+          "agent.handoff.from": "THINKER",
+          "agent.handoff.to": "PLANNER",
+          "agent.handoff.context_size": 1024,
+          "service.name": "vibemate-sim",
+          "service.version": "1.0.0"
+        },
+        "status": "ok",
+        "endTime": 1782632649279
+      }
+    ],
+    "e6dccfc0-9de0-48b6-8c64-cf4fd0cd5577": [
+      {
+        "name": "pipeline.design",
+        "traceId": "e6dccfc0-9de0-48b6-8c64-cf4fd0cd5577",
+        "spanId": "bab9c4f3-4237-425e-a00d-245c9408e93a",
+        "parentSpanId": "trace-1",
+        "startTime": 1782632649279,
+        "attributes": {
+          "service.name": "vibemate-sim",
+          "service.version": "1.0.0"
+        },
+        "status": "ok",
+        "endTime": 1782632649279
+      }
+    ],
+    "96047138-e127-406d-b7f6-edcde946e0aa": [
+      {
+        "name": "pipeline.break",
+        "traceId": "96047138-e127-406d-b7f6-edcde946e0aa",
+        "spanId": "efba7633-0710-4883-9e9a-58fdccd23621",
+        "parentSpanId": "trace-1",
+        "startTime": 1782632649279,
+        "attributes": {
+          "service.name": "vibemate-sim",
+          "service.version": "1.0.0"
+        },
+        "status": "ok",
+        "endTime": 1782632649279
+      }
+    ],
+    "c67dd817-7b9c-40bf-93f0-7c54109eca22": [
+      {
+        "name": "pipeline.build",
+        "traceId": "c67dd817-7b9c-40bf-93f0-7c54109eca22",
+        "spanId": "0915e1db-2625-4f08-a7f5-2d153ae82af6",
+        "parentSpanId": "trace-1",
+        "startTime": 1782632649279,
+        "attributes": {
+          "service.name": "vibemate-sim",
+          "service.version": "1.0.0"
+        },
+        "status": "ok",
+        "endTime": 1782632649279
+      }
+    ],
+    "41f020b0-f077-413b-b0f1-37d0b5e299ba": [
+      {
+        "name": "tool.call",
+        "traceId": "41f020b0-f077-413b-b0f1-37d0b5e299ba",
+        "spanId": "5baea3c9-fce9-4b0b-95d3-86cbaefbfe15",
+        "startTime": 1782632649279,
+        "attributes": {
+          "tool.name": "write_file",
+          "tool.input": "{\"path\":\"src/app.ts\"}",
+          "tool.output": "{\"status\":\"ok\"}",
+          "tool.duration_ms": 1,
+          "tool.success": true,
+          "service.name": "vibemate-sim",
+          "service.version": "1.0.0"
+        },
+        "status": "ok",
+        "endTime": 1782632649279
+      }
+    ],
+    "80dab1b8-5a1d-4a44-ab5c-35a6e7427534": [
+      {
+        "name": "pipeline.harness",
+        "traceId": "80dab1b8-5a1d-4a44-ab5c-35a6e7427534",
+        "spanId": "d85f539d-b058-4381-a31a-3c70cd5d8104",
+        "parentSpanId": "trace-1",
+        "startTime": 1782632649279,
+        "attributes": {
+          "service.name": "vibemate-sim",
+          "service.version": "1.0.0"
+        },
+        "status": "ok",
+        "endTime": 1782632649279
+      }
+    ],
+    "4fc21c1e-c2dc-4d0e-b6a4-3c7db858954f": [
+      {
+        "name": "pipeline.review",
+        "traceId": "4fc21c1e-c2dc-4d0e-b6a4-3c7db858954f",
+        "spanId": "0ce775e0-49e3-42a8-af27-4764804bffc8",
+        "parentSpanId": "trace-1",
+        "startTime": 1782632649279,
+        "attributes": {
+          "service.name": "vibemate-sim",
+          "service.version": "1.0.0"
+        },
+        "status": "ok",
+        "endTime": 1782632649279
+      }
+    ],
+    "4bc529eb-9dfb-462c-9c78-bdd9434e9dcd": [
+      {
+        "name": "pipeline.qa",
+        "traceId": "4bc529eb-9dfb-462c-9c78-bdd9434e9dcd",
+        "spanId": "5e453598-154d-4ac4-879e-79156df04997",
+        "parentSpanId": "trace-1",
+        "startTime": 1782632649279,
+        "attributes": {
+          "service.name": "vibemate-sim",
+          "service.version": "1.0.0"
+        },
+        "status": "ok",
+        "endTime": 1782632649279
+      }
+    ],
+    "cd373252-6291-4997-898a-dff6c1d6c5df": [
+      {
+        "name": "pipeline.ship",
+        "traceId": "cd373252-6291-4997-898a-dff6c1d6c5df",
+        "spanId": "8c79c316-0323-456e-954c-f80f59b5eea1",
+        "parentSpanId": "trace-1",
+        "startTime": 1782632649279,
+        "attributes": {
+          "service.name": "vibemate-sim",
+          "service.version": "1.0.0"
+        },
+        "status": "ok",
+        "endTime": 1782632649279
+      }
+    ],
+    "132fa6f2-8604-4d36-aae5-c532a3605585": [
+      {
+        "name": "pipeline.retro",
+        "traceId": "132fa6f2-8604-4d36-aae5-c532a3605585",
+        "spanId": "464718eb-126b-47d0-bf1b-b925d354fb07",
+        "parentSpanId": "trace-1",
+        "startTime": 1782632649279,
+        "attributes": {
+          "service.name": "vibemate-sim",
+          "service.version": "1.0.0"
+        },
+        "status": "ok",
+        "endTime": 1782632649279
+      }
+    ],
+    "4c1505cb-4895-4ede-b771-332ff89aa54d": [
+      {
+        "name": "pipeline.learn",
+        "traceId": "4c1505cb-4895-4ede-b771-332ff89aa54d",
+        "spanId": "be887022-756f-4ab0-8de2-8d2bf3c0b361",
+        "parentSpanId": "trace-1",
+        "startTime": 1782632649279,
+        "attributes": {
+          "service.name": "vibemate-sim",
+          "service.version": "1.0.0"
+        },
+        "status": "ok",
+        "endTime": 1782632649279
+      }
+    ],
+    "0161c3d4-9329-471e-96ca-910e3dae84e2": [
+      {
+        "name": "pipeline.evolve",
+        "traceId": "0161c3d4-9329-471e-96ca-910e3dae84e2",
+        "spanId": "a2cd8cdb-da9b-4dbf-b296-bc400025e16f",
+        "parentSpanId": "trace-1",
+        "startTime": 1782632649279,
+        "attributes": {
+          "service.name": "vibemate-sim",
+          "service.version": "1.0.0"
+        },
+        "status": "ok",
+        "endTime": 1782632649279
+      }
+    ],
+    "eed8719e-fa2b-4938-a195-43edf1a6477d": [
+      {
+        "name": "pipeline.telemetry",
+        "traceId": "eed8719e-fa2b-4938-a195-43edf1a6477d",
+        "spanId": "a411144c-322f-4eae-a613-1bd6106e2a4d",
+        "parentSpanId": "trace-1",
+        "startTime": 1782632649279,
+        "attributes": {
+          "service.name": "vibemate-sim",
+          "service.version": "1.0.0"
+        },
+        "status": "ok",
+        "endTime": 1782632649279
+      }
+    ],
+    "4be61343-7da0-45f4-a1b8-47048d3b0d02": [
+      {
+        "name": "agent.evaluation",
+        "traceId": "4be61343-7da0-45f4-a1b8-47048d3b0d02",
+        "spanId": "a70430c3-b571-489d-b839-89a1f746ca2f",
+        "startTime": 1782632649279,
+        "attributes": {
+          "evaluation.name": "task_success",
+          "evaluation.score": 1,
+          "evaluation.passed": true,
+          "service.name": "vibemate-sim",
+          "service.version": "1.0.0"
+        },
+        "status": "ok",
+        "endTime": 1782632649279
+      }
+    ],
+    "7f31efe7-f1ed-4c46-ba86-d6c40a64c725": [
+      {
+        "name": "pipeline.think",
+        "traceId": "7f31efe7-f1ed-4c46-ba86-d6c40a64c725",
+        "spanId": "709302c6-f435-446b-8cfc-b9fa96340dbc",
+        "parentSpanId": "trace-2",
+        "startTime": 1782632649279,
+        "attributes": {
+          "service.name": "vibemate-sim",
+          "service.version": "1.0.0"
+        },
+        "status": "ok",
+        "endTime": 1782632649279
+      }
+    ],
+    "d2b91426-f473-4329-a68a-f06476efa81c": [
+      {
+        "name": "pipeline.plan",
+        "traceId": "d2b91426-f473-4329-a68a-f06476efa81c",
+        "spanId": "0d4957da-8e03-4e0a-b79b-fc7a9088d206",
+        "parentSpanId": "trace-2",
+        "startTime": 1782632649279,
+        "attributes": {
+          "service.name": "vibemate-sim",
+          "service.version": "1.0.0"
+        },
+        "status": "ok",
+        "endTime": 1782632649279
+      }
+    ],
+    "3c20ce1b-a60c-494a-b1ea-b93b91dbf69b": [
+      {
+        "name": "agent.handoff",
+        "traceId": "3c20ce1b-a60c-494a-b1ea-b93b91dbf69b",
+        "spanId": "f1f73c70-1d3c-423e-99f2-568eff206d62",
+        "startTime": 1782632649279,
+        "attributes": {
+          "agent.handoff.from": "THINKER",
+          "agent.handoff.to": "PLANNER",
+          "agent.handoff.context_size": 1024,
+          "service.name": "vibemate-sim",
+          "service.version": "1.0.0"
+        },
+        "status": "ok",
+        "endTime": 1782632649279
+      }
+    ],
+    "b611f02b-0f89-42ae-a16c-1670a8312343": [
+      {
+        "name": "pipeline.design",
+        "traceId": "b611f02b-0f89-42ae-a16c-1670a8312343",
+        "spanId": "230c1bc4-de84-43a4-84c9-0cb2f95305db",
+        "parentSpanId": "trace-2",
+        "startTime": 1782632649279,
+        "attributes": {
+          "service.name": "vibemate-sim",
+          "service.version": "1.0.0"
+        },
+        "status": "ok",
+        "endTime": 1782632649279
+      }
+    ],
+    "5e305a96-5bcb-4019-95c3-0a4d8c1148bc": [
+      {
+        "name": "pipeline.break",
+        "traceId": "5e305a96-5bcb-4019-95c3-0a4d8c1148bc",
+        "spanId": "3f4d5849-4b37-4d0a-9f97-c7800e4a2930",
+        "parentSpanId": "trace-2",
+        "startTime": 1782632649279,
+        "attributes": {
+          "service.name": "vibemate-sim",
+          "service.version": "1.0.0"
+        },
+        "status": "ok",
+        "endTime": 1782632649279
+      }
+    ],
+    "12e8e23f-a932-4ada-b361-de32f555b89d": [
+      {
+        "name": "pipeline.build",
+        "traceId": "12e8e23f-a932-4ada-b361-de32f555b89d",
+        "spanId": "98cc6d93-dff7-4b61-967b-b576a9521973",
+        "parentSpanId": "trace-2",
+        "startTime": 1782632649279,
+        "attributes": {
+          "service.name": "vibemate-sim",
+          "service.version": "1.0.0"
+        },
+        "status": "ok",
+        "endTime": 1782632649279
+      }
+    ],
+    "0e611503-0ed8-4ff4-bfae-934a4188bc9c": [
+      {
+        "name": "tool.call",
+        "traceId": "0e611503-0ed8-4ff4-bfae-934a4188bc9c",
+        "spanId": "c48d6402-5f72-4a6b-a8c5-193071f43836",
+        "startTime": 1782632649279,
+        "attributes": {
+          "tool.name": "write_file",
+          "tool.input": "{\"path\":\"src/app.ts\"}",
+          "tool.output": "{\"status\":\"ok\"}",
+          "tool.duration_ms": 1,
+          "tool.success": true,
+          "service.name": "vibemate-sim",
+          "service.version": "1.0.0"
+        },
+        "status": "ok",
+        "endTime": 1782632649279
+      }
+    ],
+    "67db1f0c-fb40-475f-a540-ed37b2546329": [
+      {
+        "name": "pipeline.harness",
+        "traceId": "67db1f0c-fb40-475f-a540-ed37b2546329",
+        "spanId": "00243cf4-8bd1-4ac0-b0c5-19bbd4c9bff6",
+        "parentSpanId": "trace-2",
+        "startTime": 1782632649279,
+        "attributes": {
+          "service.name": "vibemate-sim",
+          "service.version": "1.0.0"
+        },
+        "status": "ok",
+        "endTime": 1782632649279
+      }
+    ],
+    "80078150-c5ad-4548-afa4-959fdd15c237": [
+      {
+        "name": "pipeline.review",
+        "traceId": "80078150-c5ad-4548-afa4-959fdd15c237",
+        "spanId": "488517e7-250f-4ae9-b1c3-f2830b7d7129",
+        "parentSpanId": "trace-2",
+        "startTime": 1782632649279,
+        "attributes": {
+          "service.name": "vibemate-sim",
+          "service.version": "1.0.0"
+        },
+        "status": "ok",
+        "endTime": 1782632649279
+      }
+    ],
+    "b4622493-524f-44ab-b9c7-c0c7a6b9ef13": [
+      {
+        "name": "pipeline.qa",
+        "traceId": "b4622493-524f-44ab-b9c7-c0c7a6b9ef13",
+        "spanId": "3232abc2-9ae6-4dde-80d2-5df26de99ad4",
+        "parentSpanId": "trace-2",
+        "startTime": 1782632649279,
+        "attributes": {
+          "service.name": "vibemate-sim",
+          "service.version": "1.0.0"
+        },
+        "status": "ok",
+        "endTime": 1782632649279
+      }
+    ],
+    "415b3bb5-4aae-4c27-9dfa-fc5a98ad5554": [
+      {
+        "name": "pipeline.ship",
+        "traceId": "415b3bb5-4aae-4c27-9dfa-fc5a98ad5554",
+        "spanId": "e222d9c2-fdb7-4c2e-99df-d0a43f2d4391",
+        "parentSpanId": "trace-2",
+        "startTime": 1782632649279,
+        "attributes": {
+          "service.name": "vibemate-sim",
+          "service.version": "1.0.0"
+        },
+        "status": "ok",
+        "endTime": 1782632649279
+      }
+    ],
+    "871b5f77-a38b-422b-ba80-30746aada3bc": [
+      {
+        "name": "pipeline.retro",
+        "traceId": "871b5f77-a38b-422b-ba80-30746aada3bc",
+        "spanId": "cfea4712-3cd7-4a95-b899-849aff0c7713",
+        "parentSpanId": "trace-2",
+        "startTime": 1782632649279,
+        "attributes": {
+          "service.name": "vibemate-sim",
+          "service.version": "1.0.0"
+        },
+        "status": "ok",
+        "endTime": 1782632649279
+      }
+    ],
+    "fd0e4fe5-c6e1-472a-b8a1-b9640251f6f4": [
+      {
+        "name": "pipeline.learn",
+        "traceId": "fd0e4fe5-c6e1-472a-b8a1-b9640251f6f4",
+        "spanId": "f820f283-349b-4fc1-91c2-05069acd6b81",
+        "parentSpanId": "trace-2",
+        "startTime": 1782632649279,
+        "attributes": {
+          "service.name": "vibemate-sim",
+          "service.version": "1.0.0"
+        },
+        "status": "ok",
+        "endTime": 1782632649279
+      }
+    ],
+    "5a6ed196-5f8a-48d0-9fe9-11d2c4866057": [
+      {
+        "name": "pipeline.evolve",
+        "traceId": "5a6ed196-5f8a-48d0-9fe9-11d2c4866057",
+        "spanId": "93b63c9f-2b7d-4c27-be4b-f80fdeaeecf0",
+        "parentSpanId": "trace-2",
+        "startTime": 1782632649279,
+        "attributes": {
+          "service.name": "vibemate-sim",
+          "service.version": "1.0.0"
+        },
+        "status": "ok",
+        "endTime": 1782632649279
+      }
+    ],
+    "a71a5641-22ea-4daf-b430-692845a3229d": [
+      {
+        "name": "pipeline.telemetry",
+        "traceId": "a71a5641-22ea-4daf-b430-692845a3229d",
+        "spanId": "7f12b1f5-8f29-4dee-9090-c36199647bc1",
+        "parentSpanId": "trace-2",
+        "startTime": 1782632649279,
+        "attributes": {
+          "service.name": "vibemate-sim",
+          "service.version": "1.0.0"
+        },
+        "status": "ok",
+        "endTime": 1782632649279
+      }
+    ],
+    "51d10047-9325-4df4-bca1-96d9a667b53d": [
+      {
+        "name": "agent.evaluation",
+        "traceId": "51d10047-9325-4df4-bca1-96d9a667b53d",
+        "spanId": "5312e45c-25ab-4a08-bd27-1298af968411",
+        "startTime": 1782632649279,
+        "attributes": {
+          "evaluation.name": "task_success",
+          "evaluation.score": 1,
+          "evaluation.passed": true,
+          "service.name": "vibemate-sim",
+          "service.version": "1.0.0"
+        },
+        "status": "ok",
+        "endTime": 1782632649279
+      }
+    ],
+    "e50558aa-ece8-4294-97ec-3679272d2f06": [
+      {
+        "name": "pipeline.think",
+        "traceId": "e50558aa-ece8-4294-97ec-3679272d2f06",
+        "spanId": "1e9ece45-c6c3-4b97-aa45-fce230352301",
+        "parentSpanId": "trace-3",
+        "startTime": 1782632649279,
+        "attributes": {
+          "service.name": "vibemate-sim",
+          "service.version": "1.0.0"
+        },
+        "status": "ok",
+        "endTime": 1782632649279
+      }
+    ],
+    "62dd0f44-9b1e-4b2c-b0f6-9bf8c8779822": [
+      {
+        "name": "pipeline.plan",
+        "traceId": "62dd0f44-9b1e-4b2c-b0f6-9bf8c8779822",
+        "spanId": "c1ed6b6d-c5ea-46af-94fd-baa485cd2f2c",
+        "parentSpanId": "trace-3",
+        "startTime": 1782632649279,
+        "attributes": {
+          "service.name": "vibemate-sim",
+          "service.version": "1.0.0"
+        },
+        "status": "ok",
+        "endTime": 1782632649279
+      }
+    ],
+    "a2d1a19a-1a9c-45f4-8d8b-c491fa69b425": [
+      {
+        "name": "agent.handoff",
+        "traceId": "a2d1a19a-1a9c-45f4-8d8b-c491fa69b425",
+        "spanId": "4993fe91-60c6-4e6d-8ffb-9f44ca42ae53",
+        "startTime": 1782632649279,
+        "attributes": {
+          "agent.handoff.from": "THINKER",
+          "agent.handoff.to": "PLANNER",
+          "agent.handoff.context_size": 1024,
+          "service.name": "vibemate-sim",
+          "service.version": "1.0.0"
+        },
+        "status": "ok",
+        "endTime": 1782632649279
+      }
+    ],
+    "9c95e381-8f0e-4fa4-b0a4-11421df80781": [
+      {
+        "name": "pipeline.design",
+        "traceId": "9c95e381-8f0e-4fa4-b0a4-11421df80781",
+        "spanId": "d9869e45-e4f3-4d6d-b85f-ffbcad88f4a2",
+        "parentSpanId": "trace-3",
+        "startTime": 1782632649279,
+        "attributes": {
+          "service.name": "vibemate-sim",
+          "service.version": "1.0.0"
+        },
+        "status": "ok",
+        "endTime": 1782632649279
+      }
+    ],
+    "346287f1-21bf-436c-997c-e99e3087a30f": [
+      {
+        "name": "pipeline.break",
+        "traceId": "346287f1-21bf-436c-997c-e99e3087a30f",
+        "spanId": "7b2163cc-d62d-4b3e-84be-846711ac1072",
+        "parentSpanId": "trace-3",
+        "startTime": 1782632649279,
+        "attributes": {
+          "service.name": "vibemate-sim",
+          "service.version": "1.0.0"
+        },
+        "status": "ok",
+        "endTime": 1782632649279
+      }
+    ],
+    "a1d2cc93-aa30-43e1-b079-73790ae90330": [
+      {
+        "name": "pipeline.build",
+        "traceId": "a1d2cc93-aa30-43e1-b079-73790ae90330",
+        "spanId": "6abbb1e6-5e0f-40c0-8076-35d9454e54e6",
+        "parentSpanId": "trace-3",
+        "startTime": 1782632649279,
+        "attributes": {
+          "service.name": "vibemate-sim",
+          "service.version": "1.0.0"
+        },
+        "status": "ok",
+        "endTime": 1782632649279
+      }
+    ],
+    "4d719c1c-ec75-4e50-af98-9aadfe175d05": [
+      {
+        "name": "tool.call",
+        "traceId": "4d719c1c-ec75-4e50-af98-9aadfe175d05",
+        "spanId": "876bf0d7-57cc-47ca-8bfa-47afe226788f",
+        "startTime": 1782632649279,
+        "attributes": {
+          "tool.name": "write_file",
+          "tool.input": "{\"path\":\"src/app.ts\"}",
+          "tool.output": "{\"status\":\"ok\"}",
+          "tool.duration_ms": 1,
+          "tool.success": true,
+          "service.name": "vibemate-sim",
+          "service.version": "1.0.0"
+        },
+        "status": "ok",
+        "endTime": 1782632649279
+      }
+    ],
+    "d81f998c-6f3f-4dac-a24e-ba633744cd9e": [
+      {
+        "name": "pipeline.harness",
+        "traceId": "d81f998c-6f3f-4dac-a24e-ba633744cd9e",
+        "spanId": "5a376c12-85d2-4317-b49b-0217456bc1dd",
+        "parentSpanId": "trace-3",
+        "startTime": 1782632649279,
+        "attributes": {
+          "service.name": "vibemate-sim",
+          "service.version": "1.0.0"
+        },
+        "status": "ok",
+        "endTime": 1782632649279
+      }
+    ],
+    "17c42b89-1c26-44df-bff0-94e12282963f": [
+      {
+        "name": "pipeline.review",
+        "traceId": "17c42b89-1c26-44df-bff0-94e12282963f",
+        "spanId": "13469301-3172-4834-a304-22a0ae56305d",
+        "parentSpanId": "trace-3",
+        "startTime": 1782632649279,
+        "attributes": {
+          "service.name": "vibemate-sim",
+          "service.version": "1.0.0"
+        },
+        "status": "ok",
+        "endTime": 1782632649279
+      }
+    ],
+    "d30f8b6a-8295-43ef-a083-4348f6930229": [
+      {
+        "name": "pipeline.qa",
+        "traceId": "d30f8b6a-8295-43ef-a083-4348f6930229",
+        "spanId": "89607f84-e611-472b-b79b-541f4f910a2d",
+        "parentSpanId": "trace-3",
+        "startTime": 1782632649279,
+        "attributes": {
+          "service.name": "vibemate-sim",
+          "service.version": "1.0.0"
+        },
+        "status": "ok",
+        "endTime": 1782632649279
+      }
+    ],
+    "d6fad0eb-251a-4d65-94e5-844ab25587a0": [
+      {
+        "name": "pipeline.ship",
+        "traceId": "d6fad0eb-251a-4d65-94e5-844ab25587a0",
+        "spanId": "8591f8c6-bb17-443b-8092-b615dfdcdea6",
+        "parentSpanId": "trace-3",
+        "startTime": 1782632649279,
+        "attributes": {
+          "service.name": "vibemate-sim",
+          "service.version": "1.0.0"
+        },
+        "status": "ok",
+        "endTime": 1782632649279
+      }
+    ],
+    "f999546c-23c3-4459-96b2-fbdc97e1f695": [
+      {
+        "name": "pipeline.retro",
+        "traceId": "f999546c-23c3-4459-96b2-fbdc97e1f695",
+        "spanId": "39d87cbc-af7d-4db0-86da-a666071616c6",
+        "parentSpanId": "trace-3",
+        "startTime": 1782632649279,
+        "attributes": {
+          "service.name": "vibemate-sim",
+          "service.version": "1.0.0"
+        },
+        "status": "ok",
+        "endTime": 1782632649279
+      }
+    ],
+    "6c0b00ea-1284-461a-9fde-faab6c789afe": [
+      {
+        "name": "pipeline.learn",
+        "traceId": "6c0b00ea-1284-461a-9fde-faab6c789afe",
+        "spanId": "895bc52d-69a1-44b9-8319-d799eff756e9",
+        "parentSpanId": "trace-3",
+        "startTime": 1782632649279,
+        "attributes": {
+          "service.name": "vibemate-sim",
+          "service.version": "1.0.0"
+        },
+        "status": "ok",
+        "endTime": 1782632649279
+      }
+    ],
+    "759349ab-332e-4548-848a-c74072071144": [
+      {
+        "name": "pipeline.evolve",
+        "traceId": "759349ab-332e-4548-848a-c74072071144",
+        "spanId": "4d9bbb02-c3a0-4c81-9964-96bf259c27d2",
+        "parentSpanId": "trace-3",
+        "startTime": 1782632649279,
+        "attributes": {
+          "service.name": "vibemate-sim",
+          "service.version": "1.0.0"
+        },
+        "status": "ok",
+        "endTime": 1782632649279
+      }
+    ],
+    "80a1a96f-85e0-47e8-bca6-56faa59ce0b5": [
+      {
+        "name": "pipeline.telemetry",
+        "traceId": "80a1a96f-85e0-47e8-bca6-56faa59ce0b5",
+        "spanId": "58f33683-3eb7-40c1-b5a2-b5e14596232e",
+        "parentSpanId": "trace-3",
+        "startTime": 1782632649279,
+        "attributes": {
+          "service.name": "vibemate-sim",
+          "service.version": "1.0.0"
+        },
+        "status": "ok",
+        "endTime": 1782632649279
+      }
+    ],
+    "4fb5d1e1-098a-4347-8acf-f035d8ae5036": [
+      {
+        "name": "agent.evaluation",
+        "traceId": "4fb5d1e1-098a-4347-8acf-f035d8ae5036",
+        "spanId": "6d870f9f-0843-416b-a25e-a61f20961c7f",
+        "startTime": 1782632649279,
+        "attributes": {
+          "evaluation.name": "task_success",
+          "evaluation.score": 1,
+          "evaluation.passed": true,
+          "service.name": "vibemate-sim",
+          "service.version": "1.0.0"
+        },
+        "status": "ok",
+        "endTime": 1782632649279
+      }
+    ],
+    "22b653be-fc28-47f9-8efb-470bedb6df82": [
+      {
+        "name": "pipeline.think",
+        "traceId": "22b653be-fc28-47f9-8efb-470bedb6df82",
+        "spanId": "a91a8bc7-b1a4-4b9d-a5b5-d7c6600d5acd",
+        "parentSpanId": "trace-4",
+        "startTime": 1782632649279,
+        "attributes": {
+          "service.name": "vibemate-sim",
+          "service.version": "1.0.0"
+        },
+        "status": "ok",
+        "endTime": 1782632649279
+      }
+    ],
+    "5c1c1a82-27ff-4f28-a3ae-11840af83eaa": [
+      {
+        "name": "pipeline.plan",
+        "traceId": "5c1c1a82-27ff-4f28-a3ae-11840af83eaa",
+        "spanId": "abf89d5c-03ae-4371-b567-c10e13c1ad1b",
+        "parentSpanId": "trace-4",
+        "startTime": 1782632649279,
+        "attributes": {
+          "service.name": "vibemate-sim",
+          "service.version": "1.0.0"
+        },
+        "status": "ok",
+        "endTime": 1782632649279
+      }
+    ],
+    "232394c9-ce9f-48cf-b0d2-a106a856f508": [
+      {
+        "name": "agent.handoff",
+        "traceId": "232394c9-ce9f-48cf-b0d2-a106a856f508",
+        "spanId": "02801dee-4580-44ad-acc7-ee65c48dc1cf",
+        "startTime": 1782632649279,
+        "attributes": {
+          "agent.handoff.from": "THINKER",
+          "agent.handoff.to": "PLANNER",
+          "agent.handoff.context_size": 1024,
+          "service.name": "vibemate-sim",
+          "service.version": "1.0.0"
+        },
+        "status": "ok",
+        "endTime": 1782632649279
+      }
+    ],
+    "948679ae-39d9-48e0-9091-d87c2b2903d8": [
+      {
+        "name": "pipeline.design",
+        "traceId": "948679ae-39d9-48e0-9091-d87c2b2903d8",
+        "spanId": "920968fd-d2ad-4017-9893-e66133a69330",
+        "parentSpanId": "trace-4",
+        "startTime": 1782632649279,
+        "attributes": {
+          "service.name": "vibemate-sim",
+          "service.version": "1.0.0"
+        },
+        "status": "ok",
+        "endTime": 1782632649279
+      }
+    ],
+    "27cb8a95-cf3b-4ec2-9b6d-e3ad1a873a5e": [
+      {
+        "name": "pipeline.break",
+        "traceId": "27cb8a95-cf3b-4ec2-9b6d-e3ad1a873a5e",
+        "spanId": "9c60ce4b-da9d-48f6-ac6b-67fe426eac4a",
+        "parentSpanId": "trace-4",
+        "startTime": 1782632649279,
+        "attributes": {
+          "service.name": "vibemate-sim",
+          "service.version": "1.0.0"
+        },
+        "status": "ok",
+        "endTime": 1782632649279
+      }
+    ],
+    "212b0408-ddc8-4d27-b4af-f10853dde2a7": [
+      {
+        "name": "pipeline.build",
+        "traceId": "212b0408-ddc8-4d27-b4af-f10853dde2a7",
+        "spanId": "1c12b5b9-e2f4-4d7a-8879-f8f8825ca0fa",
+        "parentSpanId": "trace-4",
+        "startTime": 1782632649279,
+        "attributes": {
+          "service.name": "vibemate-sim",
+          "service.version": "1.0.0"
+        },
+        "status": "ok",
+        "endTime": 1782632649279
+      }
+    ],
+    "a0e5aa18-f623-4ed2-b021-e550c2c64fa6": [
+      {
+        "name": "tool.call",
+        "traceId": "a0e5aa18-f623-4ed2-b021-e550c2c64fa6",
+        "spanId": "f693dd48-928c-4c4c-958d-d383d8df927e",
+        "startTime": 1782632649279,
+        "attributes": {
+          "tool.name": "write_file",
+          "tool.input": "{\"path\":\"src/app.ts\"}",
+          "tool.output": "{\"status\":\"ok\"}",
+          "tool.duration_ms": 1,
+          "tool.success": true,
+          "service.name": "vibemate-sim",
+          "service.version": "1.0.0"
+        },
+        "status": "ok",
+        "endTime": 1782632649279
+      }
+    ],
+    "aa6b0a5e-eb11-4f9d-a7a8-e1d2e50fc77d": [
+      {
+        "name": "pipeline.harness",
+        "traceId": "aa6b0a5e-eb11-4f9d-a7a8-e1d2e50fc77d",
+        "spanId": "f1104d9d-ebf6-45a5-9597-bc217363ecef",
+        "parentSpanId": "trace-4",
+        "startTime": 1782632649279,
+        "attributes": {
+          "service.name": "vibemate-sim",
+          "service.version": "1.0.0"
+        },
+        "status": "ok",
+        "endTime": 1782632649279
+      }
+    ],
+    "6c64a92b-fb41-48ae-912b-d88b4c567dae": [
+      {
+        "name": "pipeline.review",
+        "traceId": "6c64a92b-fb41-48ae-912b-d88b4c567dae",
+        "spanId": "8fa97f0e-c5e4-487e-a8cf-41fe6edd1a5d",
+        "parentSpanId": "trace-4",
+        "startTime": 1782632649279,
+        "attributes": {
+          "service.name": "vibemate-sim",
+          "service.version": "1.0.0"
+        },
+        "status": "ok",
+        "endTime": 1782632649279
+      }
+    ],
+    "b0638383-0283-4715-8f60-d33c6e63a21b": [
+      {
+        "name": "pipeline.qa",
+        "traceId": "b0638383-0283-4715-8f60-d33c6e63a21b",
+        "spanId": "8a757bec-3f06-4655-b602-5e0608377a86",
+        "parentSpanId": "trace-4",
+        "startTime": 1782632649279,
+        "attributes": {
+          "service.name": "vibemate-sim",
+          "service.version": "1.0.0"
+        },
+        "status": "ok",
+        "endTime": 1782632649279
+      }
+    ],
+    "144d8567-b7f7-4c99-845f-1c338074036a": [
+      {
+        "name": "pipeline.ship",
+        "traceId": "144d8567-b7f7-4c99-845f-1c338074036a",
+        "spanId": "e7f1c0d5-213c-429d-9c95-be69263087c1",
+        "parentSpanId": "trace-4",
+        "startTime": 1782632649279,
+        "attributes": {
+          "service.name": "vibemate-sim",
+          "service.version": "1.0.0"
+        },
+        "status": "ok",
+        "endTime": 1782632649279
+      }
+    ],
+    "8627d7cd-5493-4bd9-8053-db9dc4740ddb": [
+      {
+        "name": "pipeline.retro",
+        "traceId": "8627d7cd-5493-4bd9-8053-db9dc4740ddb",
+        "spanId": "83538f93-0cbc-4177-8aff-076e0b941de5",
+        "parentSpanId": "trace-4",
+        "startTime": 1782632649279,
+        "attributes": {
+          "service.name": "vibemate-sim",
+          "service.version": "1.0.0"
+        },
+        "status": "ok",
+        "endTime": 1782632649279
+      }
+    ],
+    "ee6cc23b-95b4-492a-a749-5944470af468": [
+      {
+        "name": "pipeline.learn",
+        "traceId": "ee6cc23b-95b4-492a-a749-5944470af468",
+        "spanId": "b8e13bc9-0817-49b7-8514-3eb998ece504",
+        "parentSpanId": "trace-4",
+        "startTime": 1782632649279,
+        "attributes": {
+          "service.name": "vibemate-sim",
+          "service.version": "1.0.0"
+        },
+        "status": "ok",
+        "endTime": 1782632649279
+      }
+    ],
+    "8f6adabb-ae5b-4aac-9d6e-96b70463cbba": [
+      {
+        "name": "pipeline.evolve",
+        "traceId": "8f6adabb-ae5b-4aac-9d6e-96b70463cbba",
+        "spanId": "caeb7ace-c73c-4be9-8f34-ea97732380f2",
+        "parentSpanId": "trace-4",
+        "startTime": 1782632649279,
+        "attributes": {
+          "service.name": "vibemate-sim",
+          "service.version": "1.0.0"
+        },
+        "status": "ok",
+        "endTime": 1782632649279
+      }
+    ],
+    "2cb0b56f-6485-4efd-a1e6-b49a34d30400": [
+      {
+        "name": "pipeline.telemetry",
+        "traceId": "2cb0b56f-6485-4efd-a1e6-b49a34d30400",
+        "spanId": "03fe6010-346d-45be-abe9-1dee2a0a7b07",
+        "parentSpanId": "trace-4",
+        "startTime": 1782632649279,
+        "attributes": {
+          "service.name": "vibemate-sim",
+          "service.version": "1.0.0"
+        },
+        "status": "ok",
+        "endTime": 1782632649279
+      }
+    ],
+    "bcac5703-bfe3-4f3c-a9ca-1d0fbaaa82b7": [
+      {
+        "name": "agent.evaluation",
+        "traceId": "bcac5703-bfe3-4f3c-a9ca-1d0fbaaa82b7",
+        "spanId": "0da975f5-791a-46fd-9a19-2f4bea076249",
+        "startTime": 1782632649279,
+        "attributes": {
+          "evaluation.name": "task_success",
+          "evaluation.score": 1,
+          "evaluation.passed": true,
+          "service.name": "vibemate-sim",
+          "service.version": "1.0.0"
+        },
+        "status": "ok",
+        "endTime": 1782632649279
+      }
+    ]
+  }
+}

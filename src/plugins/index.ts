@@ -1,3 +1,5 @@
+import { LRUCache } from "../performance/cache";
+
 export type PluginOrigin = "config" | "workspace" | "global" | "bundled"
 export type PluginKind = "tool" | "hook" | "provider" | "channel" | "command"
 export type PluginHookFailurePolicy = "fail-open" | "fail-closed"
@@ -84,7 +86,14 @@ export interface PluginRegistry {
   disable(id: string): void
   remove(id: string): void
   getByOrigin(origin: PluginOrigin): PluginManifest[]
+  clearCache(): void
 }
+
+// Global cache for activation plans across registry instances
+const activationCache = new LRUCache<PluginActivationPlan>({
+  maxSize: 100,
+  defaultTTL: 300_000 // 5 minutes
+});
 
 export function createPluginRegistry(): PluginRegistry {
   const plugins = new Map<string, PluginRegistryEntry>()
@@ -96,6 +105,7 @@ export function createPluginRegistry(): PluginRegistry {
         return
       }
       plugins.set(manifest.id, { manifest, enabled: true, hooks: [] })
+      activationCache.clear() // Invalidate cache on new registration
     },
 
     get(id: string) {
@@ -112,16 +122,23 @@ export function createPluginRegistry(): PluginRegistry {
 
     enable(id: string) {
       const entry = plugins.get(id)
-      if (entry) entry.enabled = true
+      if (entry) {
+        entry.enabled = true
+        activationCache.clear()
+      }
     },
 
     disable(id: string) {
       const entry = plugins.get(id)
-      if (entry) entry.enabled = false
+      if (entry) {
+        entry.enabled = false
+        activationCache.clear()
+      }
     },
 
     remove(id: string) {
       plugins.delete(id)
+      activationCache.clear()
     },
 
     getByOrigin(origin: PluginOrigin) {
@@ -129,6 +146,10 @@ export function createPluginRegistry(): PluginRegistry {
         .filter(e => e.manifest.origin === origin)
         .map(e => e.manifest)
     },
+
+    clearCache() {
+      activationCache.clear()
+    }
   }
 }
 
@@ -179,6 +200,15 @@ export function resolveActivationPlan(
   registry: PluginRegistry,
   trigger: PluginActivationTrigger,
 ): PluginActivationPlan {
+  let cacheKey: string;
+  if (trigger.kind === "startup") cacheKey = "startup";
+  else if (trigger.kind === "command") cacheKey = `cmd:${trigger.command}`;
+  else if (trigger.kind === "provider") cacheKey = `prov:${trigger.provider}`;
+  else cacheKey = `chan:${trigger.channel}`;
+
+  const cached = activationCache.get(cacheKey);
+  if (cached) return cached;
+
   const matched: string[] = []
   for (const manifest of registry.list()) {
     if (!registry.isEnabled(manifest.id)) continue
@@ -193,7 +223,10 @@ export function resolveActivationPlan(
       matched.push(manifest.id)
     }
   }
-  return { trigger, pluginIds: matched }
+
+  const plan = { trigger, pluginIds: matched };
+  activationCache.set(cacheKey, plan);
+  return plan;
 }
 
 export type HookDispatchMode = "void" | "modifying" | "claiming"

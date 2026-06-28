@@ -11,6 +11,33 @@ export interface MemoryEntry {
   strength: number
 }
 
+export interface ShortTermRecallEntry {
+  key: string
+  path: string
+  startLine: number
+  endLine: number
+  source: string
+  snippet: string
+  recallCount: number
+  dailyCount: number
+  groundedCount: number
+  totalScore: number
+  maxScore: number
+  firstRecalledAt: string
+  lastRecalledAt: string
+  queryHashes: string[]
+  recallDays: string[]
+  conceptTags: string[]
+}
+
+export interface DreamingPhaseResult {
+  staged: ShortTermRecallEntry[]
+  themes: string[]
+  candidateTruths: Array<{ key: string; snippet: string; confidence: number }>
+  promoted: any[]
+  wroteToLongTerm: boolean
+}
+
 let memoryIdCounter = 0
 
 export function createMemoryEntry(
@@ -50,182 +77,42 @@ export function getForgettingCurveCycle(
   return { nextReviewDays, confidence }
 }
 
-export function shouldReview(entry: MemoryEntry): boolean {
-  if (!entry.lastRecalledAt) return true
-  const ageMs = Date.now() - Date.parse(entry.lastRecalledAt)
-  const ageDays = ageMs / (24 * 60 * 60 * 1000)
-  const { nextReviewDays } = getForgettingCurveCycle(entry.strength, entry.recalledCount)
-  return ageDays >= nextReviewDays
-}
-
-export function updateMemory(entry: MemoryEntry, recalled: boolean): MemoryEntry {
-  if (!recalled) return entry
-  return {
-    ...entry,
-    lastRecalledAt: new Date().toISOString(),
-    recalledCount: entry.recalledCount + 1,
-    strength: Math.min(1, entry.strength + 0.05),
-  }
-}
-
 export function calculateTemporalDecay(ageDays: number, halfLifeDays: number): number {
-  if (ageDays <= 0) return 1.0
-  if (halfLifeDays <= 0) return 1.0
-  const lambda = Math.LN2 / halfLifeDays
-  return Math.exp(-lambda * ageDays)
+  return Math.pow(0.5, ageDays / halfLifeDays)
 }
 
-export interface ShortTermRecallEntry {
-  key: string
-  path: string
-  startLine: number
-  endLine: number
-  source: string
-  snippet: string
-  recallCount: number
-  dailyCount: number
-  groundedCount: number
-  totalScore: number
-  maxScore: number
-  firstRecalledAt: string
-  lastRecalledAt: string
-  queryHashes: string[]
-  recallDays: string[]
-  conceptTags: string[]
-}
+export function calculatePromotionScore(entry: ShortTermRecallEntry, options?: { nowMs: number; halfLifeDays: number }) {
+  const now = options?.nowMs || Date.now();
+  const halfLife = options?.halfLifeDays || 30;
 
-export interface PromotionWeights {
-  frequency: number
-  relevance: number
-  diversity: number
-  recency: number
-  consolidation: number
-  conceptual: number
-}
+  const ageMs = now - Date.parse(entry.lastRecalledAt);
+  const ageDays = ageMs / (24 * 60 * 60 * 1000);
 
-const DEFAULT_PROMOTION_WEIGHTS: PromotionWeights = {
-  frequency: 0.24,
-  relevance: 0.30,
-  diversity: 0.15,
-  recency: 0.15,
-  consolidation: 0.10,
-  conceptual: 0.06,
-}
+  const recency = calculateTemporalDecay(ageDays, halfLife);
+  const frequency = clampScore(entry.recallCount / 10);
+  const diversity = clampScore(entry.conceptTags.length / 6);
+  const relevance = clampScore(entry.recallDays.length / 3);
 
-function clampScore(v: number): number {
-  return Math.max(0, Math.min(1, v))
-}
-
-function calculateFrequencyComponent(recallCount: number): number {
-  return clampScore(Math.log1p(recallCount) / Math.log1p(10))
-}
-
-function calculateRelevanceComponent(avgScore: number): number {
-  return clampScore(avgScore)
-}
-
-function calculateDiversityComponent(queryCount: number, recallDays: string[]): number {
-  const contextDiversity = Math.max(queryCount, recallDays.length)
-  return clampScore(contextDiversity / 5)
-}
-
-function calculateRecencyComponent(ageDays: number, halfLifeDays: number): number {
-  return calculateTemporalDecay(ageDays, halfLifeDays)
-}
-
-function calculateConsolidationComponent(recallDays: string[]): number {
-  if (recallDays.length === 0) return 0
-  if (recallDays.length === 1) return 0.2
-  const parsed = recallDays
-    .map(d => Date.parse(d + "T00:00:00.000Z"))
-    .filter(v => Number.isFinite(v))
-    .sort((a, b) => a - b)
-  if (parsed.length < 2) return 0.2
-  const spanDays = (parsed[parsed.length - 1] - parsed[0]) / (24 * 60 * 60 * 1000)
-  const spacing = clampScore(Math.log1p(parsed.length - 1) / Math.log1p(4))
-  const span = clampScore(spanDays / 7)
-  return clampScore(0.55 * spacing + 0.45 * span)
-}
-
-function calculateConceptualComponent(conceptTags: string[]): number {
-  return clampScore(conceptTags.length / 6)
-}
-
-export interface PromotionScore {
-  total: number
-  components: {
-    frequency: number
-    relevance: number
-    diversity: number
-    recency: number
-    consolidation: number
-    conceptual: number
-  }
-}
-
-export function calculatePromotionScore(
-  entry: ShortTermRecallEntry,
-  options: { nowMs: number; halfLifeDays: number; weights?: PromotionWeights },
-): PromotionScore {
-  const weights = options.weights ?? DEFAULT_PROMOTION_WEIGHTS
-
-  const frequency = calculateFrequencyComponent(entry.recallCount)
-  const avgScore = entry.recallCount > 0 ? entry.totalScore / entry.recallCount : 0
-  const relevance = calculateRelevanceComponent(avgScore)
-  const diversity = calculateDiversityComponent(entry.queryHashes.length, entry.recallDays)
-
-  const lastRecalledMs = Date.parse(entry.lastRecalledAt)
-  const ageDays = Number.isFinite(lastRecalledMs)
-    ? Math.max(0, (options.nowMs - lastRecalledMs) / (24 * 60 * 60 * 1000))
-    : 999
-  const recency = calculateRecencyComponent(ageDays, options.halfLifeDays)
-  const consolidation = calculateConsolidationComponent(entry.recallDays)
-  const conceptual = calculateConceptualComponent(entry.conceptTags)
-
-  const total =
-    weights.frequency * frequency +
-    weights.relevance * relevance +
-    weights.diversity * diversity +
-    weights.recency * recency +
-    weights.consolidation * consolidation +
-    weights.conceptual * conceptual
+  const total = clampScore(frequency * 0.4 + relevance * 0.3 + diversity * 0.2 + recency * 0.1);
 
   return {
-    total: clampScore(total),
-    components: { frequency, relevance, diversity, recency, consolidation, conceptual },
-  }
+    total,
+    components: {
+      frequency,
+      relevance,
+      diversity,
+      recency
+    }
+  };
 }
 
-export interface DreamingConfig {
-  enabled: boolean
-  frequency: string
-  lightLimit: number
-  remLimit: number
-  deepLimit: number
-  minPromotionScore: number
-  minRecallCount: number
-  dedupeSimilarity: number
-  halfLifeDays: number
+export function shouldReview(entry: MemoryEntry): boolean {
+  const strength = computeMemoryStrength(entry)
+  return strength < 0.4
 }
 
-export const DEFAULT_DREAMING_CONFIG: DreamingConfig = {
-  enabled: true,
-  frequency: "0 3 * * *",
-  lightLimit: 20,
-  remLimit: 10,
-  deepLimit: 5,
-  minPromotionScore: 0.75,
-  minRecallCount: 3,
-  dedupeSimilarity: 0.85,
-  halfLifeDays: 30,
-}
-
-export interface DreamingPhaseResult {
-  staged: ShortTermRecallEntry[]
-  themes: string[]
-  candidateTruths: Array<{ key: string; snippet: string; confidence: number }>
-  promoted: Array<{ key: string; snippet: string; score: number }>
-  wroteToLongTerm: boolean
+function clampScore(score: number): number {
+  return Math.max(0, Math.min(1, score))
 }
 
 export function runLightDreaming(
@@ -272,15 +159,11 @@ export function runRemDreaming(
     .map(t => t.tag)
 
   const candidateTruths = entries
-    .filter(e => !("promotedAt" in e && e.promotedAt))
+    .filter(e => !("promotedAt" in e && (e as any).promotedAt))
     .map(e => ({
       key: e.key,
       snippet: e.snippet || "(no snippet)",
-      confidence: clampScore(
-        (e.recallCount / 10) * 0.45 +
-        (e.recallDays.length / 3) * 0.3 +
-        (e.conceptTags.length / 6) * 0.25,
-      ),
+      confidence: calculatePromotionScore(e).total,
     }))
     .filter(c => c.confidence >= 0.45)
     .sort((a, b) => b.confidence - a.confidence)
@@ -303,6 +186,7 @@ export function runDeepDreaming(
     .filter(c => c.score >= options.minScore)
     .sort((a, b) => b.score - a.score)
     .slice(0, options.maxPromoted)
+    .map(c => ({ key: c.key, score: c.score, snippet: c.snippet }))
 
   return {
     staged: [],
@@ -320,6 +204,7 @@ export interface MemoryManager {
   remove(id: string): void
   promote(id: string, toLayer: MemoryLayer): void
   list(): MemoryEntry[]
+  batchAdd(entries: MemoryEntry[]): void
 }
 
 export function createMemoryManager(): MemoryManager {
@@ -328,6 +213,12 @@ export function createMemoryManager(): MemoryManager {
   return {
     add(entry: MemoryEntry) {
       store.set(entry.id, entry)
+    },
+
+    batchAdd(entries: MemoryEntry[]) {
+      for (const entry of entries) {
+        store.set(entry.id, entry)
+      }
     },
 
     get(id: string) {
