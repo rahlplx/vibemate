@@ -5,6 +5,9 @@ import { install, detectPlatform } from '../mcp/installer.js';
 import { createSpecGenerator } from '../mcp/tools/spec-generator.js';
 import { createAuthManager, createOAuthClient, type OAuthConfig } from '../mcp/auth.js';
 import { createAutoFix } from '../mcp/tools/auto-fix.js';
+import { generateTests } from '../sdd/test-generator.js';
+import { writeFileSync, mkdirSync } from 'fs';
+import { dirname, join } from 'path';
 
 const VIBEMATE_OAUTH: OAuthConfig = {
   clientId: 'vibemate-cli',
@@ -63,23 +66,26 @@ program
   .description('Generate a product specification from a plain English idea')
   .argument('<idea>', 'Product idea description')
   .option('--stack <framework>', 'Target framework (nextjs, express, fastapi, laravel)')
+  .option('--gen-tests', 'Generate test stubs from the spec after generation')
+  .option('--test-output <dir>', 'Output directory for generated tests (default: tests/spec)')
+  .option('--test-framework <framework>', 'Test framework: bun | vitest | jest (default: bun)')
   .action(async (idea, options) => {
     try {
       const apiKey = process.env.ANTHROPIC_API_KEY;
-      
+
       if (!apiKey) {
         console.error('Error: Set the ANTHROPIC_API_KEY environment variable before running.');
         process.exit(1);
       }
-      
+
       console.log(`Generating specification for: "${idea}"\n`);
-      
+
       const generator = createSpecGenerator({ apiKey });
-      const spec = await generator({ 
+      const spec = await generator({
         idea,
         stack: options.stack ? { framework: options.stack } : undefined
       });
-      
+
       console.log(`# ${spec.product.name}`);
       console.log(`\n${spec.product.oneLiner}\n`);
       console.log(`## Problem`);
@@ -97,6 +103,20 @@ program
       console.log(`\n## API Endpoints`);
       for (const endpoint of spec.apiContract.endpoints) {
         console.log(`- ${endpoint.method} ${endpoint.path}`);
+      }
+
+      if (options.genTests) {
+        const result = generateTests(spec, {
+          framework: options.testFramework ?? 'bun',
+          outputDir: options.testOutput ?? 'tests/spec',
+        });
+        console.log(`\n## Generated Tests (${result.totalCases} cases across ${result.files.length} files)`);
+        for (const file of result.files) {
+          mkdirSync(dirname(join(process.cwd(), file.path)), { recursive: true });
+          writeFileSync(join(process.cwd(), file.path), file.content, 'utf-8');
+          console.log(`  ✓ ${file.path} (${file.cases.length} cases)`);
+        }
+        console.log(`\nCoverage areas: ${result.coverageAreas.join(', ')}`);
       }
     } catch (error) {
       console.error('Spec generation failed:', error instanceof Error ? error.message : error);
