@@ -105,10 +105,10 @@ function parseTOML(content: string): Record<string, unknown> {
       currentSection = result[key] as Record<string, unknown>;
       continue;
     }
-    const eqIdx = trimmed.indexOf(' = ');
-    if (eqIdx !== -1) {
-      const key = trimmed.slice(0, eqIdx);
-      const val = trimmed.slice(eqIdx + 3);
+    const match = trimmed.match(/^([^=]+?)\s*=\s*(.*)$/);
+    if (match) {
+      const key = match[1].trim();
+      const val = match[2].trim();
       try { currentSection[key] = JSON.parse(val); } catch { currentSection[key] = val; }
     }
   }

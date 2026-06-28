@@ -26,4 +26,31 @@ describe('scaffoldCommand', () => {
     const cmd = scaffoldCommand();
     expect(cmd.description()).toBeTruthy();
   });
+
+  it('action: generates project files with default template', async () => {
+    const cmd = scaffoldCommand();
+    const logs: string[] = [];
+    const orig = console.log;
+    console.log = (...args) => logs.push(args.join(' '));
+    try {
+      await cmd.parseAsync(['my-project', '--dir', TEST_DIR], { from: 'user' });
+    } finally {
+      console.log = orig;
+    }
+    expect(logs.some(l => l.includes('Created files:'))).toBe(true);
+    expect(logs.some(l => l.includes('files created'))).toBe(true);
+  });
+
+  it('action: generates api template', async () => {
+    const cmd = scaffoldCommand();
+    const logs: string[] = [];
+    const orig = console.log;
+    console.log = (...args) => logs.push(args.join(' '));
+    try {
+      await cmd.parseAsync(['api-project', '--template', 'api', '--dir', TEST_DIR], { from: 'user' });
+    } finally {
+      console.log = orig;
+    }
+    expect(logs.some(l => l.includes('files created'))).toBe(true);
+  });
 });

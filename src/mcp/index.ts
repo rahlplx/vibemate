@@ -8,6 +8,7 @@ import {
 import { specToolDefinition, specToolHandler } from './tools/spec.js';
 import { autoCompleteToolDefinition, autoCompleteToolHandler } from './tools/auto-complete.js';
 import { autoFixToolDefinition, autoFixToolHandler } from './tools/auto-fix.js';
+import { mineRepoToolDefinition, mineRepoToolHandler } from './tools/mine-repo.js';
 import { StackDetector } from './stack-detector.js';
 import { createAuthManager, type AuthManager } from './auth.js';
 import { createAuthMiddleware, type AuthMiddleware } from './auth-middleware.js';
@@ -163,6 +164,7 @@ export class VibemateMcpServer {
     this.registerTool(specToolDefinition, specToolHandler);
     this.registerTool(autoCompleteToolDefinition, autoCompleteToolHandler);
     this.registerTool(autoFixToolDefinition, autoFixToolHandler);
+    this.registerTool(mineRepoToolDefinition, mineRepoToolHandler);
   }
 
   registerTool(definition: unknown, handler: Function): void {

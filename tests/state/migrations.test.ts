@@ -78,6 +78,16 @@ describe('runMigrations', () => {
     closeConnection(conn);
   });
 
+  it('creates repo_analyses table', () => {
+    const conn = createTestConn();
+    runMigrations(conn);
+    const tables = conn.db.prepare(
+      "SELECT name FROM sqlite_master WHERE type='table' AND name='repo_analyses'"
+    ).all();
+    expect(tables.length).toBe(1);
+    closeConnection(conn);
+  });
+
   it('is idempotent - running twice does not error', () => {
     const conn = createTestConn();
     expect(() => {
@@ -91,7 +101,7 @@ describe('runMigrations', () => {
     const conn = createTestConn();
     runMigrations(conn);
     const version = getMigrationVersion(conn);
-    expect(version).toBe(1);
+    expect(version).toBe(2);
     closeConnection(conn);
   });
 });
@@ -104,11 +114,11 @@ describe('getMigrationVersion', () => {
     closeConnection(conn);
   });
 
-  it('returns 1 after migration', () => {
+  it('returns 2 after migration', () => {
     const conn = createTestConn();
     runMigrations(conn);
     const version = getMigrationVersion(conn);
-    expect(version).toBe(1);
+    expect(version).toBe(2);
     closeConnection(conn);
   });
 });
