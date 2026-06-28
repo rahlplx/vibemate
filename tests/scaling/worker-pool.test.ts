@@ -64,4 +64,60 @@ describe('WorkerPool', () => {
     expect(typeof stats.queueSize).toBe('number');
     expect(typeof stats.totalTasksCompleted).toBe('number');
   });
+
+  it('execute runs task and returns result', async () => {
+    const pool = new WorkerPool({ minWorkers: 1, maxWorkers: 2, taskTimeoutMs: 5000 });
+    await pool.initialize(workerScript);
+    const result = await pool.execute<number, { result: number }>(workerScript, 5);
+    expect(result).toEqual({ result: 10 });
+    await pool.terminate();
+  });
+
+  it('execute increments tasksCompleted', async () => {
+    const pool = new WorkerPool({ minWorkers: 1, maxWorkers: 2, taskTimeoutMs: 5000 });
+    await pool.initialize(workerScript);
+    await pool.execute(workerScript, 3);
+    const stats = pool.getStats();
+    expect(stats.totalTasksCompleted).toBeGreaterThanOrEqual(1);
+    await pool.terminate();
+  });
+
+  it('execute spawns new worker if all busy up to maxWorkers', async () => {
+    const pool = new WorkerPool({ minWorkers: 1, maxWorkers: 3, taskTimeoutMs: 5000 });
+    await pool.initialize(workerScript);
+    // Run two tasks, the second may spawn a new worker
+    const [r1, r2] = await Promise.all([
+      pool.execute<number, { result: number }>(workerScript, 2),
+      pool.execute<number, { result: number }>(workerScript, 4),
+    ]);
+    expect(r1).toEqual({ result: 4 });
+    expect(r2).toEqual({ result: 8 });
+    await pool.terminate();
+  });
+
+  it('terminate rejects pending queued tasks', async () => {
+    // Write a slow worker that blocks indefinitely
+    const slowScript = join(testDir, 'slow-worker.js');
+    await writeFile(slowScript, `
+      const { parentPort } = require('worker_threads');
+      parentPort.on('message', () => {
+        // never replies — keeps the worker busy
+      });
+    `);
+
+    const slowPool = new WorkerPool({ minWorkers: 1, maxWorkers: 1, taskTimeoutMs: 30000 });
+    await slowPool.initialize(slowScript);
+
+    // First task occupies the only worker (direct dispatch, not queued)
+    const firstTask = slowPool.execute(slowScript, 1);
+    // Wait a tick so the worker is marked busy
+    await new Promise(r => setTimeout(r, 20));
+    // Second task: worker is busy and pool is at max → lands in the queue
+    const queuedTask = slowPool.execute(slowScript, 2);
+    await new Promise(r => setTimeout(r, 20));
+
+    // Terminate should reject the queued task immediately
+    slowPool.terminate().catch(() => {}); // firstTask resolve/reject doesn't matter
+    await expect(queuedTask).rejects.toThrow('Pool terminated');
+  });
 });

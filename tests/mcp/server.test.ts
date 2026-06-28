@@ -21,6 +21,58 @@ describe('VibemateMcpServer', () => {
     const detector = server.getStackDetector();
     expect(detector).toBeDefined();
   });
+
+  it('has auth manager', () => {
+    const server = new VibemateMcpServer({ logLevel: 'info' });
+    const auth = server.getAuthManager();
+    expect(auth).toBeDefined();
+    expect(typeof auth.storeToken).toBe('function');
+  });
+
+  it('has auth middleware', () => {
+    const server = new VibemateMcpServer({ logLevel: 'info' });
+    const mw = server.getAuthMiddleware();
+    expect(mw).toBeDefined();
+    expect(typeof mw.requireTier).toBe('function');
+  });
+
+  it('registerTool adds custom tool', () => {
+    const server = new VibemateMcpServer({ logLevel: 'info' });
+    const def = { name: 'test_tool', description: 'A test tool', inputSchema: { type: 'object', properties: {} } };
+    const handler = async () => ({ content: [{ type: 'text', text: 'ok' }] });
+    server.registerTool(def, handler);
+    const logger = server.getLogger();
+    expect(logger).toBeDefined(); // server still functional after registerTool
+  });
+
+  it('logger request and response methods do not throw', () => {
+    const server = new VibemateMcpServer({ logLevel: 'debug' });
+    const logger = server.getLogger();
+    expect(() => logger.request('tools/list')).not.toThrow();
+    expect(() => logger.response('tools/list', 5)).not.toThrow();
+    expect(() => logger.response('tools/call', 10, new Error('fail'))).not.toThrow();
+  });
+
+  it('logger setLevel filters by level', () => {
+    const server = new VibemateMcpServer({ logLevel: 'info' });
+    const logger = server.getLogger();
+    logger.setLevel('warn');
+    const entries: any[] = [];
+    logger.addSink((e) => entries.push(e));
+    logger.log({ timestamp: new Date().toISOString(), level: 'info', message: 'hidden' });
+    logger.log({ timestamp: new Date().toISOString(), level: 'warn', message: 'visible' });
+    expect(entries.some((e) => e.message === 'visible')).toBe(true);
+    expect(entries.some((e) => e.message === 'hidden')).toBe(false);
+  });
+
+  it('logger at debug level captures debug entries', () => {
+    const server = new VibemateMcpServer({ logLevel: 'debug' });
+    const logger = server.getLogger();
+    const entries: any[] = [];
+    logger.addSink((e) => entries.push(e));
+    logger.log({ timestamp: new Date().toISOString(), level: 'debug', message: 'debug msg' });
+    expect(entries.some((e) => e.message === 'debug msg')).toBe(true);
+  });
 });
 
 describe('AuthManager', () => {

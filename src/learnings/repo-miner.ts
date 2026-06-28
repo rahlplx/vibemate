@@ -2,7 +2,7 @@ import { writeFile, mkdir, appendFile } from 'fs/promises';
 import { readdirSync, existsSync } from 'fs';
 import { join } from 'path';
 import { randomUUID } from 'crypto';
-import { execSync } from 'child_process';
+import { execFileSync } from 'child_process';
 import type { DatabaseConnection } from '../state/connection.js';
 
 export interface RepoAnalysis {
@@ -103,8 +103,9 @@ function countFiles(dir: string): number {
 
 function getCommitStats(repoPath: string, depth: number): { count: number; contributors: { author: string; count: number }[] } {
   try {
-    const log = execSync(
-      `git log --format="%an" -n ${depth}`,
+    const log = execFileSync(
+      'git',
+      ['log', '--format=%an', '-n', String(depth)],
       { cwd: repoPath, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] }
     ).trim();
 
@@ -165,7 +166,7 @@ export async function mineRepo(url: string, options: RepoMineOptions = {}): Prom
     const slug = urlToSlug(url).slice(0, 50);
     repoPath = join(cloneDir, slug);
     if (!dryRun) {
-      execSync(`git clone --depth ${depth} "${url}" "${repoPath}"`, {
+      execFileSync('git', ['clone', '--depth', String(depth), url, repoPath], {
         stdio: ['pipe', 'pipe', 'pipe'],
         timeout: 300_000
       });

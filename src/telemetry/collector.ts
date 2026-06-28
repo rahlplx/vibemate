@@ -287,7 +287,7 @@ export class TelemetryCollector {
       'gen_ai.cost': cost,
       ...(phase ? { 'auto.phase': phase } : {})
     });
-    const turn: AgentTurn = { ...span, agentId, inputTokens, outputTokens, model, cost };
+    const turn = Object.assign(span, { agentId, inputTokens, outputTokens, model, cost }) as AgentTurn;
     this.spanMap.set(span.spanId, turn);
     this.endSpan(span.spanId);
     return turn;
@@ -330,7 +330,7 @@ export class TelemetryCollector {
       ...(content?.agentType ? { 'agent.type': content.agentType } : {})
     });
 
-    const turn: AgentTurn = { ...span, agentId, inputTokens, outputTokens, model, cost };
+    const turn = Object.assign(span, { agentId, inputTokens, outputTokens, model, cost }) as AgentTurn;
     this.spanMap.set(span.spanId, turn);
     this.endSpan(span.spanId);
 
@@ -391,7 +391,7 @@ export class TelemetryCollector {
     const parentAgent = this.spanMap.get(parentSpanId);
     const parentAgentId = (parentAgent as AgentTurn | undefined)?.agentId ?? '';
 
-    const subSpan: SubAgentSpan = { ...span, parentAgentId, childAgentId, model };
+    const subSpan = Object.assign(span, { parentAgentId, childAgentId, model }) as SubAgentSpan;
     this.spanMap.set(span.spanId, subSpan);
     this.endSpan(span.spanId);
 
@@ -534,13 +534,7 @@ export class TelemetryCollector {
       'agent.handoff.context_size': contextSize
     });
 
-    const handoff: HandoffSpan = {
-      ...span,
-      fromAgent,
-      toAgent,
-      contextSize
-    };
-
+    const handoff = Object.assign(span, { fromAgent, toAgent, contextSize }) as HandoffSpan;
     this.endSpan(span.spanId);
     return handoff;
   }
