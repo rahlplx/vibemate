@@ -4,8 +4,8 @@ import { join } from 'path';
 import { randomUUID } from 'crypto';
 import { execFileSync } from 'child_process';
 import type { DatabaseConnection } from '../state/connection.js';
-import { analyzeFolder } from './folder-analyzer.js';
-import { analyzeCommits } from './commit-analyzer.js';
+import { analyzeFolder, type FolderAnalysis } from './folder-analyzer.js';
+import { analyzeCommits, type CommitAnalysis } from './commit-analyzer.js';
 
 const ALLOWED_URL_PROTOCOLS = /^(https?:\/\/|git:\/\/|ssh:\/\/|git@|file:\/\/)/i;
 
@@ -36,6 +36,10 @@ export interface RepoMineResult {
   url: string;
   dbId: string;
   analysis: RepoAnalysis;
+  /** Structured commit analysis from commit-analyzer */
+  commits: CommitAnalysis;
+  /** Structured folder analysis from folder-analyzer */
+  folder: FolderAnalysis;
   okfPath: string | null;
   jsonlRecordsWritten: number;
 }
@@ -226,5 +230,5 @@ ${topContributors.slice(0, 5).map(c => `- ${c.author} (${c.count} commits)`).joi
     }
   }
 
-  return { url, dbId, analysis, okfPath, jsonlRecordsWritten };
+  return { url, dbId, analysis, commits: commitAnalysis, folder: folderAnalysis, okfPath, jsonlRecordsWritten };
 }
