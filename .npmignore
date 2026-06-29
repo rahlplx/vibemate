@@ -3,6 +3,7 @@ src/
 tests/
 bench/
 skills/
+learnings/
 
 # Config / tooling
 .github/
@@ -10,6 +11,8 @@ skills/
 .claude/
 *.config.ts
 bunfig.toml
+bun.lockb
+bun.lock
 tsconfig.json
 biome.json
 .env
