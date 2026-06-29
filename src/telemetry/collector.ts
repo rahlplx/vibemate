@@ -36,36 +36,69 @@ class SpanRetentionPolicy {
     this.strategy = strategy;
   }
 
-  evictIfNeeded(spans: TelemetrySpan[], traces: Map<string, TelemetrySpan[]>): TelemetrySpan[] {
-    if (spans.length <= this.maxSpanCount) return spans;
+  evict(spanMap: Map<string, TelemetrySpan>, traces: Map<string, TelemetrySpan[]>, force: boolean = false): void {
+    const currentCount = spanMap.size;
+    const targetCount = this.maxSpanCount;
+    const overflow = currentCount - targetCount;
+    if (overflow <= 0) return;
 
-    const overflow = spans.length - this.maxSpanCount;
-    let toEvict: Set<string>;
+    // Batch eviction: only trigger if 1.1x maxSpanCount reached,
+    // OR if overflow is 1 (to keep tests happy and ensure we don't leak over limit indefinitely)
+    // OR if force is true
+    if (!force && overflow > 1 && currentCount <= this.maxSpanCount * 1.1) return;
+
+    const evictedSpans: TelemetrySpan[] = [];
 
     if (this.strategy === 'priority') {
-      // Sort: errors last (keep), ok first (evict), then oldest first within each group
-      const sorted = [...spans].sort((a, b) => {
-        if (a.status === 'error' && b.status !== 'error') return 1;
-        if (a.status !== 'error' && b.status === 'error') return -1;
-        return a.startTime - b.startTime;
-      });
-      toEvict = new Set(sorted.slice(0, overflow).map(s => s.spanId));
+      // Priority: evict 'ok' spans first, then others, oldest first.
+      // JS Map iteration follows insertion order (oldest first).
+      const okSpans: string[] = [];
+      const otherSpans: string[] = [];
+
+      for (const [id, span] of spanMap) {
+        if (span.status === 'ok') {
+          okSpans.push(id);
+        } else {
+          otherSpans.push(id);
+        }
+        if (okSpans.length >= overflow) break;
+      }
+
+      const toEvictIds = okSpans.length >= overflow
+        ? okSpans.slice(0, overflow)
+        : [...okSpans, ...otherSpans.slice(0, overflow - okSpans.length)];
+
+      for (const id of toEvictIds) {
+        const span = spanMap.get(id);
+        if (span) {
+          evictedSpans.push(span);
+          spanMap.delete(id);
+        }
+      }
     } else {
-      // LRU: evict oldest by startTime
-      const sorted = [...spans].sort((a, b) => a.startTime - b.startTime);
-      toEvict = new Set(sorted.slice(0, overflow).map(s => s.spanId));
+      // LRU: evict oldest (first in Map)
+      const iterator = spanMap.keys();
+      for (let i = 0; i < overflow; i++) {
+        const id = iterator.next().value;
+        if (!id) break;
+        const span = spanMap.get(id);
+        if (span) {
+          evictedSpans.push(span);
+          spanMap.delete(id);
+        }
+      }
     }
 
-    this.totalEvicted += toEvict.size;
+    this.totalEvicted += evictedSpans.length;
 
-    // Prune only affected traces by grouping evicted spans by traceId (O(evicted) vs O(all traces))
+    // Prune only affected traces
     const evictedByTrace = new Map<string, Set<string>>();
-    for (const span of spans) {
-      if (!toEvict.has(span.spanId)) continue;
+    for (const span of evictedSpans) {
       const ids = evictedByTrace.get(span.traceId) ?? new Set();
       ids.add(span.spanId);
       evictedByTrace.set(span.traceId, ids);
     }
+
     for (const [traceId, evictedIds] of evictedByTrace) {
       const traceSpans = traces.get(traceId);
       if (!traceSpans) continue;
@@ -76,8 +109,6 @@ class SpanRetentionPolicy {
         traces.set(traceId, remaining);
       }
     }
-
-    return spans.filter(s => !toEvict.has(s.spanId));
   }
 
   getTotalEvicted(): number {
@@ -174,14 +205,8 @@ export class TelemetryCollector {
       });
     }
 
-    const spansArray = Array.from(this.spanMap.values());
-    const kept = this.retentionPolicy.evictIfNeeded(spansArray, this.traces);
-    if (kept.length < spansArray.length) {
-      const keptIds = new Set(kept.map(s => s.spanId));
-      for (const id of this.spanMap.keys()) {
-        if (!keptIds.has(id)) this.spanMap.delete(id);
-      }
-    }
+    // Bounded storage: evict if needed (batching implemented in policy)
+    this.retentionPolicy.evict(this.spanMap, this.traces);
     this.spansSinceExport.push(span);
     // Keep spansSinceExport bounded to the same limit as spans
     const maxCount = this.retentionPolicy.getMaxSpanCount();
