@@ -10,7 +10,7 @@ import { existsSync } from 'fs';
 import { join } from 'path';
 import { execFileSync } from 'child_process';
 import { AutoPhase, CircuitBreaker, AutoState, HarnessCheck, HarnessReport, PhaseObservation } from '../types.js';
-import { applyAmbiguityGate, checkGovernancePermissionWithPersistence, handleHarnessFailure, computeObservationScore, trackPhaseCost, classifyTasksWithGate } from './auto-helpers.js';
+import { applyAmbiguityGate, checkGovernancePermissionWithPersistence, handleHarnessFailure, computeObservationScore, trackPhaseCost, classifyTasksWithGate, dispatchBuildTasks, completeBuildTasks, parseBuildLogSuccess } from './auto-helpers.js';
 import { PersistenceManager } from '../shared/persistence.js';
 import { tokenBudgetGate, dlpGate, passRateGate } from './harness-gates.js';
 import { buildCritiqueReport } from './critique-engine.js';
@@ -20,6 +20,7 @@ import { loadConfig } from '../shared/config.js';
 import type { ComposedPrompt } from '../types.js';
 import { RequirementsTracker } from '../shared/requirements-tracker.js';
 import { callLLM, buildPlanPrompt, buildBreakPrompt, buildDesignPrompt, parseLLMTasks, extractSection, type LLMCallerOverride } from './phase-helpers.js';
+import { createDispatcher } from '../execution/dispatcher.js';
 
 interface AutoOptions {
   budget?: number;
@@ -549,19 +550,37 @@ Reference OKF bundle for pre-populated decisions.
         tasksJson = JSON.parse(await readFile(join(vibeDir, 'tasks.json'), 'utf-8'));
       } catch { /* no tasks.json yet */ }
 
-      if (tasksJson?.tasks?.length) {
-        const classified = classifyTasksWithGate(tasksJson.tasks, state.hasUI);
-        const counts = classified.reduce((acc, t) => {
-          acc[t.executionMode] = (acc[t.executionMode] ?? 0) + 1;
-          return acc;
-        }, {} as Record<string, number>);
-        await writeFile(join(vibeDir, 'tasks.json'), JSON.stringify({ tasks: classified }, null, 2));
-        const countStr = Object.entries(counts).map(([m, n]) => `${n} ${m}`).join(', ');
-        console.log(`   🎯 Task routing: ${countStr}`);
+      // Stable session ID — persisted to state so retries reuse it, preventing orphaned tasks
+      if (!state.sessionId) {
+        state.sessionId = `build-${Date.now()}`;
       }
+      const buildSessionId = state.sessionId;
+      let dispatchedTaskIds: string[] = [];
+      const dispatcher = createDispatcher(join(vibeDir, 'state.db'));
 
-      const buildResult = await runBuild(root);
-      return { artifact: 'build-output.log', hasMoreTasks: buildResult.hasMoreTasks };
+      try {
+        if (tasksJson?.tasks?.length) {
+          const classified = classifyTasksWithGate(tasksJson.tasks, state.hasUI);
+          const counts = classified.reduce((acc, t) => {
+            acc[t.executionMode] = (acc[t.executionMode] ?? 0) + 1;
+            return acc;
+          }, {} as Record<string, number>);
+          await writeFile(join(vibeDir, 'tasks.json'), JSON.stringify({ tasks: classified }, null, 2));
+          const countStr = Object.entries(counts).map(([m, n]) => `${n} ${m}`).join(', ');
+          console.log(`   🎯 Task routing: ${countStr}`);
+
+          dispatchedTaskIds = dispatchBuildTasks(classified, dispatcher, 'vibemate-project', buildSessionId);
+        }
+
+        const buildResult = await runBuild(root);
+
+        // runBuild catches all errors internally, so we read the log to determine actual success
+        const buildSuccess = await parseBuildLogSuccess(join(vibeDir, 'build-output.log'));
+        completeBuildTasks(dispatchedTaskIds, dispatcher, buildSuccess);
+        return { artifact: 'build-output.log', hasMoreTasks: buildResult.hasMoreTasks };
+      } finally {
+        dispatcher.close();
+      }
     }
 
     case 'critique': {
