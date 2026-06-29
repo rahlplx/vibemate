@@ -5,6 +5,7 @@ import { AmbiguityResult } from '../discovery/scoring.js';
 import { calculateComplexity, determineExecutionMode } from '../execution/gate.js';
 import type { LLMTask } from './phase-helpers.js';
 import type { PersistenceManager } from '../shared/persistence.js';
+import type { Dispatcher } from '../execution/dispatcher.js';
 
 export function computeObservationScore(
   errorCount: number,
@@ -95,6 +96,36 @@ export function trackPhaseCost(
 ): void {
   circuitBreaker.totalCost += estimatedCost;
   router.recordCost(estimatedCost);
+}
+
+export function dispatchBuildTasks(
+  classified: (LLMTask & { gatedMode: string })[],
+  dispatcher: Dispatcher,
+  projectId: string,
+  sessionId: string,
+): string[] {
+  return classified.map(task =>
+    dispatcher.dispatch(projectId, sessionId, {
+      title: task.title,
+      description: task.description,
+      complexityScore: task.complexityScore ?? 0,
+      executionMode: task.executionMode,
+    })
+  );
+}
+
+export function completeBuildTasks(
+  taskIds: string[],
+  dispatcher: Dispatcher,
+  buildSuccess: boolean,
+): void {
+  for (const id of taskIds) {
+    if (buildSuccess) {
+      dispatcher.completeTask(id, 'Build completed successfully');
+    } else {
+      dispatcher.failTask(id, 'Build failed — see build-output.log');
+    }
+  }
 }
 
 export function handleHarnessFailure(state: AutoState, circuitBreaker: CircuitBreaker): boolean {
