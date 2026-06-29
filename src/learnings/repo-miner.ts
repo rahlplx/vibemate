@@ -18,17 +18,6 @@ function validateRepoUrl(url: string): void {
   }
 }
 
-const ALLOWED_URL_PROTOCOLS = /^(https?:\/\/|git:\/\/|ssh:\/\/|git@|file:\/\/)/i;
-
-function validateRepoUrl(url: string): void {
-  if (!ALLOWED_URL_PROTOCOLS.test(url)) {
-    throw new Error(`Unsupported repository URL scheme. Allowed: http, https, git, ssh, git@, file`);
-  }
-  if (url.startsWith('-')) {
-    throw new Error('Repository URL must not start with a dash');
-  }
-}
-
 export interface RepoAnalysis {
   url: string;
   clonedAt: string;
@@ -77,36 +66,6 @@ function countFiles(dir: string): number {
   return count;
 }
 
-function getCommitStats(repoPath: string, depth: number): { count: number; contributors: { author: string; count: number }[] } {
-  try {
-    const log = execFileSync(
-      'git',
-      ['log', '--format=%an', '-n', String(depth)],
-      { cwd: repoPath, encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] }
-    ).trim();
-
-    if (!log) return { count: 0, contributors: [] };
-
-    const authors = log.split('\n').filter(Boolean);
-    const counts: Record<string, number> = {};
-    for (const a of authors) counts[a] = (counts[a] || 0) + 1;
-    const contributors = Object.entries(counts)
-      .map(([author, count]) => ({ author, count }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 10);
-
-    return { count: authors.length, contributors };
-  } catch {
-    return { count: 0, contributors: [] };
-  }
-}
-
-function hasTestDir(dir: string): boolean {
-  try {
-    const entries = readdirSync(dir);
-    return entries.some(e => ['tests', 'test', '__tests__', 'spec'].includes(e));
-  } catch { return false; }
-}
 
 
 function hasCI(dir: string): boolean {
