@@ -47,13 +47,13 @@ export function extractIntent(input: string): IntentExtraction {
 function extractProblem(input: string): string {
   const buildPatterns = [
     // "build/create/make/develop [a] X [for/that/which...]"
-    /(?:build|create|make|develop)\s+(?:a\s+|an\s+)?(.+?)(?:\s+for\s|\s+that\s|\s+which\s|$)/i,
+    /(?:build|create|make|develop)\s+(?:a\s+|an\s+)?(.+?)(?:\s+for\b|\s+that\b|\s+which\b|$)/i,
     // "want/need/like to build/create/make X"
-    /(?:want|need|like)\s+to\s+(?:build|create|make|develop|automate)\s+(?:a\s+|an\s+)?(.+?)(?:\s+for\s|\s+that\s|\s+which\s|$)/i,
+    /(?:want|need|like)\s+to\s+(?:build|create|make|develop|automate)\s+(?:a\s+|an\s+)?(.+?)(?:\s+for\b|\s+that\b|\s+which\b|$)/i,
     // "want/need/looking to automate/improve X"
-    /(?:want|need|looking)\s+to\s+(automate|improve|replace|migrate|refactor)\s+(.+?)(?:\s+for\s|\s+that\s|\s+which\s|$)/i,
+    /(?:want|need|looking)\s+to\s+(automate|improve|replace|migrate|refactor)\s+(.+?)(?:\s+for\b|\s+that\b|\s+which\b|$)/i,
     // "I need a/an X" — noun-phrase after "need a"
-    /(?:i\s+)?need\s+(?:a\s+|an\s+)(.+?)(?:\s+for\s|\s+that\s|\s+which\s|$)/i,
+    /(?:i\s+)?need\s+(?:a\s+|an\s+)(.+?)(?:\s+for\b|\s+that\b|\s+which\b|$)/i,
   ];
 
   for (const pattern of buildPatterns) {
@@ -76,11 +76,11 @@ function extractAudience(input: string): string {
   // Ordered from most specific to least specific
   const audiencePatterns = [
     // "targeting X", "aimed at X", "designed for X", "built for X"
-    /(?:targeting|aimed\s+at|designed\s+for|built\s+for)\s+(?:a\s+)?(.+?)(?:\s+that|\s+who|\s+,|\s+with|\.|$)/i,
+    /(?:targeting|aimed\s+at|designed\s+for|built\s+for)\s+(?:a\s+)?(.+?)(?:\s+that\b|\s+who\b|\s*,|\s+with\b|\.|$)/i,
     // "for [a/the] X" — but stop before embedded clauses
-    /\bfor\s+(?:a\s+|the\s+)?(?:group\s+of\s+)?([a-z][^,.\s][^,.]*?)(?:\s+that|\s+who|\s+,|\s+which|$)/i,
+    /\bfor\s+(?:a\s+|the\s+)?(?:group\s+of\s+)?([a-z][^,.\s][^,.]*?)(?:\s+that\b|\s+who\b|\s*,|\s+which\b|$)/i,
     // "target audience / users are X"
-    /(?:target|audience|users?)\s+(?:is|are|:)\s+(.+?)(?:\s+that|\s+who|\s+,|$)/i,
+    /(?:target|audience|users?)\s+(?:is|are|:)\s+(.+?)(?:\s+that\b|\s+who\b|\s*,|$)/i,
   ];
 
   for (const pattern of audiencePatterns) {
@@ -125,15 +125,17 @@ function extractSuccessMetric(input: string): string {
   const successPatterns = [
     /(?:should|must|needs to)\s+(.+?)(?:\s+and|\s+that|\s+\.|$)/i,
     /(?:goal|objective|aim)\s+(?:is\s+)?to\s+(.+?)(?:\s+and|\s+that|\s+\.|$)/i,
+    // "to reduce/increase/improve/achieve/reach X" — measurable outcomes
+    /(?:to\s+)?(?:reduce|increase|improve|achieve|reach|minimize|maximize)\s+(.+?)(?:\s+and|\s+that|\s+\.|$)/i,
   ];
-  
+
   for (const pattern of successPatterns) {
     const match = input.match(pattern);
     if (match) {
       return match[1].trim();
     }
   }
-  
+
   return 'successful completion';
 }
 
@@ -218,7 +220,7 @@ export function calculateConfidence(input: string): number {
   }
 
   // Time specificity
-  if (/\b(?:minutes?|hours?|seconds?|days?)\b/.test(lowerInput)) {
+  if (/\b(?:seconds?|minutes?|hours?|days?|weeks?|months?)\b/.test(lowerInput)) {
     confidence += 5;
   }
 
@@ -255,7 +257,7 @@ export function identifyGaps(input: string): string[] {
   }
 
   // Check for missing timeline
-  if (!/\b(?:minutes?|hours?|days?|weeks?)\b/.test(lowerInput)) {
+  if (!/\b(?:seconds?|minutes?|hours?|days?|weeks?|months?)\b/.test(lowerInput)) {
     gaps.push("Missing: What's the timeline?");
   }
 
