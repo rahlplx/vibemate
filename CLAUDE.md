@@ -145,7 +145,6 @@ runMigrations(conn);
 const store = createStore(conn);
 ```
 
-
 ### Logging
 Use `StructuredLogger` from `src/shared/logger.ts`. Log level is controlled by `VIBEMATE_LOG_LEVEL` env var (info/debug/warn/error).
 
