@@ -9,6 +9,7 @@ import { generateTests } from '../sdd/test-generator.js';
 import { EmbeddingStore } from '../context/embeddings.js';
 import { writeFileSync, mkdirSync } from 'fs';
 import { dirname, resolve, join } from 'path';
+import { runDoctor, formatDoctorResults } from './doctor.js';
 
 const VIBEMATE_OAUTH: OAuthConfig = {
   clientId: 'vibemate-cli',
@@ -823,6 +824,18 @@ program
         process.stdout.write(fmt + '\n');
       }
     }
+  });
+
+program
+  .command('doctor')
+  .description('Check environment health and configuration')
+  .action(async () => {
+    const root = process.cwd();
+    const results = await runDoctor(root);
+    console.log('\nVibemate Doctor\n');
+    console.log(formatDoctorResults(results));
+    const hasFail = results.some(r => r.status === 'fail');
+    process.exitCode = hasFail ? 1 : 0;
   });
 
 program.parse();

@@ -10,7 +10,7 @@ import { existsSync } from 'fs';
 import { join } from 'path';
 import { execFileSync } from 'child_process';
 import { AutoPhase, CircuitBreaker, AutoState, HarnessCheck, HarnessReport, PhaseObservation } from '../types.js';
-import { applyAmbiguityGate, checkGovernancePermission, handleHarnessFailure, computeObservationScore } from './auto-helpers.js';
+import { applyAmbiguityGate, checkGovernancePermission, handleHarnessFailure, computeObservationScore, trackPhaseCost, classifyTasksWithGate } from './auto-helpers.js';
 import { tokenBudgetGate, dlpGate, passRateGate } from './harness-gates.js';
 import { buildCritiqueReport } from './critique-engine.js';
 import { createObservationEngine } from '../improve/observation.js';
@@ -207,6 +207,9 @@ async function runAutoPipeline(description: string, options: AutoOptions): Promi
     const justCompleted = state.phase;
     state.completed.push(state.phase);
     state.artifacts[state.phase] = result.artifact || '';
+
+    // Charge the router's estimated cost for this phase
+    trackPhaseCost(circuitBreaker, router, routingDecision.estimatedCost);
 
     // Record prompt outcome for evolver and persist so stats survive restarts
     const phaseOutcome = result.allChecksPassed === false ? 'failure' : 'success';
@@ -531,6 +534,24 @@ Reference OKF bundle for pre-populated decisions.
 
     case 'build': {
       console.log('🏗️  Building...');
+
+      // Gate-classify tasks before running checks
+      let tasksJson: { tasks: import('./phase-helpers.js').LLMTask[] } | null = null;
+      try {
+        tasksJson = JSON.parse(await readFile(join(vibeDir, 'tasks.json'), 'utf-8'));
+      } catch { /* no tasks.json yet */ }
+
+      if (tasksJson?.tasks?.length) {
+        const classified = classifyTasksWithGate(tasksJson.tasks, state.hasUI);
+        const counts = classified.reduce((acc, t) => {
+          acc[t.executionMode] = (acc[t.executionMode] ?? 0) + 1;
+          return acc;
+        }, {} as Record<string, number>);
+        await writeFile(join(vibeDir, 'tasks.json'), JSON.stringify({ tasks: classified }, null, 2));
+        const countStr = Object.entries(counts).map(([m, n]) => `${n} ${m}`).join(', ');
+        console.log(`   🎯 Task routing: ${countStr}`);
+      }
+
       const buildResult = await runBuild(root);
       return { artifact: 'build-output.log', hasMoreTasks: buildResult.hasMoreTasks };
     }
@@ -651,7 +672,6 @@ ${testStatus === 'PASS'
     case 'ship': {
       console.log('🚢 Shipping...');
       await runShip(root);
-      circuitBreaker.totalCost += 0.01;
       return { artifact: 'pr-link.md' };
     }
 
