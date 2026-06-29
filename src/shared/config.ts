@@ -1,6 +1,34 @@
 // Extended VibemateConfig for new modules
+import { z } from 'zod';
 import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
+
+const VibemateConfigSchema = z.object({
+  version: z.string().optional(),
+  stateDir: z.string().optional(),
+  databaseFile: z.string().optional(),
+  telemetryEnabled: z.boolean().optional(),
+  evolutionCadence: z.enum(['task', 'daily', 'weekly']).optional(),
+  maxComplexityForInline: z.number().optional(),
+  maxComplexityForSession: z.number().optional(),
+  budget: z.number().nonnegative().optional(),
+  llmProviders: z.array(z.object({
+    name: z.string(),
+    apiKey: z.string(),
+    model: z.string(),
+    maxTokens: z.number(),
+    costPer1kInput: z.number(),
+    costPer1kOutput: z.number(),
+  })).optional(),
+  mineRepos: z.array(z.string()).optional(),
+  mineDepth: z.number().int().positive().optional(),
+  systemPrompt: z.string().optional(),
+  phasePrompts: z.record(z.string()).optional(),
+  promptRoles: z.array(z.string()).optional(),
+  promptAutoEvolve: z.boolean().optional(),
+  promptEvolveCadence: z.enum(['daily', 'weekly', 'monthly']).optional(),
+  orgPromptUrl: z.string().url().optional(),
+}).passthrough();
 
 export interface LLMProviderConfig {
   name: string;
@@ -23,6 +51,19 @@ export interface VibemateExtendedConfig {
   llmProviders: LLMProviderConfig[];
   mineRepos?: string[];
   mineDepth?: number;
+  // ─── Prompt System ───────────────────────────────────────────────────────────
+  /** Global system prompt prepended to every phase */
+  systemPrompt?: string;
+  /** Per-phase system prompt overrides (keys: think, plan, build, harness, …) */
+  phasePrompts?: Record<string, string>;
+  /** IDs of built-in registry prompts to activate (e.g. ['typescript-engineer','tdd-practitioner']) */
+  promptRoles?: string[];
+  /** Enable auto-evolution of prompts based on telemetry outcomes */
+  promptAutoEvolve?: boolean;
+  /** How often to run prompt evolution (default: weekly, matching evolutionCadence) */
+  promptEvolveCadence?: 'daily' | 'weekly' | 'monthly';
+  /** HTTPS URL to a JSON file containing org-shared prompt templates */
+  orgPromptUrl?: string;
 }
 
 type ConfigOverrides = Partial<VibemateExtendedConfig>;
@@ -39,6 +80,9 @@ const DEFAULT_CONFIG: VibemateExtendedConfig = {
   llmProviders: [],
   mineRepos: [],
   mineDepth: 100,
+  promptRoles: [],
+  promptAutoEvolve: false,
+  promptEvolveCadence: 'weekly',
 };
 
 export function createDefaultConfig(overrides?: ConfigOverrides): VibemateExtendedConfig {
@@ -57,8 +101,9 @@ export function loadConfig(rootDir: string = process.cwd()): VibemateExtendedCon
   }
   try {
     const raw = readFileSync(configPath, 'utf-8');
-    const parsed = JSON.parse(raw) as Partial<VibemateExtendedConfig>;
-    return createDefaultConfig(parsed);
+    const result = VibemateConfigSchema.safeParse(JSON.parse(raw));
+    const parsed = result.success ? result.data : {};
+    return createDefaultConfig(parsed as Partial<VibemateExtendedConfig>);
   } catch {
     return createDefaultConfig();
   }

@@ -1,6 +1,7 @@
-// Context Engineering Pipeline - AST extraction, LLMLingua, DLP, Cache
+// Context Engineering Pipeline - AST extraction, LLMLingua, DLP, Cache, RAG
 import { ASTExtraction, CompressionResult, DLPMask, CacheEntry } from '../types.js';
 import { readFile, writeFile } from 'fs/promises';
+import { EmbeddingStore, type RetrievalResult } from './embeddings.js';
 import { join } from 'path';
 import { createHash } from 'crypto';
 import { classifyFailure } from '../shared/failure-classification.js';
@@ -48,10 +49,14 @@ export class ContextPipeline {
   private cache: Map<string, CacheEntry> = new Map();
   private maxEntries = 500;
   private maxBytes = 50 * 1024 * 1024;
+  private hits = 0;
+  private misses = 0;
+  private embedFn?: import('./embeddings.js').EmbedFn;
 
-  constructor(root: string) {
+  constructor(root: string, options?: { embedFn?: import('./embeddings.js').EmbedFn }) {
     this.root = root;
     this.cacheDir = join(root, '.vibe', 'context-cache');
+    this.embedFn = options?.embedFn;
   }
 
   private evict(): void {
@@ -176,8 +181,10 @@ export class ContextPipeline {
     // Check cache
     const cached = this.cache.get(hash);
     if (cached) {
+      this.hits++;
       return cached.key;
     }
+    this.misses++;
     
     // Store in cache
     const entry: CacheEntry = {
@@ -227,31 +234,27 @@ export class ContextPipeline {
     }
   }
 
-  // Full pipeline: extract -> compress -> sanitize -> cache
-  async process(filePath: string, targetFunction?: string): Promise<{
+  // Full pipeline: extract -> compress -> sanitize -> cache -> optional RAG injection
+  async process(filePath: string, targetFunction?: string, ragQuery?: string): Promise<{
     extracted: ASTExtraction;
     compressed: CompressionResult;
     sanitized: string;
     cacheKey: string;
+    ragChunks?: RetrievalResult[];
   }> {
-    // Extract relevant code
     const extracted = await this.extractRelevant(filePath, targetFunction);
-    
-    // Compress
     const compressed = this.compress(extracted.relevantCode);
-    
-    // Sanitize
     const sanitized = this.sanitize(compressed.compressed);
-    
-    // Cache
     const cacheKey = await this.cacheContext([filePath]);
-    
-    return {
-      extracted,
-      compressed,
-      sanitized,
-      cacheKey
-    };
+
+    if (!ragQuery) return { extracted, compressed, sanitized, cacheKey };
+
+    const store = new EmbeddingStore(join(this.root, '.vibe'), this.embedFn);
+    const loaded = await store.load();
+    if (!loaded) return { extracted, compressed, sanitized, cacheKey };
+
+    const ragChunks = await store.retrieve(ragQuery);
+    return { extracted, compressed, sanitized, cacheKey, ragChunks };
   }
 
   // Get token estimate (rough: 1 token ≈ 4 chars)
@@ -273,7 +276,7 @@ export class ContextPipeline {
     return {
       totalEntries: this.cache.size,
       totalSize,
-      hitRate: 0 // Would need to track hits/misses
+      hitRate: (this.hits + this.misses) > 0 ? this.hits / (this.hits + this.misses) : 0
     };
   }
 }

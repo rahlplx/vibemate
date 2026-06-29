@@ -6,8 +6,9 @@ import { createSpecGenerator } from '../mcp/tools/spec-generator.js';
 import { createAuthManager, createOAuthClient, type OAuthConfig } from '../mcp/auth.js';
 import { createAutoFix } from '../mcp/tools/auto-fix.js';
 import { generateTests } from '../sdd/test-generator.js';
+import { EmbeddingStore } from '../context/embeddings.js';
 import { writeFileSync, mkdirSync } from 'fs';
-import { dirname, resolve } from 'path';
+import { dirname, resolve, join } from 'path';
 
 const VIBEMATE_OAUTH: OAuthConfig = {
   clientId: 'vibemate-cli',
@@ -461,6 +462,327 @@ program
     } catch (error) {
       console.error('Mine failed:', error instanceof Error ? error.message : error);
       process.exit(1);
+    }
+  });
+
+program
+  .command('context:embed')
+  .description('Pre-warm the RAG embedding cache from OKF knowledge files in .vibe/')
+  .option('--dir <path>', 'Project root containing .vibe/ directory', process.cwd())
+  .option('--dry-run', 'Show what would be embedded without writing')
+  .action(async (options) => {
+    const vibeDir = join(options.dir, '.vibe');
+    const store = new EmbeddingStore(vibeDir);
+    try {
+      console.log(`Embedding OKF chunks from ${vibeDir}...`);
+      const chunks = await store.embedOKFChunks(vibeDir);
+      if (chunks.length === 0) {
+        console.log('No markdown files found in .vibe/ — nothing to embed.');
+        return;
+      }
+      if (options.dryRun) {
+        console.log(`[dry-run] Would embed ${chunks.length} chunk(s) — skipping write.`);
+        for (const c of chunks) console.log(`  ${c.source} (${c.content.length} chars)`);
+        return;
+      }
+      await store.save();
+      console.log(`Embedded ${chunks.length} chunk(s) → ${vibeDir}/embeddings/chunks.json`);
+    } catch (error) {
+      console.error('Embedding failed:', error instanceof Error ? error.message : error);
+      process.exit(1);
+    }
+  });
+
+// ─── vibemate prompts ─────────────────────────────────────────────────────────
+import { z } from 'zod';
+import { PromptRegistry } from '../prompts/registry.js';
+import { PromptEvolver } from '../prompts/evolver.js';
+import { PromptMiner } from '../prompts/miner.js';
+import { loadConfig } from '../shared/config.js';
+import { createNodeAdapter } from '../context/embeddings.js';
+import { RequirementsTracker, type MoSCoWTier } from '../shared/requirements-tracker.js';
+
+const MoSCoWTierEnum = z.enum(['must', 'should', 'could', 'wont']);
+const RequirementStatusEnum = z.enum(['active', 'delivered', 'deferred', 'dropped']);
+const RequirementSourceEnum = z.enum(['user', 'llm-inferred', 'code-analysis', 'test-failure', 'evidence']);
+
+const prompts = program.command('prompts').description('Manage system prompts and auto-evolution');
+
+prompts
+  .command('list')
+  .description('List all prompt templates in the registry')
+  .option('--category <cat>', 'Filter by category (role, domain, framework, security, testing, evolved, org)')
+  .option('--dir <path>', 'Project root', process.cwd())
+  .option('--json', 'Output as JSON')
+  .action(async (options) => {
+    const vibeDir = join(options.dir, '.vibe');
+    const adapter = createNodeAdapter();
+    const evolver = new PromptEvolver({ adapter });
+    const storeKey = join(vibeDir, 'prompts', 'registry.json');
+    const registry = (await evolver.load(storeKey)) ?? new PromptRegistry();
+    const list = registry.list(options.category);
+    if (options.json) {
+      console.log(JSON.stringify(list, null, 2));
+      return;
+    }
+    console.log(`\nPrompt Templates (${list.length})\n`);
+    for (const t of list) {
+      const usage = t.usageCount > 0 ? ` | ${Math.round(t.successRate * 100)}% success over ${t.usageCount} uses` : '';
+      console.log(`  ${t.id.padEnd(32)} [${t.category}] conf=${t.confidence.toFixed(2)}${usage}`);
+      console.log(`  "${t.content.slice(0, 80)}${t.content.length > 80 ? '…' : ''}"`);
+      console.log();
+    }
+  });
+
+prompts
+  .command('compose')
+  .description('Preview the composed system prompt for a phase')
+  .option('--phase <phase>', 'Phase to preview (think, plan, build, …)')
+  .option('--dir <path>', 'Project root', process.cwd())
+  .action(async (options) => {
+    const config = loadConfig(options.dir);
+    const vibeDir = join(options.dir, '.vibe');
+    const adapter = createNodeAdapter();
+    const evolver = new PromptEvolver({ adapter });
+    const storeKey = join(vibeDir, 'prompts', 'registry.json');
+    const registry = (await evolver.load(storeKey)) ?? new PromptRegistry();
+    const composed = registry.compose({
+      activeRoleIds: config.promptRoles ?? [],
+      systemPrompt: config.systemPrompt,
+      phasePrompts: config.phasePrompts,
+      phase: options.phase,
+    });
+    console.log('\n── Composed System Prompt ──────────────────────────────────────');
+    console.log(composed.systemPrompt);
+    console.log('\n── Active template IDs ─────────────────────────────────────────');
+    console.log(composed.activeTemplateIds.length ? composed.activeTemplateIds.join(', ') : '(none)');
+    if (composed.phaseOverride) {
+      console.log('\n── Phase override ──────────────────────────────────────────────');
+      console.log(composed.phaseOverride);
+    }
+  });
+
+prompts
+  .command('evolve')
+  .description('Run one evolution pass over low-performing prompts (requires telemetry data)')
+  .option('--dir <path>', 'Project root', process.cwd())
+  .option('--apply', 'Auto-apply evolved prompts (otherwise stored as low-confidence candidates)')
+  .option('--dry-run', 'Show which prompts would be evolved without changing them')
+  .action(async (options) => {
+    const vibeDir = join(options.dir, '.vibe');
+    const adapter = createNodeAdapter();
+    const evolver = new PromptEvolver({ adapter });
+    const storeKey = join(vibeDir, 'prompts', 'registry.json');
+
+    // Load persisted registry or start with built-ins
+    const registry = (await evolver.load(storeKey)) ?? new PromptRegistry();
+    const outcomes = registry.getOutcomes();
+    const candidates = registry.list().filter(t => evolver.shouldEvolve(t, outcomes));
+
+    if (options.dryRun) {
+      if (candidates.length === 0) {
+        console.log('No prompts qualify for evolution (need ≥10 samples and <70% success rate).');
+      } else {
+        console.log(`\nWould evolve ${candidates.length} prompt(s):`);
+        for (const t of candidates) {
+          const rel = outcomes.filter(o => o.templateId === t.id);
+          const sr = rel.filter(o => o.outcome === 'success').length / rel.length;
+          console.log(`  ${t.id} — ${rel.length} samples, ${Math.round(sr * 100)}% success`);
+        }
+      }
+      return;
+    }
+
+    const count = await evolver.run(registry, { autoApply: options.apply });
+    if (count === 0) {
+      console.log('No prompts evolved — all are performing well or have insufficient data.');
+    } else {
+      console.log(`Evolved ${count} prompt(s).${options.apply ? ' Applied.' : ' Stored as candidates (use --apply to activate).'}`);
+      await evolver.persist(registry, storeKey);
+    }
+  });
+
+prompts
+  .command('mine')
+  .description('Learn from external prompt repositories and score against project tech stack')
+  .option('--tech <stack>', 'Comma-separated tech stack (e.g. typescript,bun,react)', 'typescript')
+  .option('--min-relevance <n>', 'Minimum BM25 relevance score to include (default: 0)', '0')
+  .option('--max <n>', 'Maximum results to return (default: 10)', '10')
+  .option('--apply', 'Add mined prompts to the local registry')
+  .option('--dir <path>', 'Project root', process.cwd())
+  .option('--json', 'Output as JSON')
+  .action(async (options) => {
+    const miner = new PromptMiner();
+    const techStack = (options.tech as string).split(',').map(t => t.trim()).filter(Boolean);
+    const results = await miner.mine({
+      techStack,
+      minRelevance: parseFloat(options.minRelevance),
+      maxResults: parseInt(options.max, 10),
+    });
+
+    if (options.json) {
+      console.log(JSON.stringify(results, null, 2));
+    } else {
+      console.log(`\nMined ${results.length} prompt(s) for stack: ${techStack.join(', ')}\n`);
+      for (const r of results) {
+        console.log(`  [score=${r.relevanceScore.toFixed(3)}] ${r.template.name}`);
+        console.log(`  "${r.template.content.slice(0, 100)}${r.template.content.length > 100 ? '…' : ''}"`);
+        if (r.sourceUrl) console.log(`  source: ${r.sourceUrl}`);
+        console.log();
+      }
+    }
+
+    if (options.apply && results.length > 0) {
+      const vibeDir = join(options.dir, '.vibe');
+      const adapter = createNodeAdapter();
+      const evolver = new PromptEvolver({ adapter });
+      const promptDir = join(vibeDir, 'prompts');
+      await adapter.ensureDir(promptDir);
+      const storeKey = join(promptDir, 'registry.json');
+      const registry = (await evolver.load(storeKey)) ?? new PromptRegistry();
+      for (const r of results) registry.add(r.template);
+      await evolver.persist(registry, storeKey);
+      console.log(`Applied ${results.length} mined prompt(s) to registry.`);
+    }
+  });
+
+// ─── requirements commands ────────────────────────────────────────────────────
+
+const requirements = program.command('requirements').description('Manage MoSCoW requirements — track must/should/could/wont with evidence and persona');
+
+requirements
+  .command('list')
+  .description('List all requirements, optionally filtered by tier')
+  .option('--tier <tier>', 'Filter by tier: must | should | could | wont')
+  .option('--status <status>', 'Filter by status: active | delivered | deferred | dropped')
+  .option('--dir <path>', 'Project root', process.cwd())
+  .option('--json', 'Output as JSON')
+  .action(async (options) => {
+    const reqFile = join(options.dir, '.vibe', 'requirements.json');
+    let tracker: RequirementsTracker;
+    try {
+      const raw = await import('fs/promises').then(fs => fs.readFile(reqFile, 'utf-8'));
+      tracker = RequirementsTracker.fromJSON(JSON.parse(raw));
+    } catch {
+      tracker = new RequirementsTracker();
+    }
+
+    const tierParsed = options.tier ? MoSCoWTierEnum.safeParse(options.tier) : { success: true as const, data: undefined };
+    if (!tierParsed.success) { console.error(`Invalid --tier: ${options.tier}. Must be one of: must, should, could, wont`); process.exit(1); }
+    const statusParsed = options.status ? RequirementStatusEnum.safeParse(options.status) : { success: true as const, data: undefined };
+    if (!statusParsed.success) { console.error(`Invalid --status: ${options.status}. Must be one of: active, delivered, deferred, dropped`); process.exit(1); }
+    const reqs = tracker.list(tierParsed.data, statusParsed.data);
+    if (options.json) { console.log(JSON.stringify(reqs, null, 2)); return; }
+
+    const stats = tracker.getStats();
+    console.log(`\nRequirements — ${stats.total} total | ${stats.delivered} delivered | ${(stats.deliveryRate * 100).toFixed(0)}% delivery rate\n`);
+
+    const tierLabels: Record<string, string> = { must: 'MUST', should: 'SHOULD', could: 'COULD', wont: "WON'T" };
+    const tiers: MoSCoWTier[] = options.tier ? [options.tier as MoSCoWTier] : ['must', 'should', 'could', 'wont'];
+    for (const tier of tiers) {
+      const items = reqs.filter(r => r.tier === tier);
+      if (items.length === 0) continue;
+      console.log(`── ${tierLabels[tier]} HAVE (${items.length}) ─────────────────────────`);
+      for (const r of items) {
+        const badge = r.status !== 'active' ? ` [${r.status}]` : '';
+        console.log(`  • ${r.title}${badge}`);
+        console.log(`    ${r.rationale.slice(0, 80)}${r.rationale.length > 80 ? '…' : ''}`);
+        console.log(`    persona=${r.persona} | source=${r.source} | context=${r.context}`);
+      }
+      console.log();
+    }
+  });
+
+requirements
+  .command('add')
+  .description('Add a new requirement (evidence-backed)')
+  .requiredOption('--tier <tier>', 'MoSCoW tier: must | should | could | wont')
+  .requiredOption('--title <title>', 'Short requirement title')
+  .requiredOption('--rationale <rationale>', 'WHY this tier — evidence-backed reasoning')
+  .option('--persona <persona>', 'Stakeholder perspective', 'developer')
+  .option('--context <context>', 'Pipeline phase or situation', 'user-stated')
+  .option('--source <source>', 'Source: user | llm-inferred | code-analysis | test-failure | evidence', 'user')
+  .option('--tags <tags>', 'Comma-separated tags', '')
+  .option('--dir <path>', 'Project root', process.cwd())
+  .action(async (options) => {
+    const vibeDir = join(options.dir, '.vibe');
+    const reqFile = join(vibeDir, 'requirements.json');
+    let tracker: RequirementsTracker;
+    try {
+      const raw = await import('fs/promises').then(fs => fs.readFile(reqFile, 'utf-8'));
+      tracker = RequirementsTracker.fromJSON(JSON.parse(raw));
+    } catch {
+      tracker = new RequirementsTracker();
+    }
+
+    const tierResult = MoSCoWTierEnum.safeParse(options.tier);
+    if (!tierResult.success) { console.error(`Invalid --tier: ${options.tier}. Must be one of: must, should, could, wont`); process.exit(1); }
+    const sourceResult = RequirementSourceEnum.safeParse(options.source);
+    if (!sourceResult.success) { console.error(`Invalid --source: ${options.source}. Must be one of: user, llm-inferred, code-analysis, test-failure, evidence`); process.exit(1); }
+    const req = tracker.add({
+      tier: tierResult.data,
+      title: options.title,
+      rationale: options.rationale,
+      persona: options.persona,
+      context: options.context,
+      source: sourceResult.data,
+      tags: options.tags ? options.tags.split(',').map((t: string) => t.trim()).filter(Boolean) : [],
+      status: 'active',
+    });
+
+    const { mkdir, writeFile } = await import('fs/promises');
+    await mkdir(vibeDir, { recursive: true });
+    await writeFile(reqFile, JSON.stringify(tracker.toJSON(), null, 2));
+    await writeFile(join(vibeDir, 'requirements.md'), tracker.toMarkdown());
+
+    console.log(`Added [${req.tier.toUpperCase()}] ${req.title} (${req.id})`);
+  });
+
+requirements
+  .command('stats')
+  .description('Show MoSCoW delivery statistics')
+  .option('--dir <path>', 'Project root', process.cwd())
+  .action(async (options) => {
+    const reqFile = join(options.dir, '.vibe', 'requirements.json');
+    let tracker: RequirementsTracker;
+    try {
+      const raw = await import('fs/promises').then(fs => fs.readFile(reqFile, 'utf-8'));
+      tracker = RequirementsTracker.fromJSON(JSON.parse(raw));
+    } catch {
+      tracker = new RequirementsTracker();
+    }
+    const s = tracker.getStats();
+    console.log(`\nMoSCoW Delivery Stats`);
+    console.log(`  Total:     ${s.total}`);
+    console.log(`  Must:      ${s.byTier.must}`);
+    console.log(`  Should:    ${s.byTier.should}`);
+    console.log(`  Could:     ${s.byTier.could}`);
+    console.log(`  Won't:     ${s.byTier.wont}`);
+    console.log(`  Active:    ${s.active}`);
+    console.log(`  Delivered: ${s.delivered}`);
+    console.log(`  Rate:      ${(s.deliveryRate * 100).toFixed(1)}%`);
+  });
+
+requirements
+  .command('export')
+  .description('Export requirements as markdown OKF document')
+  .option('--dir <path>', 'Project root', process.cwd())
+  .option('--out <file>', 'Output file (default: stdout)')
+  .action(async (options) => {
+    const reqFile = join(options.dir, '.vibe', 'requirements.json');
+    let tracker: RequirementsTracker;
+    try {
+      const raw = await import('fs/promises').then(fs => fs.readFile(reqFile, 'utf-8'));
+      tracker = RequirementsTracker.fromJSON(JSON.parse(raw));
+    } catch {
+      tracker = new RequirementsTracker();
+    }
+    const md = tracker.toMarkdown();
+    if (options.out) {
+      await import('fs/promises').then(fs => fs.writeFile(options.out, md));
+      console.log(`Written to ${options.out}`);
+    } else {
+      console.log(md);
     }
   });
 

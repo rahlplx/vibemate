@@ -14,6 +14,10 @@ import { applyAmbiguityGate, checkGovernancePermission, handleHarnessFailure, co
 import { tokenBudgetGate, dlpGate, passRateGate } from './harness-gates.js';
 import { buildCritiqueReport } from './critique-engine.js';
 import { createObservationEngine } from '../improve/observation.js';
+import { PromptRegistry } from '../prompts/registry.js';
+import { loadConfig } from '../shared/config.js';
+import type { ComposedPrompt } from '../types.js';
+import { RequirementsTracker } from '../shared/requirements-tracker.js';
 
 interface AutoOptions {
   budget?: number;
@@ -111,6 +115,27 @@ async function runAutoPipeline(description: string, options: AutoOptions): Promi
     artifacts: {}
   };
 
+  // ─── Prompt composition ──────────────────────────────────────────────────────
+  const vmConfig = loadConfig(root);
+  const promptRegistryPath = join(vibeDir, 'prompts', 'registry.json');
+  let promptRegistry: PromptRegistry;
+  try {
+    promptRegistry = PromptRegistry.fromJSON(JSON.parse(await readFile(promptRegistryPath, 'utf-8')));
+  } catch {
+    promptRegistry = new PromptRegistry();
+  }
+  const composedPrompt = promptRegistry.compose({
+    activeRoleIds: vmConfig.promptRoles ?? [],
+    systemPrompt: vmConfig.systemPrompt,
+    phasePrompts: vmConfig.phasePrompts,
+  });
+  if (composedPrompt.activeTemplateIds.length > 0) {
+    console.log(`🧠 Active prompt roles: ${composedPrompt.activeTemplateIds.join(', ')}`);
+  }
+  // Persist composed prompt so skill files and handoffs can read it
+  await mkdir(join(vibeDir, 'prompts'), { recursive: true });
+  await writeFile(join(vibeDir, 'prompts', 'active.json'), JSON.stringify(composedPrompt, null, 2));
+
   const statePath = join(vibeDir, 'state.json');
   try {
     const existingState = await readFile(statePath, 'utf-8');
@@ -158,6 +183,13 @@ async function runAutoPipeline(description: string, options: AutoOptions): Promi
     console.log(`🤖 Model tier: ${routingDecision.level} (${routingDecision.model}) — ${routingDecision.reason}`);
 
     const startTime = performance.now();
+    // Build phase-specific composed prompt
+    const phaseComposed = promptRegistry.compose({
+      activeRoleIds: vmConfig.promptRoles ?? [],
+      systemPrompt: vmConfig.systemPrompt,
+      phasePrompts: vmConfig.phasePrompts,
+      phase: state.phase,
+    });
     const result = await executePhase(state.phase, state, {
       description,
       root,
@@ -167,12 +199,18 @@ async function runAutoPipeline(description: string, options: AutoOptions): Promi
       router,
       circuitBreaker,
       routingDecision,
+      composedPrompt: phaseComposed,
     });
     const duration = Math.round(performance.now() - startTime);
 
     const justCompleted = state.phase;
     state.completed.push(state.phase);
     state.artifacts[state.phase] = result.artifact || '';
+
+    // Record prompt outcome for evolver and persist so stats survive restarts
+    const phaseOutcome = result.allChecksPassed === false ? 'failure' : 'success';
+    promptRegistry.recordOutcome(phaseComposed.activeTemplateIds, justCompleted, phaseOutcome, duration);
+    await writeFile(promptRegistryPath, JSON.stringify(promptRegistry.toJSON(), null, 2));
 
     // Ambiguity gate: after BREAK, check if task scope is clear enough to proceed
     if (justCompleted === 'break' && result.ambiguity) {
@@ -294,6 +332,7 @@ async function executePhase(
     router: CostAwareRouter;
     circuitBreaker: CircuitBreaker;
     routingDecision?: import('../types.js').RoutingDecision;
+    composedPrompt?: ComposedPrompt;
   }
 ): Promise<{ artifact?: string; hasMoreTasks?: boolean; allChecksPassed?: boolean; ambiguity?: import('../discovery/scoring.js').AmbiguityResult }> {
   const { root, selfImprovement, circuitBreaker } = context;
@@ -309,11 +348,15 @@ async function executePhase(
         ? `\n## Past Learnings Advisory\n${advisory.guidance}\n`
         : '';
 
+      const systemPromptSection = context.composedPrompt?.systemPrompt
+        ? `\n## Active System Context\n> ${context.composedPrompt.systemPrompt.replace(/\n/g, '\n> ')}\n`
+        : '';
+
       const designDoc = `# Design Document
 
 ## Task
 ${context.description}
-${guidanceSection}
+${guidanceSection}${systemPromptSection}
 ## Requirements
 - [ ] Core functionality implemented
 - [ ] Error handling comprehensive
@@ -346,6 +389,35 @@ ${guidanceSection}
 Reference OKF bundle for pre-populated decisions.
 `;
       await writeFile(join(vibeDir, 'design-doc.md'), designDoc);
+
+      // Seed MoSCoW requirements from design doc — persist so `vibemate requirements list` works
+      const reqFile = join(vibeDir, 'requirements.json');
+      let reqTracker: RequirementsTracker;
+      try {
+        const existing = await readFile(reqFile, 'utf-8');
+        reqTracker = RequirementsTracker.fromJSON(JSON.parse(existing));
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        if (msg.includes('ENOENT') || msg.includes('no such file')) {
+          reqTracker = new RequirementsTracker();
+        } else {
+          throw e;
+        }
+      }
+      // Only seed if no requirements yet — avoid overwriting user-curated list
+      if (reqTracker.list().length === 0) {
+        reqTracker.add({ tier: 'must', title: 'Core functionality implemented', rationale: 'Product has no value without its primary capability.', persona: 'product-owner', context: 'THINK', source: 'llm-inferred', tags: ['core'], status: 'active' });
+        reqTracker.add({ tier: 'must', title: 'Error handling at system boundaries', rationale: 'Unhandled errors propagate to users; all external I/O must be guarded.', persona: 'developer', context: 'THINK', source: 'evidence', tags: ['reliability'], status: 'active' });
+        reqTracker.add({ tier: 'must', title: 'Tests written and passing', rationale: 'Evidence: Standish CHAOS 2020 — untested code has 3× higher production defect rate.', persona: 'tdd-practitioner', context: 'THINK', source: 'evidence', tags: ['testing', 'quality'], status: 'active' });
+        reqTracker.add({ tier: 'should', title: 'TypeScript strict mode compliance', rationale: 'Catches class of runtime errors at compile time; reduces production incidents.', persona: 'typescript-engineer', context: 'THINK', source: 'evidence', tags: ['typescript', 'types'], status: 'active' });
+        reqTracker.add({ tier: 'should', title: 'Test coverage >80%', rationale: 'Industry threshold for confidence in change safety (Google SWE Book).', persona: 'tdd-practitioner', context: 'THINK', source: 'evidence', tags: ['coverage', 'testing'], status: 'active' });
+        reqTracker.add({ tier: 'should', title: 'OKF architectural decisions documented', rationale: 'Decisions made without documentation are re-litigated; OKF closes the feedback loop.', persona: 'developer', context: 'THINK', source: 'llm-inferred', tags: ['okf', 'docs'], status: 'active' });
+        reqTracker.add({ tier: 'could', title: 'Performance benchmarks established', rationale: 'Useful for regressions but not blocking initial delivery.', persona: 'developer', context: 'THINK', source: 'llm-inferred', tags: ['performance'], status: 'active' });
+        reqTracker.add({ tier: 'wont', title: 'Multi-language i18n support', rationale: 'Out of scope for this iteration — would add significant complexity without current user demand.', persona: 'product-owner', context: 'THINK', source: 'user', tags: ['i18n'], status: 'active' });
+        await writeFile(reqFile, JSON.stringify(reqTracker.toJSON(), null, 2));
+        await writeFile(join(vibeDir, 'requirements.md'), reqTracker.toMarkdown());
+      }
+
       return { artifact: 'design-doc.md' };
     }
 
