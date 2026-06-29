@@ -2,6 +2,7 @@ import { createConnection, closeConnection } from '../state/connection.js';
 import { runMigrations } from '../state/migrations.js';
 import { createStore, type Task } from '../state/store.js';
 import { generateDeterministicId } from '../shared/random.js';
+import type { SubagentRunner, SubagentOptions } from './subagent.js';
 
 export interface Dispatcher {
   dispatch(
@@ -18,6 +19,13 @@ export interface Dispatcher {
   listTasks(sessionId: string): Task[];
   completeTask(id: string, output: string): void;
   failTask(id: string, error: string): void;
+  runSubagent(
+    taskId: string,
+    command: string,
+    args: string[],
+    runner: SubagentRunner,
+    options?: SubagentOptions,
+  ): Promise<void>;
   close(): void;
 }
 
@@ -67,6 +75,27 @@ export function createDispatcher(dbPath: string): Dispatcher {
         status: 'failed',
         output: error,
       });
+    },
+
+    async runSubagent(taskId, command, args, runner, options) {
+      const result = await runner.run(command, args, options);
+      if (result.timedOut) {
+        store.updateTask(taskId, {
+          status: 'failed',
+          output: `Subagent timed out after ${options?.timeoutMs ?? 300_000}ms`,
+        });
+      } else if (result.success) {
+        store.updateTask(taskId, {
+          status: 'completed',
+          output: result.stdout,
+          completed_at: new Date().toISOString(),
+        });
+      } else {
+        store.updateTask(taskId, {
+          status: 'failed',
+          output: result.stderr || `Subagent exited with code ${result.exitCode}`,
+        });
+      }
     },
 
     close() {
