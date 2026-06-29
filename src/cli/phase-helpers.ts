@@ -66,7 +66,7 @@ export async function callLLM(
   if (provider === 'anthropic') {
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey) return `[LLM unavailable — ANTHROPIC_API_KEY not set]`;
-    const client = new Anthropic({ apiKey });
+    const client = new Anthropic({ apiKey, fetch: fetchFn });
     const response = await client.messages.create({
       model,
       max_tokens: maxTokens,
