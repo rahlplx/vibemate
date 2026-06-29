@@ -3,6 +3,7 @@ import { AutoState, CircuitBreaker } from '../types.js';
 import { AmbiguityResult } from '../discovery/scoring.js';
 import { calculateComplexity, determineExecutionMode } from '../execution/gate.js';
 import type { LLMTask } from './phase-helpers.js';
+import type { PersistenceManager } from '../shared/persistence.js';
 
 export function computeObservationScore(
   errorCount: number,
@@ -30,6 +31,22 @@ export function checkGovernancePermission(role: string, phase: string): boolean 
   const userId = `auto-agent-${role}`;
   engine.addUser({ id: userId, name: role, roles: [role], createdAt: new Date(), lastActive: new Date() });
   return engine.hasPermission(userId, 'execute', `phase:${phase}`);
+}
+
+export async function checkGovernancePermissionWithPersistence(
+  role: string,
+  phase: string,
+  persistence: PersistenceManager,
+): Promise<boolean> {
+  const engine = new GovernanceEngine({ persistence });
+  await engine.load();
+  const userId = `auto-agent-${role}`;
+  if (!engine.getUser(userId)) {
+    engine.addUser({ id: userId, name: role, roles: [role], createdAt: new Date(), lastActive: new Date() });
+  }
+  const allowed = engine.hasPermission(userId, 'execute', `phase:${phase}`);
+  await engine.persist();
+  return allowed;
 }
 
 export function classifyTasksWithGate(
