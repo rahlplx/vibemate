@@ -190,12 +190,13 @@ export class AuditExporter {
       }
     } catch { /* state.json missing or malformed */ }
 
-    // 3. Filter by since, sort by timestamp ascending
-    const filtered = since
-      ? entries.filter(e => new Date(e.timestamp) >= since)
+    // 3. Filter by since, sort by timestamp ascending (ISO 8601 is lexicographically sortable)
+    const sinceIso = since?.toISOString();
+    const filtered = sinceIso
+      ? entries.filter(e => e.timestamp >= sinceIso)
       : entries;
 
-    filtered.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+    filtered.sort((a, b) => a.timestamp < b.timestamp ? -1 : a.timestamp > b.timestamp ? 1 : 0);
     return filtered;
   }
 

@@ -610,7 +610,7 @@ Reference OKF bundle for pre-populated decisions.
         const failMatch = combined.match(/(\d+) fail/);
         passed = passMatch ? parseInt(passMatch[1]) : 0;
         failed = failMatch ? parseInt(failMatch[1]) : 0;
-        testOutput = combined.slice(0, 2000);
+        testOutput = combined.slice(-2000);
         testStatus = 'FAIL';
         console.log(`   ❌ Tests: ${passed} pass, ${failed} fail`);
       }
