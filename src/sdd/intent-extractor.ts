@@ -45,52 +45,65 @@ export function extractIntent(input: string): IntentExtraction {
 }
 
 function extractProblem(input: string): string {
-  // Look for "build", "create", "make", "develop"
   const buildPatterns = [
-    /(?:build|create|make|develop)\s+(?:a\s+)?(.+?)(?:\s+for|\s+that|\s+which|$)/i,
-    /(?:want|need|like)\s+to\s+(?:build|create|make|develop)\s+(?:a\s+)?(.+?)(?:\s+for|\s+that|\s+which|$)/i,
+    // "build/create/make/develop [a] X [for/that/which...]"
+    /(?:build|create|make|develop)\s+(?:a\s+|an\s+)?(.+?)(?:\s+for\s|\s+that\s|\s+which\s|$)/i,
+    // "want/need/like to build/create/make X"
+    /(?:want|need|like)\s+to\s+(?:build|create|make|develop|automate)\s+(?:a\s+|an\s+)?(.+?)(?:\s+for\s|\s+that\s|\s+which\s|$)/i,
+    // "want/need/looking to automate/improve X"
+    /(?:want|need|looking)\s+to\s+(automate|improve|replace|migrate|refactor)\s+(.+?)(?:\s+for\s|\s+that\s|\s+which\s|$)/i,
+    // "I need a/an X" — noun-phrase after "need a"
+    /(?:i\s+)?need\s+(?:a\s+|an\s+)(.+?)(?:\s+for\s|\s+that\s|\s+which\s|$)/i,
   ];
-  
+
   for (const pattern of buildPatterns) {
     const match = input.match(pattern);
     if (match) {
-      return match[1].trim();
+      // For patterns with two capture groups (automate/improve), join them
+      const captured = match[2] ? `${match[1]} ${match[2]}` : match[1];
+      return captured.trim();
     }
   }
-  
-  // Default: return first sentence or first 50 chars
+
+  // Default: return first sentence or first 100 chars
   const firstSentence = input.split(/[.!?]/)[0];
   return firstSentence.substring(0, 100);
 }
 
 function extractAudience(input: string): string {
   const lowerInput = input.toLowerCase();
-  
-  // Look for "for" followed by audience
+
+  // Ordered from most specific to least specific
   const audiencePatterns = [
-    /for\s+(?:a\s+)?(?:group\s+of\s+)?(.+?)(?:\s+that|\s+who|\s+,|$)/i,
+    // "targeting X", "aimed at X", "designed for X", "built for X"
+    /(?:targeting|aimed\s+at|designed\s+for|built\s+for)\s+(?:a\s+)?(.+?)(?:\s+that|\s+who|\s+,|\s+with|\.|$)/i,
+    // "for [a/the] X" — but stop before embedded clauses
+    /\bfor\s+(?:a\s+|the\s+)?(?:group\s+of\s+)?([a-z][^,.\s][^,.]*?)(?:\s+that|\s+who|\s+,|\s+which|$)/i,
+    // "target audience / users are X"
     /(?:target|audience|users?)\s+(?:is|are|:)\s+(.+?)(?:\s+that|\s+who|\s+,|$)/i,
   ];
-  
+
   for (const pattern of audiencePatterns) {
     const match = input.match(pattern);
     if (match) {
       return match[1].trim();
     }
   }
-  
-  // Look for common audience keywords
+
+  // Fallback: multi-word audience keyword scan (longer matches first to avoid substring shadowing)
   const audienceKeywords = [
-    'founders', 'developers', 'designers', 'business owners',
-    'students', 'teachers', 'marketers', 'entrepreneurs',
+    'non-technical founders', 'business owners', 'small business',
+    'enterprise teams', 'senior developers', 'junior developers',
+    'founders', 'developers', 'designers', 'students',
+    'teachers', 'marketers', 'entrepreneurs',
   ];
-  
+
   for (const keyword of audienceKeywords) {
     if (lowerInput.includes(keyword)) {
       return keyword;
     }
   }
-  
+
   return 'general users';
 }
 
@@ -171,74 +184,80 @@ export function calculateConfidence(input: string): number {
   if (!input || input.trim().length === 0) {
     return 0;
   }
-  
+
   let confidence = 0;
   const lowerInput = input.toLowerCase();
-  
+
   // Base confidence from length
   const wordCount = input.split(/\s+/).length;
   confidence += Math.min(30, wordCount * 2);
-  
-  // Check for problem indicators
-  if (lowerInput.includes('build') || lowerInput.includes('create') || lowerInput.includes('make')) {
+
+  // Problem indicators (build/create/make/need/automate/develop)
+  if (/\b(?:build|create|make|need|automate|develop|implement)\b/.test(lowerInput)) {
     confidence += 15;
   }
-  
-  // Check for audience indicators
-  if (lowerInput.includes('for') || lowerInput.includes('target') || lowerInput.includes('audience')) {
+
+  // Audience indicators
+  if (/\b(?:for|targeting|aimed\s+at|designed\s+for|target|audience)\b/.test(lowerInput)) {
     confidence += 15;
   }
-  
-  // Check for success metric indicators
-  if (lowerInput.includes('deploy') || lowerInput.includes('launch') || lowerInput.includes('ship')) {
+
+  // Success metric indicators (deploy/launch/ship OR measurable outcomes; match verb forms)
+  if (/\b(?:deploy\w*|launch\w*|ship\w*|reduc\w*|increas\w*|improv\w*|achiev\w*|reach\w*|minimiz\w*|maximiz\w*)\b/.test(lowerInput)) {
     confidence += 15;
   }
-  
-  // Check for constraint indicators
-  if (lowerInput.includes('no') || lowerInput.includes('must') || lowerInput.includes('should')) {
+
+  // Constraint indicators
+  if (/\b(?:no|must|should|without|only|static)\b/.test(lowerInput)) {
     confidence += 10;
   }
-  
-  // Check for specific details
-  if (lowerInput.includes('vercel') || lowerInput.includes('netlify') || lowerInput.includes('cloudflare')) {
+
+  // Platform specificity
+  if (/\b(?:vercel|netlify|cloudflare|aws|gcp|azure)\b/.test(lowerInput)) {
     confidence += 10;
   }
-  
-  if (lowerInput.includes('minutes') || lowerInput.includes('hours') || lowerInput.includes('seconds')) {
+
+  // Time specificity
+  if (/\b(?:minutes?|hours?|seconds?|days?)\b/.test(lowerInput)) {
     confidence += 5;
   }
-  
+
   return Math.min(100, confidence);
 }
 
 export function identifyGaps(input: string): string[] {
   const gaps: string[] = [];
   const lowerInput = input.toLowerCase();
-  
-  // Check for missing problem
-  if (!lowerInput.includes('build') && !lowerInput.includes('create') && !lowerInput.includes('make')) {
+
+  // Check for missing problem statement
+  if (!/\b(?:build|create|make|need|automate|develop|implement)\b/.test(lowerInput)) {
     gaps.push('Missing: What do you want to build?');
   }
-  
-  // Check for missing audience
-  if (!lowerInput.includes('for') && !lowerInput.includes('target') && !lowerInput.includes('audience')) {
+
+  // Check for missing audience — broad set of signals
+  const hasAudience =
+    /\b(?:for|targeting|aimed\s+at|designed\s+for|built\s+for|target|audience)\b/.test(lowerInput) ||
+    extractAudience(input) !== 'general users';
+  if (!hasAudience) {
     gaps.push('Missing audience: Who is this for?');
   }
-  
-  // Check for missing success metric
-  if (!lowerInput.includes('deploy') && !lowerInput.includes('launch') && !lowerInput.includes('ship')) {
+
+  // Check for missing success metric — deploy/launch/ship OR measurable outcome verbs (match conjugations)
+  const hasSuccessMetric = /\b(?:deploy\w*|launch\w*|ship\w*|reduc\w*|increas\w*|improv\w*|achiev\w*|reach\w*|minimiz\w*|maximiz\w*|goal|metric|kpi)\b/.test(lowerInput) ||
+    extractSuccessMetric(input) !== 'successful completion';
+  if (!hasSuccessMetric) {
     gaps.push('Missing success metric: How do you know it succeeded?');
   }
-  
+
   // Check for missing constraints
-  if (!lowerInput.includes('no') && !lowerInput.includes('must') && !lowerInput.includes('should')) {
+  if (!/\b(?:no\s+\w+|without|must\s+be|should\s+be|only|static)\b/.test(lowerInput)) {
     gaps.push('Missing: Any constraints or requirements?');
   }
-  
+
   // Check for missing timeline
-  if (!lowerInput.includes('minute') && !lowerInput.includes('hour') && !lowerInput.includes('day')) {
-    gaps.push('Missing: What\'s the timeline?');
+  if (!/\b(?:minutes?|hours?|days?|weeks?)\b/.test(lowerInput)) {
+    gaps.push("Missing: What's the timeline?");
   }
-  
+
   return gaps;
 }
