@@ -786,4 +786,43 @@ requirements
     }
   });
 
+// ─── vibemate audit ───────────────────────────────────────────────────────────
+import { AuditExporter, parseSince } from '../audit/exporter.js';
+
+program
+  .command('audit')
+  .description('Export structured audit log of all agent actions, phase outcomes, and cost events')
+  .option('--since <duration>', 'Time window: 7d, 24h, 30m (default: all time)')
+  .option('--format <fmt>', 'Output format: jsonl | json (default: jsonl)', 'jsonl')
+  .option('--out <file>', 'Write to file instead of stdout')
+  .option('--dir <path>', 'Project root', process.cwd())
+  .action(async (options) => {
+    const vibeDir = join(options.dir, '.vibe');
+    const exporter = new AuditExporter(vibeDir);
+
+    let since: Date | undefined;
+    if (options.since) {
+      try {
+        since = parseSince(options.since);
+      } catch (e) {
+        console.error(e instanceof Error ? e.message : String(e));
+        process.exit(1);
+      }
+    }
+
+    const entries = await exporter.loadEntries(since);
+    const fmt = options.format === 'json' ? exporter.toJSON(entries) : exporter.toJSONL(entries);
+
+    if (options.out) {
+      await import('fs/promises').then(fs => fs.writeFile(options.out, fmt));
+      console.error(`Wrote ${entries.length} audit entries to ${options.out}`);
+    } else {
+      if (entries.length === 0) {
+        console.error('No audit entries found' + (options.since ? ` since ${options.since}` : '') + '.');
+      } else {
+        process.stdout.write(fmt + '\n');
+      }
+    }
+  });
+
 program.parse();
