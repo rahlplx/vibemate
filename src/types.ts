@@ -259,10 +259,25 @@ export interface ExperiencePrinciple {
 }
 
 // Auto-Mode Types
-export type AutoPhase = 
-  | 'think' | 'plan' | 'design' | 'break' 
-  | 'build' | 'harness' | 'review' | 'qa' 
+export type AutoPhase =
+  | 'think' | 'plan' | 'design' | 'break'
+  | 'build' | 'critique' | 'harness' | 'review' | 'qa'
   | 'ship' | 'retro' | 'learn' | 'done';
+
+export interface PhaseObservation {
+  phase: AutoPhase;
+  durationMs: number;
+  tokenCost: number;
+  errorCount: number;
+  circuitBreakerState: {
+    consecutiveFailures: number;
+    dispatchCount: number;
+    totalCost: number;
+  };
+  observationScore: number;
+  timestamp: string;
+  observationId: string;
+}
 
 export interface AutoState {
   phase: AutoPhase;
@@ -277,6 +292,7 @@ export interface AutoState {
   agentId?: string;
   harnessRetried?: boolean;
   routerDowngrade?: boolean;
+  observations?: PhaseObservation[];
 }
 
 export interface CircuitBreaker {
@@ -298,6 +314,43 @@ export interface RoutingDecision {
   estimatedCost: number;
   reason: string;
   contextWindow?: number;
+  phase?: AutoPhase;
+  observationScore?: number;
+}
+
+// ─── Prompt System Types ──────────────────────────────────────────────────────
+
+export type PromptCategory = 'role' | 'domain' | 'framework' | 'security' | 'testing' | 'evolved' | 'org';
+export type PromptSource = 'built-in' | 'user' | 'org' | 'mined' | 'evolved';
+
+export interface PromptTemplate {
+  id: string;
+  name: string;
+  category: PromptCategory;
+  content: string;
+  version: string;
+  source: PromptSource;
+  confidence: number;      // 0-1; evolved prompts start at 0.5
+  tags: string[];
+  usageCount: number;
+  successRate: number;     // 0-1; updated by evolver from phase observations
+  minedFrom?: string;      // source URL when source='mined'
+  evolvedFrom?: string;    // parent template id when source='evolved'
+}
+
+export interface PromptOutcome {
+  templateId: string;
+  phase: string;
+  outcome: 'success' | 'failure';
+  retryCount: number;
+  durationMs: number;
+  timestamp: string;
+}
+
+export interface ComposedPrompt {
+  systemPrompt: string;
+  activeTemplateIds: string[];
+  phaseOverride?: string;
 }
 
 // Harness Types
@@ -308,6 +361,28 @@ export interface HarnessCheck {
   status: HarnessCheckStatus;
   message: string;
   duration: number;
+}
+
+export type CritiqueLens = 'edge_cases' | 'security' | 'cleanup' | 'invariants' | 'coverage_gaps';
+export type FindingSeverity = 'critical' | 'high' | 'medium' | 'low';
+export type FindingCategory = 'edge_case' | 'security' | 'cleanup' | 'invariant' | 'coverage' | 'synthetic';
+export type CritiqueVerdict = 'pass' | 'warn' | 'fail';
+
+export interface CritiqueFinding {
+  lens: CritiqueLens;
+  category: FindingCategory;
+  severity: FindingSeverity;
+  message: string;
+  line?: number;
+}
+
+export interface CritiqueReport {
+  timestamp: string;
+  findings: CritiqueFinding[];
+  score: number;
+  verdict: CritiqueVerdict;
+  blocksHarness: boolean;
+  summary: string;
 }
 
 export interface HarnessReport {

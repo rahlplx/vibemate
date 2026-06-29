@@ -319,11 +319,42 @@ function renderSettings() {
       <div class="metric-row"><span class="metric-label">OKF Bundle</span><span class="metric-value">.vibe/okf/</span></div>
       <div class="metric-row"><span class="metric-label">MCP Config</span><span class="metric-value">.mcp.json</span></div>
     </div>
-    <div class="card">
+    <div class="card" style="margin-bottom:24px">
       <div class="card-header"><span class="card-title">Cache Management</span></div>
       <button class="btn" onclick="clearCache()">Clear Cache</button>
     </div>
+    <div class="card">
+      <div class="card-header"><span class="card-title">Vibemate Doctor</span></div>
+      <p class="card-subtitle" style="margin-bottom:16px">Run a full system health check across all subsystems</p>
+      <button class="btn btn-primary" onclick="runDoctor()">Run Health Check</button>
+      <div id="doctor-result" style="margin-top:16px"></div>
+    </div>
   `;
+}
+
+function escapeHTML(str) {
+  return String(str).replace(/[&<>'"\/]/g,
+    tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;', '/': '&#x2F;' }[tag] || tag)
+  );
+}
+
+async function runDoctor() {
+  const el = $('#doctor-result');
+  if (el) el.innerHTML = '<p class="card-subtitle">Checking...</p>';
+  const data = await fetchJSON('/doctor');
+  if (!data || !el) return toast('Health check failed');
+  const statusClass = data.status === 'healthy' ? 'success' : 'warning';
+  const icon = data.status === 'healthy' ? '✓' : '⚠';
+  el.innerHTML =
+    '<div style="margin-bottom:12px">' +
+    '  <span class="badge badge-' + statusClass + '">' + icon + ' ' + escapeHTML((data.status || 'unknown').toUpperCase()) + '</span>' +
+    '</div>' +
+    (data.checks || []).map(ch =>
+      '<div class="metric-row">' +
+      '  <span class="metric-label">' + escapeHTML(ch.name) + '</span>' +
+      '  <span class="badge badge-' + (ch.ok ? 'success' : 'danger') + '">' + escapeHTML(ch.detail) + '</span>' +
+      '</div>'
+    ).join('');
 }
 
 async function clearCache() {
@@ -373,3 +404,28 @@ setInterval(async () => {
     badge.className = 'status-badge error';
   }
 }, 10000);
+
+// Real-time SSE updates
+let _pipelinePhase = null;
+let _spanCount = 0;
+const _evtSource = new EventSource('/events');
+
+_evtSource.addEventListener('pipeline_state', (e) => {
+  try {
+    const state = JSON.parse(e.data);
+    if (state.phase !== _pipelinePhase) {
+      _pipelinePhase = state.phase;
+      if (currentPage === 'dashboard') navigate('dashboard');
+    }
+  } catch { /* ignore malformed */ }
+});
+
+_evtSource.addEventListener('telemetry_span', () => {
+  _spanCount++;
+  if (currentPage === 'telemetry') navigate('telemetry');
+});
+
+_evtSource.onerror = () => {
+  const badge = $('#status-badge');
+  if (badge) { badge.textContent = 'Reconnecting'; badge.className = 'status-badge error'; }
+};

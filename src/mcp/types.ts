@@ -28,8 +28,10 @@ export interface ToolDefinition {
   inputSchema: {
     type: 'object';
     properties: Record<string, unknown>;
-    required: string[];
+    required?: string[];
   };
+  /** Minimum subscription tier required to call this tool. Defaults to 'free'. */
+  minTier?: 'free' | 'pro' | 'team' | 'enterprise';
 }
 
 export interface ToolHandler {

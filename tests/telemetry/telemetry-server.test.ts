@@ -84,4 +84,59 @@ describe('TelemetryServer — MCP integration wrapper', () => {
   it('handleResourceRead unknown URI throws', async () => {
     await expect(server.handleResourceRead('bad://uri')).rejects.toThrow('Unknown resource');
   });
+
+  it('record_sub_agent returns SubAgentSpan shape', async () => {
+    // Create a parent span first so parentSpanId is valid
+    const parent = await server.handleToolCall('record_agent_turn', {
+      agentId: 'parent', model: 'claude-haiku', inputTokens: 10, outputTokens: 5, cost: 0.0001
+    }) as Record<string, unknown>;
+    const result = await server.handleToolCall('record_sub_agent', {
+      parentSpanId: parent.spanId,
+      childAgentId: 'child-agent',
+      model: 'claude-haiku',
+    }) as Record<string, unknown>;
+    expect(result.childAgentId).toBe('child-agent');
+    expect(result.model).toBe('claude-haiku');
+    expect(result.name).toBe('agent.sub_agent');
+  });
+
+  it('export_deep_learning returns { exported: true, records: number }', async () => {
+    const dir = `/tmp/test-telemetry-server/dl-export-${Date.now()}`;
+    const result = await server.handleToolCall('export_deep_learning', { outputPath: dir }) as Record<string, unknown>;
+    expect(result.exported).toBe(true);
+    expect(typeof result.records).toBe('number');
+  });
+});
+
+// ─── TelemetryCollector — subscribe() and persistence path ───────────────────
+
+describe('TelemetryCollector — subscribe / unsubscribe', () => {
+  it('subscribe() receives spans as they are added', async () => {
+    const { collector } = makeServer();
+    const received: unknown[] = [];
+    const unsub = collector.subscribe(span => received.push(span));
+    await collector.recordToolCall('my-tool', {}, {}, 10, true);
+    expect(received.length).toBeGreaterThan(0);
+    unsub();
+  });
+
+  it('unsubscribe() stops delivery of subsequent spans', async () => {
+    const { collector } = makeServer();
+    const received: unknown[] = [];
+    const unsub = collector.subscribe(span => received.push(span));
+    unsub();
+    await collector.recordToolCall('after-unsub', {}, {}, 10, true);
+    expect(received.length).toBe(0);
+  });
+
+  it('multiple subscribers all receive the same span', async () => {
+    const { collector } = makeServer();
+    const a: unknown[] = [], b: unknown[] = [];
+    const u1 = collector.subscribe(s => a.push(s));
+    const u2 = collector.subscribe(s => b.push(s));
+    await collector.recordToolCall('multi', {}, {}, 5, true);
+    expect(a.length).toBeGreaterThan(0);
+    expect(b.length).toBe(a.length);
+    u1(); u2();
+  });
 });

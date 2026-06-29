@@ -1,7 +1,24 @@
 // Cost-Aware Dynamic Routing - Route tasks to optimal model based on complexity
-import { ComplexityLevel, RoutingDecision, CloudProvider } from '../types.js';
+import { ComplexityLevel, RoutingDecision, CloudProvider, AutoPhase } from '../types.js';
 import { VibemateExtendedConfig } from '../shared/config.js';
 import { ObservationEngine } from '../improve/observation.js';
+
+// Default model tier per pipeline phase — drives phase-aware routing
+const PHASE_MODEL_TIER: Record<AutoPhase, ComplexityLevel> = {
+  think:   'high',
+  review:  'high',
+  plan:    'medium',
+  design:  'medium',
+  break:   'medium',
+  build:    'medium',
+  critique: 'low',
+  harness:  'low',
+  qa:      'low',
+  ship:    'low',
+  retro:   'low',
+  learn:   'low',
+  done:    'low',
+};
 
 // Model configurations with pricing (June 2026)
 const MODEL_CONFIGS: Record<string, {
@@ -98,6 +115,8 @@ interface ComplexityCriteria {
   hasDependencies: boolean;
   isRefactoring: boolean;
   requiresSecurity: boolean;
+  phase?: AutoPhase;
+  observationScore?: number;
 }
 
 export class CostAwareRouter {
@@ -169,6 +188,21 @@ export class CostAwareRouter {
     const score = this.calculateComplexity(criteria);
     let level = this.getComplexityLevel(score);
 
+    // Phase-aware routing sets a minimum tier; highly complex tasks may still escalate higher
+    if (criteria.phase && criteria.phase !== 'done') {
+      const phaseLevel = PHASE_MODEL_TIER[criteria.phase];
+      const levelOrder: Record<string, number> = { low: 0, medium: 1, high: 2 };
+      if (levelOrder[phaseLevel] > levelOrder[level]) {
+        level = phaseLevel;
+      }
+    }
+
+    // Escalate one tier if observation score from previous phase was poor (< 0.5)
+    if (criteria.observationScore !== undefined && criteria.observationScore < 0.5) {
+      if (level === 'low') level = 'medium';
+      else if (level === 'medium') level = 'high';
+    }
+
     // Escalate if ObservationEngine reports 3+ recent high-confidence failures
     if (level === 'low' && this.observationEngine) {
       const recentFailures = this.observationEngine.getInsights(0.9)
@@ -222,7 +256,9 @@ export class CostAwareRouter {
       provider: this.modelConfigs[selectedModel].provider,
       estimatedCost,
       reason,
-      contextWindow: this.modelConfigs[selectedModel].maxTokens
+      contextWindow: this.modelConfigs[selectedModel].maxTokens,
+      phase: criteria.phase,
+      observationScore: criteria.observationScore,
     };
   }
 

@@ -1,0 +1,55 @@
+name: Mine OSS Repos
+
+on:
+  schedule:
+    # Every Sunday at 02:00 UTC
+    - cron: '0 2 * * 0'
+  workflow_dispatch:
+    inputs:
+      depth:
+        description: 'Number of commits to analyze per repo'
+        default: '100'
+        required: false
+
+jobs:
+  mine:
+    name: Mine OSS Best Practices
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build
+        run: bun run build
+
+      - name: Mine high-priority OSS repos
+        run: |
+          node dist/cli/index.js mine https://github.com/modelcontextprotocol/typescript-sdk --depth ${{ github.event.inputs.depth || '100' }} || true
+          node dist/cli/index.js mine https://github.com/honojs/hono --depth ${{ github.event.inputs.depth || '100' }} || true
+          node dist/cli/index.js mine https://github.com/colinhacks/zod --depth ${{ github.event.inputs.depth || '100' }} || true
+          node dist/cli/index.js mine https://github.com/sindresorhus/execa --depth ${{ github.event.inputs.depth || '100' }} || true
+        env:
+          CI: true
+
+      - name: Run weekly EvolveAgent reflection
+        run: node dist/cli/index.js evolve --cron || true
+        env:
+          CI: true
+
+      - name: Commit learnings if changed
+        run: |
+          git config user.name "vibemate-bot"
+          git config user.email "bot@vibemate.ai"
+          git add .vibe/learnings/ .vibe/evolution-state.json || true
+          git diff --staged --quiet || git commit -m "chore(learnings): weekly OSS mining + EvolveAgent reflection [skip ci]"
+          git push || true

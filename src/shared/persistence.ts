@@ -255,7 +255,7 @@ export class GovernanceStore {
     details?: Record<string, unknown>;
   }): Promise<void> {
     this.adapter.prepare(
-      'INSERT INTO governance_audit_log (id, user_id, action, resource, timestamp, success, details) VALUES (?, ?, ?, ?, ?, ?, ?)'
+      'INSERT OR IGNORE INTO governance_audit_log (id, user_id, action, resource, timestamp, success, details) VALUES (?, ?, ?, ?, ?, ?, ?)'
     ).run(entry.id, entry.userId, entry.action, entry.resource, entry.timestamp.toISOString(), entry.success ? 1 : 0, entry.details ? JSON.stringify(entry.details) : null);
   }
 

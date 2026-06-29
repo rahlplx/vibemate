@@ -197,4 +197,107 @@ app.get('/api/status', async (c) => {
   });
 });
 
+// SSE endpoint — pushes telemetry_span events and pipeline_state events
+app.get('/events', (_c) => {
+  const statePath = path.join(ROOT, '.vibe', 'state.json');
+  let stateInterval: ReturnType<typeof setInterval> | undefined;
+  let unsubscribe: (() => void) | undefined;
+
+  const stream = new ReadableStream({
+    start(controller) {
+      const enc = new TextEncoder();
+
+      unsubscribe = telemetry.subscribe((span) => {
+        try {
+          controller.enqueue(enc.encode(`event: telemetry_span\ndata: ${JSON.stringify(span)}\n\n`));
+        } catch {
+          unsubscribe?.();
+          if (stateInterval) {
+            clearInterval(stateInterval);
+            stateInterval = undefined;
+          }
+        }
+      });
+
+      stateInterval = setInterval(async () => {
+        try {
+          const raw = await fs.promises.readFile(statePath, 'utf-8');
+          try {
+            controller.enqueue(enc.encode(`event: pipeline_state\ndata: ${raw.trim()}\n\n`));
+          } catch {
+            if (stateInterval) clearInterval(stateInterval);
+            unsubscribe?.();
+          }
+        } catch { /* no state file yet — skip */ }
+      }, 1000);
+    },
+    cancel() {
+      unsubscribe?.();
+      if (stateInterval) clearInterval(stateInterval);
+    },
+  });
+
+  return new Response(stream, {
+    headers: {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+      'Access-Control-Allow-Origin': '*',
+    },
+  });
+});
+
+// Vibemate Doctor — parallel health check across all subsystems
+app.get('/api/doctor', async (c) => {
+  const statePath = path.join(ROOT, '.vibe', 'state.json');
+
+  const checks = await Promise.allSettled([
+    Promise.resolve().then(() => ({
+      name: 'database',
+      ok: store.listProjects() !== undefined,
+      detail: 'SQLite WAL connected',
+    })),
+    Promise.resolve().then(() => {
+      const m = telemetry.getMetrics();
+      return { name: 'telemetry', ok: true, detail: `cost $${m.totalCost.toFixed(4)}, ${m.errorRate === 0 ? 'no errors' : `err rate ${(m.errorRate * 100).toFixed(1)}%`}` };
+    }),
+    Promise.resolve().then(() => {
+      const log = governance.getAuditLog();
+      return { name: 'governance', ok: true, detail: `${log.length} audit entries` };
+    }),
+    Promise.resolve().then(() => {
+      const s = cache.getStats();
+      return { name: 'cache', ok: true, detail: `${s.size} entries, ${(s.hitRate * 100).toFixed(1)}% hit rate` };
+    }),
+    Promise.resolve().then(() => {
+      const b = router.getBudgetStatus();
+      const remaining = typeof b.remaining === 'number' ? `$${b.remaining.toFixed(2)} remaining` : 'budget ok';
+      return { name: 'router', ok: true, detail: remaining };
+    }),
+    fs.promises.readFile(statePath, 'utf-8')
+      .then(raw => {
+        try {
+          const parsed = JSON.parse(raw) as { phase?: string };
+          return { name: 'pipeline', ok: true, detail: `phase: ${parsed.phase ?? 'unknown'}` };
+        } catch (err) {
+          return { name: 'pipeline', ok: false, detail: `Malformed state file: ${err instanceof Error ? err.message : String(err)}` };
+        }
+      })
+      .catch((err: NodeJS.ErrnoException) => {
+        if (err.code === 'ENOENT') return { name: 'pipeline', ok: true, detail: 'idle (no state file)' };
+        return { name: 'pipeline', ok: false, detail: `Failed to read state file: ${err.message}` };
+      }),
+  ]);
+
+  const checkNames = ['database', 'telemetry', 'governance', 'cache', 'router', 'pipeline'];
+  const results = checks.map((r, i) =>
+    r.status === 'fulfilled'
+      ? r.value
+      : { name: checkNames[i] ?? 'unknown', ok: false, detail: String((r as PromiseRejectedResult).reason) }
+  );
+  const allOk = results.every(r => r.ok);
+
+  return c.json({ status: allOk ? 'healthy' : 'degraded', checks: results });
+});
+
 export { app };
