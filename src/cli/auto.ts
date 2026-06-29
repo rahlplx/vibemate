@@ -173,6 +173,16 @@ async function runAutoPipeline(description: string, options: AutoOptions): Promi
     if (checkCircuitBreaker(circuitBreaker)) {
       console.log('\n⚠️  Circuit breaker triggered!\n');
       printCircuitBreakerSummary(circuitBreaker);
+      // Feed circuit breaker failure into EvolveAgent so rules adapt to the failure pattern
+      const cbFailRate = circuitBreaker.consecutiveFailures / Math.max(circuitBreaker.maxFailures, 1);
+      const cbRules = await selfImprovement.midRunEvolve({
+        failureRate: cbFailRate,
+        averageReward: 1 - cbFailRate,
+        stuckDetections: circuitBreaker.consecutiveFailures,
+      });
+      if (cbRules.length > 0) {
+        console.log(`🧠 Circuit breaker: EvolveAgent generated ${cbRules.length} rule(s) from failure pattern`);
+      }
       break;
     }
 
@@ -294,6 +304,13 @@ async function runAutoPipeline(description: string, options: AutoOptions): Promi
       if (anomalies.some(a => a.severity === 'critical')) {
         console.log(`\n⚠️  Telemetry: critical anomaly detected (${anomalies.filter(a => a.severity === 'critical').map(a => a.type).join(', ')})`);
         circuitBreaker.consecutiveFailures++;
+        // Feed telemetry error rate into EvolveAgent so anomaly patterns generate adaptive rules
+        const metrics = telemetryCollector.getMetrics();
+        await selfImprovement.midRunEvolve({
+          failureRate: metrics.errorRate,
+          averageReward: 1 - metrics.errorRate,
+          stuckDetections: metrics.stuckDetections,
+        });
       }
     }
 

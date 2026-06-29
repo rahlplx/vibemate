@@ -140,6 +140,47 @@ describe('QuestionTree', () => {
       expect(next).toBeDefined();
       expect(next!.nodeId).toBe('only-branch');
     });
+
+    it('returns null when no matching child and no fallback exists', () => {
+      const tree: QuestionTree = {
+        root: {
+          id: 'root',
+          questionId: 'saas-purpose',
+          children: [],
+        },
+        questionMap: new Map([
+          ['saas-purpose', getQuestionById('saas-purpose')!],
+        ]),
+      };
+      // Root has no children; already answered → path complete → null
+      const answers: TreeAnswer[] = [
+        { questionId: 'saas-purpose', value: 'productivity' },
+      ];
+      const next = getNextQuestion(tree, answers);
+      expect(next).toBeNull();
+    });
+
+    it('returns null when current node questionId is missing from questionMap', () => {
+      const tree: QuestionTree = {
+        root: {
+          id: 'root',
+          questionId: 'missing-question-id',
+          children: [],
+        },
+        questionMap: new Map(),
+      };
+      const next = getNextQuestion(tree, []);
+      expect(next).toBeNull();
+    });
+  });
+
+  describe('buildTree edge cases', () => {
+    it('produces a tree for unknown type using empty question set', () => {
+      // 'unknown-type' has no questions; root questionId should be 'unknown'
+      const tree = buildTree('unknown-type-xyz');
+      expect(tree).toBeDefined();
+      expect(tree.root).toBeDefined();
+    });
   });
 
   describe('getAllQuestions', () => {

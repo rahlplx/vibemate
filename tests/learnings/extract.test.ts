@@ -89,4 +89,56 @@ describe("extractData", () => {
     const data = extractData(TEST_DIR)
     expect(data.dependencies.unused).toContain("lodash")
   })
+
+  it("returns valid metrics", () => {
+    const data = extractData(TEST_DIR)
+    expect(data.metrics.fileCount).toBeGreaterThan(0)
+    expect(data.metrics.totalLOC).toBeGreaterThan(0)
+  })
+
+  it("detects async patterns (async iterator)", () => {
+    writeFileSync(join(TEST_DIR, "streaming.ts"), `
+export async function* generateItems() {
+  for await (const item of getStream()) {
+    yield item
+  }
+}
+`)
+    const data = extractData(TEST_DIR)
+    expect(data.asyncPatterns).toContain("async-iterator")
+  })
+
+  it("detects security patterns (api key and auth)", () => {
+    writeFileSync(join(TEST_DIR, "auth.ts"), `
+const apiKey = process.env.ANTHROPIC_API_KEY
+const bearer = request.headers.authorization
+`)
+    const data = extractData(TEST_DIR)
+    expect(data.security.apiKeyHandling).toBe(true)
+    expect(data.security.authPatterns.length).toBeGreaterThan(0)
+  })
+
+  it("detects monorepo from package.json workspaces", () => {
+    writeFileSync(join(TEST_DIR, "package.json"), JSON.stringify({
+      name: "monorepo-root",
+      workspaces: ["packages/*"],
+      devDependencies: { vitest: "^1.0.0" },
+    }))
+    const data = extractData(TEST_DIR)
+    expect(data.monorepo.isMonorepo).toBe(true)
+  })
+
+  it("detects test organization with unit tests directory", () => {
+    const unitDir = join(TEST_DIR, "tests", "unit")
+    mkdirSync(unitDir, { recursive: true })
+    writeFileSync(join(unitDir, "foo.test.ts"), `describe("foo", () => {})`)
+    const data = extractData(TEST_DIR)
+    expect(data.testOrg.hasUnitTests).toBe(true)
+    expect(data.testOrg.totalTestFiles).toBeGreaterThan(0)
+  })
+
+  it("api surface counts exported functions and types", () => {
+    const data = extractData(TEST_DIR)
+    expect(data.apiSurface.totalExports).toBeGreaterThan(0)
+  })
 })

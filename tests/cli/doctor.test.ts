@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
-import { runDoctor, type DoctorCheck } from '../../src/cli/doctor.js';
+import { runDoctor, formatDoctorResults, type DoctorCheck } from '../../src/cli/doctor.js';
 
 let root: string;
 
@@ -94,5 +94,47 @@ describe('runDoctor', () => {
     const results = await runDoctor(root);
     const check = results.find(r => r.name === 'MCP config');
     expect(check?.status).toBe('warn');
+  });
+
+  it('reports pass for state.db when it exists', async () => {
+    mkdirSync(join(root, '.vibe'), { recursive: true });
+    writeFileSync(join(root, '.vibe', 'state.db'), '');
+    const results = await runDoctor(root);
+    const check = results.find(r => r.name === 'State DB');
+    expect(check?.status).toBe('pass');
+  });
+});
+
+describe('formatDoctorResults', () => {
+  it('returns all-pass summary when every check passes', () => {
+    const results: DoctorCheck[] = [
+      { name: 'Check A', status: 'pass', message: 'OK' },
+      { name: 'Check B', status: 'pass', message: 'Fine' },
+    ];
+    const output = formatDoctorResults(results);
+    expect(output).toContain('All checks passed.');
+    expect(output).toContain('✅');
+  });
+
+  it('returns issue count when some checks fail or warn', () => {
+    const results: DoctorCheck[] = [
+      { name: 'Check A', status: 'pass', message: 'OK' },
+      { name: 'Check B', status: 'warn', message: 'Missing' },
+      { name: 'Check C', status: 'fail', message: 'Error' },
+    ];
+    const output = formatDoctorResults(results);
+    expect(output).toContain('2 issue(s) found.');
+    expect(output).toContain('⚠️');
+    expect(output).toContain('❌');
+  });
+
+  it('formats each check on its own line with padded name', () => {
+    const results: DoctorCheck[] = [
+      { name: 'Short', status: 'pass', message: 'Good' },
+    ];
+    const output = formatDoctorResults(results);
+    const lines = output.split('\n').filter(l => l.trim());
+    expect(lines.some(l => l.includes('Short'))).toBe(true);
+    expect(lines.some(l => l.includes('Good'))).toBe(true);
   });
 });

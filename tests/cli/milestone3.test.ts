@@ -227,3 +227,52 @@ describe('RequirementsTracker BREAK phase integration', () => {
     expect(activeMusts[0].title).toBe('Active req');
   });
 });
+
+// ─── Circuit breaker → midRunEvolve (Tier 3) ────────────────────────────────
+
+describe('circuit breaker → midRunEvolve integration', () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = mkdtempSync(join(tmpdir(), 'vibemate-m3-cb-'));
+  });
+
+  afterEach(() => {
+    rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('midRunEvolve with circuit-breaker-style metrics generates rules', async () => {
+    const okf = new OKFGenerator(tmpDir);
+    const orchestrator = new SelfImprovementOrchestrator(okf);
+    await orchestrator.init();
+
+    // Simulate max failures hit: failureRate = consecutiveFailures / maxFailures = 3/3 = 1.0
+    const rules = await orchestrator.midRunEvolve({
+      failureRate: 1.0,
+      averageReward: 0.0,
+      stuckDetections: 3,
+    });
+
+    expect(Array.isArray(rules)).toBe(true);
+    expect(rules.length).toBeGreaterThan(0);
+    // High failure rate → escalate action expected
+    const hasEscalate = rules.some(r => r.action.toLowerCase().includes('escalate') || r.action.toLowerCase().includes('retry'));
+    expect(hasEscalate).toBe(true);
+  });
+
+  it('midRunEvolve with anomaly-style metrics (errorRate → failureRate) generates rules', async () => {
+    const okf = new OKFGenerator(tmpDir);
+    const orchestrator = new SelfImprovementOrchestrator(okf);
+    await orchestrator.init();
+
+    // Simulate what happens when getMetrics().errorRate = 0.7
+    const rules = await orchestrator.midRunEvolve({
+      failureRate: 0.7,
+      averageReward: 0.3,
+      stuckDetections: 1,
+    });
+
+    expect(Array.isArray(rules)).toBe(true);
+    expect(rules.length).toBeGreaterThan(0);
+  });
+});
