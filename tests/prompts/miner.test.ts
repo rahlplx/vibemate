@@ -42,7 +42,7 @@ describe('PromptMiner — score()', () => {
 describe('PromptMiner — mine() (no network)', () => {
   it('returns PromptTemplate objects with required fields', async () => {
     const miner = new PromptMiner();
-    const results = await miner.mine({ techStack: ['typescript'] });
+    const results = await miner.mine({ techStack: ['typescript'], sources: [] });
     expect(results.length).toBeGreaterThan(0);
     for (const r of results) {
       expect(typeof r.template.id).toBe('string');
@@ -55,20 +55,20 @@ describe('PromptMiner — mine() (no network)', () => {
 
   it('respects maxResults', async () => {
     const miner = new PromptMiner();
-    const results = await miner.mine({ maxResults: 2 });
+    const results = await miner.mine({ maxResults: 2, sources: [] });
     expect(results.length).toBeLessThanOrEqual(2);
   });
 
   it('filters by minRelevance when techStack is provided', async () => {
     const miner = new PromptMiner();
     // With a very high minRelevance threshold, some may be excluded
-    const results = await miner.mine({ techStack: ['typescript'], minRelevance: 9999 });
+    const results = await miner.mine({ techStack: ['typescript'], minRelevance: 9999, sources: [] });
     expect(results.length).toBe(0);
   });
 
   it('mined templates start below built-in confidence (< 0.80)', async () => {
     const miner = new PromptMiner();
-    const results = await miner.mine({ techStack: ['typescript'] });
+    const results = await miner.mine({ techStack: ['typescript'], sources: [] });
     for (const r of results) {
       expect(r.template.confidence).toBeLessThan(0.80);
     }
@@ -76,10 +76,10 @@ describe('PromptMiner — mine() (no network)', () => {
 
   it('generates unique ids for each result', async () => {
     const miner = new PromptMiner();
-    // Run twice — ids should differ due to timestamp
-    const r1 = await miner.mine({ maxResults: 5 });
+    // Run twice — ids should differ due to timestamp or index suffix
+    const r1 = await miner.mine({ maxResults: 5, sources: [] });
     await new Promise(r => setTimeout(r, 2));
-    const r2 = await miner.mine({ maxResults: 5 });
+    const r2 = await miner.mine({ maxResults: 5, sources: [] });
     const ids1 = new Set(r1.map(r => r.template.id));
     const ids2 = new Set(r2.map(r => r.template.id));
     // Ids from separate calls should not overlap (timestamp-based)

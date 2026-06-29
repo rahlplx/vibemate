@@ -125,8 +125,18 @@ export function parseAndValidate<K extends OutputSchemaName>(
   return validateLLMOutput(parsed, schemaName);
 }
 
-/** Extract the first JSON object from an LLM response that may contain prose + JSON. */
+/** Extract the first complete JSON object from an LLM response that may contain prose + JSON. */
 export function extractJSON(text: string): string | null {
-  const match = text.match(/\{[\s\S]*\}/);
-  return match ? match[0] : null;
+  let start = -1;
+  let depth = 0;
+  for (let i = 0; i < text.length; i++) {
+    if (text[i] === '{') {
+      if (depth === 0) start = i;
+      depth++;
+    } else if (text[i] === '}') {
+      depth--;
+      if (depth === 0 && start !== -1) return text.slice(start, i + 1);
+    }
+  }
+  return null;
 }

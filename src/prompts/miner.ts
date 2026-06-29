@@ -7,8 +7,16 @@
 // Design: graceful degradation — if network unavailable, returns an empty array with no throw.
 // BM25Store from embeddings.ts used for relevance scoring (zero extra deps).
 
+import { z } from 'zod';
 import type { PromptTemplate, PromptCategory } from '../types.js';
 import { BM25Store } from '../context/embeddings.js';
+
+const MineSourceEntrySchema = z.object({
+  title: z.string(),
+  content: z.string(),
+  category: z.string().optional(),
+  tags: z.array(z.string()).optional(),
+});
 
 // ─── Curated trusted sources ──────────────────────────────────────────────────
 // Each source is a JSON endpoint returning PromptMineSource[].
@@ -153,7 +161,7 @@ export class PromptMiner {
   } = {}): Promise<MinedResult[]> {
     const {
       techStack = [],
-      sources = [],
+      sources = CURATED_SOURCES,
       minRelevance = 0,
       maxResults = 20,
       baseConfidence = 0.6,
@@ -170,11 +178,12 @@ export class PromptMiner {
           signal: AbortSignal.timeout?.(5000),
         });
         if (!res.ok) continue;
-        const data = await res.json() as MineSourceEntry[];
+        const data: unknown = await res.json();
         if (!Array.isArray(data)) continue;
         for (const entry of data) {
-          if (typeof entry.content === 'string' && typeof entry.title === 'string') {
-            allEntries.push({ ...entry, sourceUrl: src.url, trustScore: src.trustScore });
+          const parsed = MineSourceEntrySchema.safeParse(entry);
+          if (parsed.success) {
+            allEntries.push({ ...parsed.data, sourceUrl: src.url, trustScore: src.trustScore });
           }
         }
       } catch { /* network unavailable or timeout — skip gracefully */ }
@@ -190,7 +199,7 @@ export class PromptMiner {
 
       results.push({
         template: {
-          id: `mined-${slugify(entry.title)}-${Date.now()}`,
+          id: `mined-${slugify(entry.title)}-${Date.now()}-${results.length}`,
           name: entry.title,
           category: (entry.category as PromptCategory) ?? 'role',
           content: entry.content,

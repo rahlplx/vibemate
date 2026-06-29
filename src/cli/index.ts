@@ -494,6 +494,7 @@ program
   });
 
 // ─── vibemate prompts ─────────────────────────────────────────────────────────
+import { z } from 'zod';
 import { PromptRegistry } from '../prompts/registry.js';
 import { PromptEvolver } from '../prompts/evolver.js';
 import { PromptMiner } from '../prompts/miner.js';
@@ -501,15 +502,24 @@ import { loadConfig } from '../shared/config.js';
 import { createNodeAdapter } from '../context/embeddings.js';
 import { RequirementsTracker, type MoSCoWTier } from '../shared/requirements-tracker.js';
 
+const MoSCoWTierEnum = z.enum(['must', 'should', 'could', 'wont']);
+const RequirementStatusEnum = z.enum(['active', 'delivered', 'deferred', 'dropped']);
+const RequirementSourceEnum = z.enum(['user', 'llm-inferred', 'code-analysis', 'test-failure', 'evidence']);
+
 const prompts = program.command('prompts').description('Manage system prompts and auto-evolution');
 
 prompts
   .command('list')
   .description('List all prompt templates in the registry')
   .option('--category <cat>', 'Filter by category (role, domain, framework, security, testing, evolved, org)')
+  .option('--dir <path>', 'Project root', process.cwd())
   .option('--json', 'Output as JSON')
-  .action((options) => {
-    const registry = new PromptRegistry();
+  .action(async (options) => {
+    const vibeDir = join(options.dir, '.vibe');
+    const adapter = createNodeAdapter();
+    const evolver = new PromptEvolver({ adapter });
+    const storeKey = join(vibeDir, 'prompts', 'registry.json');
+    const registry = (await evolver.load(storeKey)) ?? new PromptRegistry();
     const list = registry.list(options.category);
     if (options.json) {
       console.log(JSON.stringify(list, null, 2));
@@ -529,9 +539,13 @@ prompts
   .description('Preview the composed system prompt for a phase')
   .option('--phase <phase>', 'Phase to preview (think, plan, build, …)')
   .option('--dir <path>', 'Project root', process.cwd())
-  .action((options) => {
+  .action(async (options) => {
     const config = loadConfig(options.dir);
-    const registry = new PromptRegistry();
+    const vibeDir = join(options.dir, '.vibe');
+    const adapter = createNodeAdapter();
+    const evolver = new PromptEvolver({ adapter });
+    const storeKey = join(vibeDir, 'prompts', 'registry.json');
+    const registry = (await evolver.load(storeKey)) ?? new PromptRegistry();
     const composed = registry.compose({
       activeRoleIds: config.promptRoles ?? [],
       systemPrompt: config.systemPrompt,
@@ -622,7 +636,9 @@ prompts
       const vibeDir = join(options.dir, '.vibe');
       const adapter = createNodeAdapter();
       const evolver = new PromptEvolver({ adapter });
-      const storeKey = join(vibeDir, 'prompts', 'registry.json');
+      const promptDir = join(vibeDir, 'prompts');
+      await adapter.ensureDir(promptDir);
+      const storeKey = join(promptDir, 'registry.json');
       const registry = (await evolver.load(storeKey)) ?? new PromptRegistry();
       for (const r of results) registry.add(r.template);
       await evolver.persist(registry, storeKey);
@@ -651,7 +667,11 @@ requirements
       tracker = new RequirementsTracker();
     }
 
-    const reqs = tracker.list(options.tier as MoSCoWTier | undefined, options.status as any);
+    const tierParsed = options.tier ? MoSCoWTierEnum.safeParse(options.tier) : { success: true as const, data: undefined };
+    if (!tierParsed.success) { console.error(`Invalid --tier: ${options.tier}. Must be one of: must, should, could, wont`); process.exit(1); }
+    const statusParsed = options.status ? RequirementStatusEnum.safeParse(options.status) : { success: true as const, data: undefined };
+    if (!statusParsed.success) { console.error(`Invalid --status: ${options.status}. Must be one of: active, delivered, deferred, dropped`); process.exit(1); }
+    const reqs = tracker.list(tierParsed.data, statusParsed.data);
     if (options.json) { console.log(JSON.stringify(reqs, null, 2)); return; }
 
     const stats = tracker.getStats();
@@ -695,13 +715,17 @@ requirements
       tracker = new RequirementsTracker();
     }
 
+    const tierResult = MoSCoWTierEnum.safeParse(options.tier);
+    if (!tierResult.success) { console.error(`Invalid --tier: ${options.tier}. Must be one of: must, should, could, wont`); process.exit(1); }
+    const sourceResult = RequirementSourceEnum.safeParse(options.source);
+    if (!sourceResult.success) { console.error(`Invalid --source: ${options.source}. Must be one of: user, llm-inferred, code-analysis, test-failure, evidence`); process.exit(1); }
     const req = tracker.add({
-      tier: options.tier as MoSCoWTier,
+      tier: tierResult.data,
       title: options.title,
       rationale: options.rationale,
       persona: options.persona,
       context: options.context,
-      source: options.source as any,
+      source: sourceResult.data,
       tags: options.tags ? options.tags.split(',').map((t: string) => t.trim()).filter(Boolean) : [],
       status: 'active',
     });

@@ -10,6 +10,8 @@ import type { PromptTemplate, PromptOutcome } from '../types.js';
 import { PromptRegistry } from './registry.js';
 import type { StorageAdapter } from '../context/embeddings.js';
 
+import { z } from 'zod';
+
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const MIN_SAMPLES_TO_EVOLVE = 10;
@@ -22,7 +24,7 @@ const HEURISTIC_SUFFIXES: Record<string, string> = {
   role:      'Be concise and precise. Prefer the simplest solution that satisfies requirements.',
   testing:   'Run all tests after every change. Never skip a failing test — fix the root cause.',
   security:  'When in doubt, reject input. Fail closed, not open.',
-  domain:    'Validate assumptions early. Document non-obvious decisions with a single line comment.',
+  domain:    'Validate assumptions early. Make non-obvious constraints explicit in names, structure, and tests.',
   framework: 'Prefer the platform\'s native APIs over third-party abstractions when equivalent.',
   evolved:   'Incorporate lessons from past failures. Bias toward proven patterns.',
   org:       'Follow team conventions documented in CLAUDE.md and vibemate.config.json.',
@@ -74,7 +76,9 @@ export class PromptEvolver {
         'CURRENT PROMPT:',
         template.content,
       ].join('\n');
-      evolvedContent = await this.llmFn(llmPrompt);
+      const raw = await this.llmFn(llmPrompt);
+      const parsed = z.string().trim().min(1).max(4000).safeParse(raw);
+      evolvedContent = parsed.success ? parsed.data : heuristicMutate(template);
     } else {
       evolvedContent = heuristicMutate(template);
     }
@@ -131,7 +135,13 @@ export class PromptEvolver {
     try {
       const raw = await this.adapter.read(key);
       return PromptRegistry.fromJSON(JSON.parse(raw));
-    } catch { return null; }
+    } catch (e) {
+      const code = (e as { code?: string }).code;
+      if (code === 'ENOENT') return null;
+      const msg = e instanceof Error ? e.message : String(e);
+      if (msg.toLowerCase().includes('not found') || msg.includes('no such file')) return null;
+      throw e;
+    }
   }
 }
 

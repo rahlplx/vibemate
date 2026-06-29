@@ -34,8 +34,11 @@ export interface RequirementStats {
 
 let _seq = 0;
 function nextId(): string {
-  // Compact unique id: timestamp-hex + counter; no crypto dep needed
   return `req-${Date.now().toString(36)}-${(++_seq).toString(36)}`;
+}
+
+function cloneReq(req: Requirement): Requirement {
+  return { ...req, tags: [...req.tags] };
 }
 
 const TIER_ORDER: MoSCoWTier[] = ['must', 'should', 'could', 'wont'];
@@ -45,18 +48,18 @@ export class RequirementsTracker {
 
   add(input: Omit<Requirement, 'id' | 'addedAt' | 'updatedAt'>): Requirement {
     const now = new Date().toISOString();
-    const req: Requirement = { ...input, id: nextId(), addedAt: now, updatedAt: now };
+    const req: Requirement = { ...input, tags: [...input.tags], id: nextId(), addedAt: now, updatedAt: now };
     this.reqs.set(req.id, req);
-    return { ...req };
+    return cloneReq(req);
   }
 
   get(id: string): Requirement | undefined {
     const req = this.reqs.get(id);
-    return req ? { ...req } : undefined;
+    return req ? cloneReq(req) : undefined;
   }
 
   list(tier?: MoSCoWTier, status?: RequirementStatus): Requirement[] {
-    let all = [...this.reqs.values()].map(r => ({ ...r }));
+    let all = [...this.reqs.values()].map(r => cloneReq(r));
     if (tier) all = all.filter(r => r.tier === tier);
     if (status) all = all.filter(r => r.status === status);
     return all;
@@ -142,12 +145,12 @@ export class RequirementsTracker {
   }
 
   toJSON(): Requirement[] {
-    return [...this.reqs.values()].map(r => ({ ...r }));
+    return [...this.reqs.values()].map(r => cloneReq(r));
   }
 
   static fromJSON(data: Requirement[]): RequirementsTracker {
     const tracker = new RequirementsTracker();
-    for (const r of data) tracker.reqs.set(r.id, { ...r });
+    for (const r of data) tracker.reqs.set(r.id, cloneReq(r));
     return tracker;
   }
 }

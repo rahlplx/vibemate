@@ -164,8 +164,12 @@ export function createOpenAICompatibleEmbedFn(config: OpenAIEmbedConfig): EmbedF
       body: JSON.stringify({ input: text, model: config.model }),
     });
     if (!res.ok) throw new Error(`Embedding API error ${res.status}: ${await res.text()}`);
-    const data = await res.json() as { data: Array<{ embedding: number[] }> };
-    return data.data[0].embedding;
+    const data: unknown = await res.json();
+    const embedding = (data as { data?: Array<{ embedding?: unknown }> })?.data?.[0]?.embedding;
+    if (!Array.isArray(embedding) || !embedding.every(x => typeof x === 'number')) {
+      throw new Error('Embedding API returned unexpected response shape');
+    }
+    return embedding as number[];
   };
 }
 
@@ -215,7 +219,13 @@ export class EmbeddingStore {
       const raw = await this.adapter.read(this.embedsKey);
       this.chunks = JSON.parse(raw) as EmbeddingChunk[];
       return true;
-    } catch { return false; }
+    } catch (e) {
+      const code = (e as { code?: string }).code;
+      if (code === 'ENOENT') return false;
+      const msg = e instanceof Error ? e.message : String(e);
+      if (msg.toLowerCase().includes('not found') || msg.includes('no such file')) return false;
+      throw e;
+    }
   }
 
   async retrieve(query: string, topK = 3): Promise<RetrievalResult[]> {

@@ -51,10 +51,12 @@ export class ContextPipeline {
   private maxBytes = 50 * 1024 * 1024;
   private hits = 0;
   private misses = 0;
+  private embedFn?: import('./embeddings.js').EmbedFn;
 
-  constructor(root: string) {
+  constructor(root: string, options?: { embedFn?: import('./embeddings.js').EmbedFn }) {
     this.root = root;
     this.cacheDir = join(root, '.vibe', 'context-cache');
+    this.embedFn = options?.embedFn;
   }
 
   private evict(): void {
@@ -247,7 +249,7 @@ export class ContextPipeline {
 
     if (!ragQuery) return { extracted, compressed, sanitized, cacheKey };
 
-    const store = new EmbeddingStore(join(this.root, '.vibe'));
+    const store = new EmbeddingStore(join(this.root, '.vibe'), this.embedFn);
     const loaded = await store.load();
     if (!loaded) return { extracted, compressed, sanitized, cacheKey };
 

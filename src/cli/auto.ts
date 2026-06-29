@@ -117,7 +117,13 @@ async function runAutoPipeline(description: string, options: AutoOptions): Promi
 
   // ─── Prompt composition ──────────────────────────────────────────────────────
   const vmConfig = loadConfig(root);
-  const promptRegistry = new PromptRegistry();
+  const promptRegistryPath = join(vibeDir, 'prompts', 'registry.json');
+  let promptRegistry: PromptRegistry;
+  try {
+    promptRegistry = PromptRegistry.fromJSON(JSON.parse(await readFile(promptRegistryPath, 'utf-8')));
+  } catch {
+    promptRegistry = new PromptRegistry();
+  }
   const composedPrompt = promptRegistry.compose({
     activeRoleIds: vmConfig.promptRoles ?? [],
     systemPrompt: vmConfig.systemPrompt,
@@ -201,9 +207,10 @@ async function runAutoPipeline(description: string, options: AutoOptions): Promi
     state.completed.push(state.phase);
     state.artifacts[state.phase] = result.artifact || '';
 
-    // Record prompt outcome for evolver
+    // Record prompt outcome for evolver and persist so stats survive restarts
     const phaseOutcome = result.allChecksPassed === false ? 'failure' : 'success';
     promptRegistry.recordOutcome(phaseComposed.activeTemplateIds, justCompleted, phaseOutcome, duration);
+    await writeFile(promptRegistryPath, JSON.stringify(promptRegistry.toJSON(), null, 2));
 
     // Ambiguity gate: after BREAK, check if task scope is clear enough to proceed
     if (justCompleted === 'break' && result.ambiguity) {
@@ -389,8 +396,13 @@ Reference OKF bundle for pre-populated decisions.
       try {
         const existing = await readFile(reqFile, 'utf-8');
         reqTracker = RequirementsTracker.fromJSON(JSON.parse(existing));
-      } catch {
-        reqTracker = new RequirementsTracker();
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        if (msg.includes('ENOENT') || msg.includes('no such file')) {
+          reqTracker = new RequirementsTracker();
+        } else {
+          throw e;
+        }
       }
       // Only seed if no requirements yet — avoid overwriting user-curated list
       if (reqTracker.list().length === 0) {

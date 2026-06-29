@@ -178,7 +178,8 @@ export class PromptRegistry {
   }
 
   get(id: string): PromptTemplate | undefined {
-    return this.templates.get(id);
+    const t = this.templates.get(id);
+    return t ? { ...t, tags: [...t.tags] } : undefined;
   }
 
   list(category?: PromptCategory): PromptTemplate[] {
@@ -236,17 +237,17 @@ export class PromptRegistry {
       }
     }
 
+    if (systemPrompt?.trim()) parts.push(systemPrompt.trim());
+
+    const phaseOverride = phase ? phasePrompts?.[phase] : undefined;
+    if (phaseOverride?.trim()) parts.push(phaseOverride.trim());
+
     for (const t of orgTemplates) {
       if (t.confidence >= minConfidence) {
         parts.push(t.content);
         activeTemplateIds.push(t.id);
       }
     }
-
-    if (systemPrompt?.trim()) parts.push(systemPrompt.trim());
-
-    const phaseOverride = phase ? phasePrompts?.[phase] : undefined;
-    if (phaseOverride?.trim()) parts.push(phaseOverride.trim());
 
     return {
       systemPrompt: parts.join('\n\n'),
