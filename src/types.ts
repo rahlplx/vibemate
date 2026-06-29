@@ -293,6 +293,8 @@ export interface AutoState {
   harnessRetried?: boolean;
   routerDowngrade?: boolean;
   observations?: PhaseObservation[];
+  /** Routing tier override derived from EvolveAgent skill recommendation */
+  skillTierOverride?: 'escalate' | 'downgrade' | null;
 }
 
 export interface CircuitBreaker {

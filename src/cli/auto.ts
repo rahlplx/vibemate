@@ -16,6 +16,7 @@ import { tokenBudgetGate, dlpGate, passRateGate } from './harness-gates.js';
 import { buildCritiqueReport } from './critique-engine.js';
 import { createObservationEngine } from '../improve/observation.js';
 import { PromptRegistry } from '../prompts/registry.js';
+import { PromptEvolver } from '../prompts/evolver.js';
 import { loadConfig } from '../shared/config.js';
 import type { ComposedPrompt } from '../types.js';
 import { RequirementsTracker } from '../shared/requirements-tracker.js';
@@ -123,6 +124,7 @@ async function runAutoPipeline(description: string, options: AutoOptions): Promi
 
   // ─── Prompt composition ──────────────────────────────────────────────────────
   const vmConfig = loadConfig(root);
+  const promptEvolver = new PromptEvolver();
   const promptRegistryPath = join(vibeDir, 'prompts', 'registry.json');
   let promptRegistry: PromptRegistry;
   try {
@@ -130,9 +132,23 @@ async function runAutoPipeline(description: string, options: AutoOptions): Promi
   } catch {
     promptRegistry = new PromptRegistry();
   }
+  // Inject OKF architectural decisions into the system prompt (Tier 2)
+  let okfSystemContext = vmConfig.systemPrompt ?? '';
+  try {
+    const okfBundle = await okfGenerator.generate(root.split('/').pop() ?? 'project');
+    const decisions = (await okfGenerator.query(okfBundle, 'architecture-decision')).slice(0, 5);
+    if (decisions.length > 0) {
+      const decisionLines = decisions.map(d => {
+        const fm = d.frontmatter as { title?: string; decision?: string; description?: string };
+        return `- ${fm.title ?? 'Decision'}: ${(fm.decision ?? fm.description ?? '').split('\n')[0]}`;
+      }).join('\n');
+      okfSystemContext = `${okfSystemContext ? okfSystemContext + '\n\n' : ''}## Project Architectural Decisions\n${decisionLines}`;
+    }
+  } catch { /* OKF generation is best-effort; proceed without it */ }
+
   const composedPrompt = promptRegistry.compose({
     activeRoleIds: vmConfig.promptRoles ?? [],
-    systemPrompt: vmConfig.systemPrompt,
+    systemPrompt: okfSystemContext || undefined,
     phasePrompts: vmConfig.phasePrompts,
   });
   if (composedPrompt.activeTemplateIds.length > 0) {
@@ -175,14 +191,15 @@ async function runAutoPipeline(description: string, options: AutoOptions): Promi
     console.log(`${'='.repeat(60)}\n`);
 
     // Route: select model tier for this phase using phase default + previous observation score
+    // EvolveAgent skill recommendations (set in THINK phase) bias the tier selection.
     const prevObsScore = state.observations?.at(-1)?.observationScore;
     const routingDecision = router.route({
       filesImplicated: 2,
-      requiresReasoning: state.phase === 'think' || state.phase === 'review',
+      requiresReasoning: state.phase === 'think' || state.phase === 'review' || state.skillTierOverride === 'escalate',
       testOutputSize: 0,
       hasDependencies: false,
       isRefactoring: false,
-      requiresSecurity: false,
+      requiresSecurity: state.skillTierOverride === 'escalate',
       phase: state.phase,
       observationScore: prevObsScore,
     });
@@ -219,6 +236,14 @@ async function runAutoPipeline(description: string, options: AutoOptions): Promi
     // Record prompt outcome for evolver and persist so stats survive restarts
     const phaseOutcome = result.allChecksPassed === false ? 'failure' : 'success';
     promptRegistry.recordOutcome(phaseComposed.activeTemplateIds, justCompleted, phaseOutcome, duration);
+
+    // Auto-evolve prompts whose success rate has dropped below threshold (Tier 1)
+    if (vmConfig.promptAutoEvolve) {
+      const evolved = await promptEvolver.run(promptRegistry, { autoApply: true });
+      if (evolved > 0) {
+        console.log(`🧬 Auto-evolved ${evolved} prompt(s) — will activate next phase`);
+      }
+    }
     await writeFile(promptRegistryPath, JSON.stringify(promptRegistry.toJSON(), null, 2));
 
     // Ambiguity gate: after BREAK, check if task scope is clear enough to proceed
@@ -234,7 +259,22 @@ async function runAutoPipeline(description: string, options: AutoOptions): Promi
         await writeFile(statePath, JSON.stringify(state, null, 2));
         continue;
       }
-    } else if (result.allChecksPassed === false) {
+    }
+
+    // Mid-run EvolveAgent: generate new rules immediately on harness/critique failure (Tier 1)
+    if (result.allChecksPassed === false && (justCompleted === 'harness' || justCompleted === 'critique')) {
+      const failRate = circuitBreaker.consecutiveFailures / Math.max(circuitBreaker.maxFailures, 1);
+      const newRules = await selfImprovement.midRunEvolve({
+        failureRate: failRate,
+        averageReward: 1 - failRate,
+        stuckDetections: circuitBreaker.consecutiveFailures,
+      });
+      if (newRules.length > 0) {
+        console.log(`🧠 EvolveAgent generated ${newRules.length} new rule(s) from ${justCompleted} failure`);
+      }
+    }
+
+    if (result.allChecksPassed === false) {
       circuitBreaker.consecutiveFailures++;
     } else {
       circuitBreaker.consecutiveFailures = 0;
@@ -362,6 +402,18 @@ async function executePhase(
       const guidanceSection = advisory.guidance
         ? `\n## Past Learnings Advisory\n${advisory.guidance}\n`
         : '';
+
+      // Translate EvolveAgent skill action into routing signal for subsequent phases (Tier 1)
+      const skillAction = advisory.selectedSkill.action.toLowerCase();
+      if (skillAction.includes('escalate') || skillAction.includes('more capable')) {
+        state.skillTierOverride = 'escalate';
+        console.log(`🧠 EvolveAgent: escalating model tier → ${advisory.selectedSkill.action}`);
+      } else if (skillAction.includes('simpler') || skillAction.includes('downgrade')) {
+        state.skillTierOverride = 'downgrade';
+        console.log(`🧠 EvolveAgent: downgrading model tier → ${advisory.selectedSkill.action}`);
+      } else {
+        state.skillTierOverride = null;
+      }
 
 
       const systemPromptSection = context.composedPrompt?.systemPrompt
@@ -515,6 +567,17 @@ Reference OKF bundle for pre-populated decisions.
       let taskPlan = '';
       try { taskPlan = await readFile(join(vibeDir, 'task-plan.md'), 'utf-8'); } catch { /* ok */ }
 
+      // Load MoSCoW requirements to constrain task decomposition (Tier 2)
+      let mustHaveConstraints = '';
+      try {
+        const reqRaw = await readFile(join(vibeDir, 'requirements.json'), 'utf-8');
+        const reqTracker = RequirementsTracker.fromJSON(JSON.parse(reqRaw));
+        const mustHaves = reqTracker.list('must').filter(r => r.status === 'active');
+        if (mustHaves.length > 0) {
+          mustHaveConstraints = `\n## Non-Negotiable Requirements (MUST deliver)\n${mustHaves.map(r => `- ${r.title}: ${r.rationale}`).join('\n')}\n`;
+        }
+      } catch { /* requirements.json may not exist yet */ }
+
       const model = context.routingDecision?.model ?? 'claude-sonnet-4-20250514';
       const provider = context.routingDecision?.provider ?? 'anthropic';
       const systemCtx = context.composedPrompt?.systemPrompt
@@ -524,7 +587,7 @@ Reference OKF bundle for pre-populated decisions.
       const llmResponse = await callLLM(
         model, provider,
         systemCtx,
-        buildBreakPrompt(context.description, taskPlan),
+        buildBreakPrompt(context.description, taskPlan + mustHaveConstraints),
         4096,
         context.llmCaller,
         context.fetchFn,

@@ -191,6 +191,10 @@ export class PromptRegistry {
     this.templates.set(template.id, { ...template });
   }
 
+  getTemplate(id: string): PromptTemplate | undefined {
+    return this.templates.get(id);
+  }
+
   remove(id: string): boolean {
     return this.templates.delete(id);
   }

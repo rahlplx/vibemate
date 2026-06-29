@@ -717,6 +717,16 @@ export class SelfImprovementOrchestrator {
     };
   }
 
+  // Mid-run evolution: called immediately on HARNESS/CRITIQUE failure without the weekly gate.
+  // Allows the system to generate new rules during a run rather than waiting for RETRO.
+  async midRunEvolve(metrics: {
+    failureRate: number;
+    averageReward: number;
+    stuckDetections: number;
+  }): Promise<EvolveRule[]> {
+    return this.evolveAgent.reflectAndEvolve(metrics);
+  }
+
   // Get comprehensive stats
   getStats(): {
     retro: { totalLearnings: number };
