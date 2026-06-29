@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
 import { mkdir, writeFile, rm, readFile } from 'fs/promises';
 import { join } from 'path';
 import { callLLM, buildPlanPrompt, buildBreakPrompt, buildDesignPrompt, parseLLMTasks } from '../../src/cli/phase-helpers.js';
+import { ContextPipeline } from '../../src/context/pipeline.js';
 
 const TMP = '/tmp/phase-exec-test';
 
@@ -287,5 +288,35 @@ describe('phase artifacts integration', () => {
     expect(prompt).toContain('Milestone 1');
     expect(prompt).toContain('Milestone 2');
     expect(prompt).toContain('Auth endpoint');
+  });
+});
+
+describe('DLP sanitization of file context before LLM calls', () => {
+  const pipeline = new ContextPipeline(process.cwd());
+
+  it('strips AWS keys from design-doc before buildPlanPrompt', () => {
+    // Bare key without an API_KEY= prefix so only the AWS pattern fires
+    const rawDoc = '# Design\nCloud access: AKIAIOSFODNN7EXAMPLE';
+    const sanitized = pipeline.sanitize(rawDoc);
+    const prompt = buildPlanPrompt('build something', sanitized);
+    expect(prompt).not.toContain('AKIAIOSFODNN7EXAMPLE');
+    expect(prompt).toContain('***MASKED_AWS_KEY***');
+  });
+
+  it('strips JWT tokens from design-doc before buildDesignPrompt', () => {
+    const token = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c';
+    const rawDoc = `# Design\nAuthorization: Bearer ${token}`;
+    const sanitized = pipeline.sanitize(rawDoc);
+    const prompt = buildDesignPrompt('build auth UI', sanitized);
+    expect(prompt).not.toContain(token);
+    expect(prompt).toContain('***MASKED_JWT***');
+  });
+
+  it('strips connection strings from task-plan before buildBreakPrompt', () => {
+    const rawPlan = '# Plan\nConnect to postgresql://user:password@localhost/mydb';
+    const sanitized = pipeline.sanitize(rawPlan);
+    const prompt = buildBreakPrompt('build something', sanitized);
+    expect(prompt).not.toContain('postgresql://user:password@localhost/mydb');
+    expect(prompt).toContain('***MASKED_CONNECTION_STRING***');
   });
 });

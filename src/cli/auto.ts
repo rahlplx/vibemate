@@ -21,6 +21,7 @@ import type { ComposedPrompt } from '../types.js';
 import { RequirementsTracker } from '../shared/requirements-tracker.js';
 import { callLLM, buildPlanPrompt, buildBreakPrompt, buildDesignPrompt, parseLLMTasks, extractSection, type LLMCallerOverride } from './phase-helpers.js';
 import { createDispatcher } from '../execution/dispatcher.js';
+import { ContextPipeline } from '../context/pipeline.js';
 
 interface AutoOptions {
   budget?: number;
@@ -352,6 +353,7 @@ async function executePhase(
 ): Promise<{ artifact?: string; hasMoreTasks?: boolean; allChecksPassed?: boolean; ambiguity?: import('../discovery/scoring.js').AmbiguityResult }> {
   const { root, selfImprovement, circuitBreaker } = context;
   const vibeDir = join(root, '.vibe');
+  const pipeline = new ContextPipeline(root);
 
   switch (phase) {
     case 'think': {
@@ -443,6 +445,7 @@ Reference OKF bundle for pre-populated decisions.
       // Read design doc from THINK phase as context
       let designDoc = '';
       try { designDoc = await readFile(join(vibeDir, 'design-doc.md'), 'utf-8'); } catch { /* no design doc yet */ }
+      designDoc = pipeline.sanitize(designDoc);
 
       const model = context.routingDecision?.model ?? 'claude-sonnet-4-20250514';
       const provider = context.routingDecision?.provider ?? 'anthropic';
@@ -485,6 +488,7 @@ Reference OKF bundle for pre-populated decisions.
 
       let designDoc = '';
       try { designDoc = await readFile(join(vibeDir, 'design-doc.md'), 'utf-8'); } catch { /* ok */ }
+      designDoc = pipeline.sanitize(designDoc);
 
       const model = context.routingDecision?.model ?? 'claude-sonnet-4-20250514';
       const provider = context.routingDecision?.provider ?? 'anthropic';
@@ -514,6 +518,7 @@ Reference OKF bundle for pre-populated decisions.
 
       let taskPlan = '';
       try { taskPlan = await readFile(join(vibeDir, 'task-plan.md'), 'utf-8'); } catch { /* ok */ }
+      taskPlan = pipeline.sanitize(taskPlan);
 
       const model = context.routingDecision?.model ?? 'claude-sonnet-4-20250514';
       const provider = context.routingDecision?.provider ?? 'anthropic';
