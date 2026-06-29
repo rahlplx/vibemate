@@ -10,7 +10,8 @@ import { existsSync } from 'fs';
 import { join } from 'path';
 import { execFileSync } from 'child_process';
 import { AutoPhase, CircuitBreaker, AutoState, HarnessCheck, HarnessReport, PhaseObservation } from '../types.js';
-import { applyAmbiguityGate, checkGovernancePermission, handleHarnessFailure, computeObservationScore, trackPhaseCost, classifyTasksWithGate } from './auto-helpers.js';
+import { applyAmbiguityGate, checkGovernancePermissionWithPersistence, handleHarnessFailure, computeObservationScore, trackPhaseCost, classifyTasksWithGate } from './auto-helpers.js';
+import { PersistenceManager } from '../shared/persistence.js';
 import { tokenBudgetGate, dlpGate, passRateGate } from './harness-gates.js';
 import { buildCritiqueReport } from './critique-engine.js';
 import { createObservationEngine } from '../improve/observation.js';
@@ -95,6 +96,9 @@ async function runAutoPipeline(description: string, options: AutoOptions): Promi
   await selfImprovement.init();
   const observationEngine = createObservationEngine(join(vibeDir, 'state.db'));
   const router = new CostAwareRouter([], parseFloat(String(options.budget || '10')), undefined, observationEngine);
+  const governancePm = new PersistenceManager({ dbPath: join(vibeDir, 'state.db') });
+  await governancePm.initialize();
+  try {
 
   const circuitBreaker: CircuitBreaker = {
     consecutiveFailures: 0,
@@ -155,9 +159,9 @@ async function runAutoPipeline(description: string, options: AutoOptions): Promi
       break;
     }
 
-    // Governance gate: check permission before executing each phase
+    // Governance gate: check permission before executing each phase (audit persisted to SQLite)
     const agentRole = state.agentId ?? 'developer';
-    if (!checkGovernancePermission(agentRole, state.phase)) {
+    if (!await checkGovernancePermissionWithPersistence(agentRole, state.phase, governancePm)) {
       console.error(`\n🚫 Governance: execution of phase "${state.phase}" denied by policy`);
       break;
     }
@@ -322,6 +326,10 @@ async function runAutoPipeline(description: string, options: AutoOptions): Promi
   console.log('✅ Pipeline Complete!');
   console.log('='.repeat(60));
   printPipelineSummary(state, circuitBreaker);
+
+  } finally {
+    await governancePm.close();
+  }
 }
 
 async function executePhase(

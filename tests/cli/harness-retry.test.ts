@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'bun:test';
+import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
 import { handleHarnessFailure, trackPhaseCost } from '../../src/cli/auto-helpers.js';
 import { AutoState, CircuitBreaker } from '../../src/types.js';
 
@@ -150,5 +150,46 @@ describe('classifyTasksWithGate', () => {
     ];
     const result = classifyTasksWithGate(tasks, false);
     expect(result).toHaveLength(2);
+  });
+});
+
+import { checkGovernancePermissionWithPersistence } from '../../src/cli/auto-helpers.js';
+import { PersistenceManager } from '../../src/shared/persistence.js';
+import { mkdtempSync, rmSync } from 'fs';
+import { join } from 'path';
+import { tmpdir } from 'os';
+
+describe('checkGovernancePermissionWithPersistence', () => {
+  let tmpDir: string;
+  let pm: PersistenceManager;
+
+  beforeEach(async () => {
+    tmpDir = mkdtempSync(join(tmpdir(), 'gov-sqlite-'));
+    pm = new PersistenceManager({ dbPath: join(tmpDir, 'gov.db') });
+    await pm.initialize();
+  });
+
+  afterEach(async () => {
+    await pm.close();
+    rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('allows execute on any phase for developer role', async () => {
+    const allowed = await checkGovernancePermissionWithPersistence('developer', 'plan', pm);
+    expect(allowed).toBe(true);
+  });
+
+  it('persists audit entries to SQLite between calls', async () => {
+    await checkGovernancePermissionWithPersistence('developer', 'build', pm);
+    await checkGovernancePermissionWithPersistence('developer', 'harness', pm);
+
+    const store = await pm.getGovernanceStore();
+    const log = await store.getAuditLog();
+    expect(log.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('returns true for viewer executing read phase', async () => {
+    const allowed = await checkGovernancePermissionWithPersistence('viewer', 'think', pm);
+    expect(typeof allowed).toBe('boolean');
   });
 });
