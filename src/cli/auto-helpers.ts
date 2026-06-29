@@ -30,6 +30,15 @@ export function checkGovernancePermission(role: string, phase: string): boolean 
   return engine.hasPermission(userId, 'execute', `phase:${phase}`);
 }
 
+export function trackPhaseCost(
+  circuitBreaker: CircuitBreaker,
+  router: { recordCost: (cost: number) => void },
+  estimatedCost: number,
+): void {
+  circuitBreaker.totalCost += estimatedCost;
+  router.recordCost(estimatedCost);
+}
+
 export function handleHarnessFailure(state: AutoState, circuitBreaker: CircuitBreaker): boolean {
   if (!state.harnessRetried) {
     state.harnessRetried = true;

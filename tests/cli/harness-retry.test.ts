@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'bun:test';
-import { handleHarnessFailure } from '../../src/cli/auto-helpers.js';
+import { handleHarnessFailure, trackPhaseCost } from '../../src/cli/auto-helpers.js';
 import { AutoState, CircuitBreaker } from '../../src/types.js';
 
 function makeState(overrides: Partial<AutoState> = {}): AutoState {
@@ -59,5 +59,39 @@ describe('HARNESS retry with model downgrade', () => {
     const shouldRetry = handleHarnessFailure(state, cb);
     expect(shouldRetry).toBe(false);
     expect(cb.consecutiveFailures).toBe(3);
+  });
+});
+
+describe('trackPhaseCost', () => {
+  it('adds estimated cost to circuitBreaker.totalCost', () => {
+    const cb = makeBreaker();
+    const router = { recordCost: (_n: number) => {} };
+    trackPhaseCost(cb, router, 0.05);
+    expect(cb.totalCost).toBeCloseTo(0.05);
+  });
+
+  it('calls router.recordCost with the estimated cost', () => {
+    const cb = makeBreaker();
+    let recorded = 0;
+    const router = { recordCost: (n: number) => { recorded += n; } };
+    trackPhaseCost(cb, router, 0.03);
+    expect(recorded).toBeCloseTo(0.03);
+  });
+
+  it('accumulates cost across multiple phases', () => {
+    const cb = makeBreaker();
+    let recorded = 0;
+    const router = { recordCost: (n: number) => { recorded += n; } };
+    trackPhaseCost(cb, router, 0.01);
+    trackPhaseCost(cb, router, 0.02);
+    expect(cb.totalCost).toBeCloseTo(0.03);
+    expect(recorded).toBeCloseTo(0.03);
+  });
+
+  it('does not update totalCost when estimatedCost is zero', () => {
+    const cb = makeBreaker();
+    const router = { recordCost: (_n: number) => {} };
+    trackPhaseCost(cb, router, 0);
+    expect(cb.totalCost).toBe(0);
   });
 });
