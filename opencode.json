@@ -1,0 +1,20 @@
+{
+  "name": "vibemate",
+  "version": "1.0.0",
+  "provider": {
+    "name": "anthropic",
+    "model": "claude-sonnet-4-20250514",
+    "maxTokens": 8192
+  },
+  "mcp": {
+    "vibemate": {
+      "command": "npx",
+      "args": ["-y", "-p", "@vibemate/core", "vibemate-mcp"]
+    }
+  },
+  "skills": [],
+  "context": {
+    "okfBundle": ".agents/okf-bundle",
+    "telemetry": ".vibe/telemetry"
+  }
+}

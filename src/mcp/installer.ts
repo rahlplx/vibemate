@@ -2,6 +2,8 @@ import { readFile, writeFile, copyFile, mkdir } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join, dirname } from 'path';
 import { homedir } from 'os';
+import { HarnessCompiler } from '../compiler/index.js';
+import type { AgentType, CompiledArtifacts } from '../types.js';
 
 export type Platform = 'claude' | 'cursor' | 'codex' | 'kilocode' | 'opencode' | 'antigravity' | 'openhands';
 
@@ -14,7 +16,7 @@ export interface PlatformConfig {
 export const PLATFORMS: Record<Platform, PlatformConfig> = {
   claude: {
     name: 'Claude Code',
-    configPath: join(homedir(), '.claude', 'claude_desktop_config.json'),
+    configPath: join(homedir(), '.claude', 'settings.json'),
     mcpKey: 'mcpServers'
   },
   cursor: {
@@ -173,15 +175,15 @@ export async function backupConfig(platform: Platform): Promise<string | null> {
 export function createVibemateEntry(options?: { apiKey?: string }): VibemateServerEntry {
   const entry: VibemateServerEntry = {
     command: 'npx',
-    args: ['-y', 'vibemate-mcp']
+    args: ['-y', '-p', '@vibemate/core', 'vibemate-mcp']
   };
-  
+
   if (options?.apiKey) {
     entry.env = {
       ANTHROPIC_API_KEY: options.apiKey
     };
   }
-  
+
   return entry;
 }
 
@@ -205,8 +207,8 @@ export function addServerToConfig(
   return updated;
 }
 
-export async function install(options?: { 
-  platform?: Platform; 
+export async function install(options?: {
+  platform?: Platform;
   apiKey?: string;
   dryRun?: boolean;
 }): Promise<{
@@ -215,31 +217,82 @@ export async function install(options?: {
   config: Record<string, unknown>;
 }> {
   const platform = options?.platform || detectPlatform();
-  
+
   if (!platform) {
     throw new Error('No supported AI coding tool detected. Please specify a platform.');
   }
-  
+
   // Backup existing config
   const backupPath = await backupConfig(platform);
-  
+
   // Read existing config
   const config = await readConfig(platform);
-  
+
   // Create vibemate entry
   const entry = createVibemateEntry({ apiKey: options?.apiKey });
-  
+
   // Add to config
   const updatedConfig = addServerToConfig(config, platform, entry);
-  
+
   // Write unless dry run
   if (!options?.dryRun) {
     await writeConfig(platform, updatedConfig);
   }
-  
+
   return {
     platform,
     backupPath,
     config: updatedConfig
   };
 }
+
+const PLATFORM_TO_AGENT: Partial<Record<Platform, AgentType>> = {
+  claude: 'claude-code',
+  opencode: 'opencode',
+  cursor: 'cursor',
+  codex: 'codex',
+  kilocode: 'kilocode',
+  antigravity: 'antigravity',
+  openhands: 'openhands',
+};
+
+export async function compilePlatform(root: string, platform: Platform): Promise<CompiledArtifacts> {
+  const agentType = PLATFORM_TO_AGENT[platform] ?? 'unknown';
+  const compiler = new HarnessCompiler(root, agentType as AgentType);
+
+  const emptyBundle = {
+    root,
+    version: '0.1.0',
+    concepts: [],
+  };
+
+  const artifacts = await compiler.compile(emptyBundle, []);
+
+  // Inject correct npx entry into generated manifests
+  const entry = createVibemateEntry();
+
+  if (platform === 'claude') {
+    const pluginPath = join(root, '.claude-plugin', 'plugin.json');
+    if (existsSync(pluginPath)) {
+      const raw = await readFile(pluginPath, 'utf-8');
+      const manifest = JSON.parse(raw) as Record<string, unknown>;
+      manifest.mcpServers = { vibemate: entry };
+      await writeFile(pluginPath, JSON.stringify(manifest, null, 2));
+    }
+  }
+
+  if (platform === 'opencode') {
+    const ocPath = join(root, 'opencode.json');
+    if (existsSync(ocPath)) {
+      const raw = await readFile(ocPath, 'utf-8');
+      const manifest = JSON.parse(raw) as Record<string, unknown>;
+      manifest.mcp = { vibemate: entry };
+      await writeFile(ocPath, JSON.stringify(manifest, null, 2));
+    }
+  }
+
+  return artifacts;
+}
+
+// Re-export type so callers can import from this module
+export type { CompiledArtifacts };

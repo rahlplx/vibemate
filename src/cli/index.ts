@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 
 import { Command } from 'commander';
-import { install, detectPlatform } from '../mcp/installer.js';
+import { install, compilePlatform, detectPlatform, type Platform } from '../mcp/installer.js';
+import { resolveLSPConfig } from './lsp.js';
+import { writeLSPConfig, mergeLSPIntoManifests } from './lsp-write.js';
 import { createSpecGenerator } from '../mcp/tools/spec-generator.js';
 import { createAuthManager, createOAuthClient, type OAuthConfig } from '../mcp/auth.js';
 import { createAutoFix } from '../mcp/tools/auto-fix.js';
@@ -31,22 +33,26 @@ program
   .description('Install Vibemate MCP server into your AI coding tool')
   .option('-p, --platform <platform>', 'Target platform (claude, cursor, codex, kilocode, opencode)')
   .option('--dry-run', 'Show what would be installed without making changes')
+  .option('--compile', 'Also generate skill files and plugin manifest for the platform')
+  .option('--with-lsp', 'Detect stack, resolve LSPs, write .vibemate/lsp.json, and embed in manifests')
+  .option('--project', 'Write to project-local config (.claude/settings.json) instead of global')
   .action(async (options) => {
     try {
-      const platform = options.platform || detectPlatform();
-      
-      if (!platform && !options.dryRun) {
+      const root = process.cwd();
+      const platform: Platform = options.platform || detectPlatform() || 'claude';
+
+      if (!options.platform && !detectPlatform() && !options.dryRun) {
         console.error('No supported AI coding tool detected. Please specify a platform with --platform.');
         process.exit(1);
       }
-      
-      console.log(`Installing Vibemate MCP server...`);
-      
+
+      console.log(`Installing Vibemate MCP server for ${platform}...`);
+
       const result = await install({
-        platform: platform || 'claude',
-        dryRun: options.dryRun
+        platform,
+        dryRun: options.dryRun,
       });
-      
+
       if (options.dryRun) {
         console.log('\nDry run - would install:');
         console.log(JSON.stringify(result.config, null, 2));
@@ -55,6 +61,35 @@ program
         if (result.backupPath) {
           console.log(`✓ Backup created: ${result.backupPath}`);
         }
+      }
+
+      if (options.compile && !options.dryRun) {
+        console.log('\nCompiling platform artifacts...');
+        await compilePlatform(root, platform);
+        console.log('✓ Skill files and plugin manifest generated');
+      }
+
+      if (options.withLsp && !options.dryRun) {
+        const { StackDetector } = await import('../mcp/stack-detector.js');
+        const detector = new StackDetector(root);
+        const stack = await detector.detect();
+        const lspConfigs = resolveLSPConfig(stack);
+        if (lspConfigs.length === 0) {
+          console.log('\nNo LSP servers needed for this stack.');
+        } else {
+          await writeLSPConfig(root, stack);
+          await mergeLSPIntoManifests(root, lspConfigs);
+          console.log('\nLSP servers recommended:');
+          for (const lsp of lspConfigs) {
+            console.log(`  ${lsp.name}`);
+            if (lsp.installCmd) console.log(`    Install: ${lsp.installCmd}`);
+          }
+          console.log('\n✓ Written to .vibemate/lsp.json');
+          console.log('✓ Merged into plugin manifests');
+        }
+      }
+
+      if (!options.dryRun) {
         console.log('\nRestart your AI coding tool to use Vibemate.');
       }
     } catch (error) {
@@ -836,6 +871,42 @@ program
     console.log(formatDoctorResults(results));
     const hasFail = results.some(r => r.status === 'fail');
     process.exitCode = hasFail ? 1 : 0;
+  });
+
+program
+  .command('lsp')
+  .description('Show recommended LSP servers for the detected stack')
+  .option('--json', 'Output as JSON')
+  .option('--dir <path>', 'Project root', process.cwd())
+  .action(async (options) => {
+    try {
+      const root = options.dir;
+      const { StackDetector } = await import('../mcp/stack-detector.js');
+      const detector = new StackDetector(root);
+      const stack = await detector.detect();
+      const lspConfigs = resolveLSPConfig(stack);
+
+      if (options.json) {
+        console.log(JSON.stringify(lspConfigs, null, 2));
+        return;
+      }
+
+      if (lspConfigs.length === 0) {
+        console.log(`No LSP servers needed for detected stack (${stack.language}).`);
+        return;
+      }
+
+      console.log(`\nRecommended LSP servers for ${stack.language} stack:\n`);
+      for (const lsp of lspConfigs) {
+        console.log(`  ${lsp.name}`);
+        console.log(`    command: ${lsp.command} ${lsp.args.join(' ')}`);
+        if (lsp.installCmd) console.log(`    install: ${lsp.installCmd}`);
+        console.log();
+      }
+    } catch (error) {
+      console.error('LSP detection failed:', error instanceof Error ? error.message : error);
+      process.exit(1);
+    }
   });
 
 program.parse();
