@@ -12,6 +12,7 @@ import { mineRepoToolDefinition, mineRepoToolHandler } from './tools/mine-repo.j
 import { StackDetector } from './stack-detector.js';
 import { createAuthManager, type AuthManager } from './auth.js';
 import { createAuthMiddleware, type AuthMiddleware } from './auth-middleware.js';
+import type { ToolDefinition } from './types.js';
 
 interface ServerConfig {
   logLevel: 'debug' | 'info' | 'warn' | 'error';
@@ -146,11 +147,7 @@ export class VibemateMcpServer {
       const start = Date.now();
       this.logger.request(`tools/call:${request.params.name}`);
       try {
-        const tool = this.tools.get(request.params.name);
-        if (!tool) {
-          throw new Error(`Tool not found: ${request.params.name}`);
-        }
-        const result = await tool.handler(request.params.arguments);
+        const result = await this.callTool(request.params.name, request.params.arguments ?? {});
         this.logger.response(`tools/call:${request.params.name}`, Date.now() - start);
         return result;
       } catch (err) {
@@ -170,6 +167,15 @@ export class VibemateMcpServer {
   registerTool(definition: unknown, handler: Function): void {
     const def = definition as { name: string };
     this.tools.set(def.name, { definition, handler });
+  }
+
+  async callTool(name: string, args: unknown): Promise<unknown> {
+    const tool = this.tools.get(name);
+    if (!tool) throw new Error(`Tool not found: ${name}`);
+    const minTier = (tool.definition as ToolDefinition).minTier ?? 'free';
+    const check = this.authMiddleware.requireTier(minTier);
+    if (!check.allowed) throw new Error(check.reason ?? 'Access denied');
+    return tool.handler(args);
   }
 
   async start(): Promise<void> {
