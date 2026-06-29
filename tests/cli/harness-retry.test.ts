@@ -95,3 +95,60 @@ describe('trackPhaseCost', () => {
     expect(cb.totalCost).toBe(0);
   });
 });
+
+import { classifyTasksWithGate } from '../../src/cli/auto-helpers.js';
+import type { LLMTask } from '../../src/cli/phase-helpers.js';
+
+function makeTask(overrides: Partial<LLMTask> = {}): LLMTask {
+  return {
+    id: 'task-1',
+    title: 'Test task',
+    description: 'A simple task',
+    milestone: 'M1',
+    complexityScore: 3,
+    executionMode: 'inline',
+    acceptanceCriteria: [],
+    dependencies: [],
+    files: [],
+    ...overrides,
+  };
+}
+
+describe('classifyTasksWithGate', () => {
+  it('preserves inline for a simple task', () => {
+    const tasks = [makeTask({ description: 'Add a button', files: [] })];
+    const result = classifyTasksWithGate(tasks, false);
+    expect(result[0].executionMode).toBe('inline');
+  });
+
+  it('overrides LLM inline with session for a complex task', () => {
+    const tasks = [makeTask({
+      description: 'Refactor auth system',
+      files: Array(10).fill('src/auth.ts'),
+      executionMode: 'inline',
+    })];
+    const result = classifyTasksWithGate(tasks, true);
+    expect(result[0].executionMode).not.toBe('inline');
+  });
+
+  it('returns a new array without mutating the input', () => {
+    const tasks = [makeTask()];
+    const result = classifyTasksWithGate(tasks, false);
+    expect(result).not.toBe(tasks);
+  });
+
+  it('sets gatedMode on each task', () => {
+    const tasks = [makeTask()];
+    const result = classifyTasksWithGate(tasks, false);
+    expect((result[0] as LLMTask & { gatedMode: string }).gatedMode).toBeDefined();
+  });
+
+  it('processes multiple tasks independently', () => {
+    const tasks = [
+      makeTask({ description: 'Simple button', files: [] }),
+      makeTask({ id: 'task-2', description: 'Migrate auth', files: Array(12).fill('x'), executionMode: 'inline' }),
+    ];
+    const result = classifyTasksWithGate(tasks, false);
+    expect(result).toHaveLength(2);
+  });
+});

@@ -1,6 +1,8 @@
 import { GovernanceEngine } from '../governance/engine.js';
 import { AutoState, CircuitBreaker } from '../types.js';
 import { AmbiguityResult } from '../discovery/scoring.js';
+import { calculateComplexity, determineExecutionMode } from '../execution/gate.js';
+import type { LLMTask } from './phase-helpers.js';
 
 export function computeObservationScore(
   errorCount: number,
@@ -28,6 +30,23 @@ export function checkGovernancePermission(role: string, phase: string): boolean 
   const userId = `auto-agent-${role}`;
   engine.addUser({ id: userId, name: role, roles: [role], createdAt: new Date(), lastActive: new Date() });
   return engine.hasPermission(userId, 'execute', `phase:${phase}`);
+}
+
+export function classifyTasksWithGate(
+  tasks: LLMTask[],
+  hasUI: boolean,
+): (LLMTask & { gatedMode: string })[] {
+  return tasks.map(task => {
+    const score = calculateComplexity({
+      description: task.description,
+      filesChanged: task.files.length,
+      linesChanged: 0,
+      hasTests: task.acceptanceCriteria.some(c => /test/i.test(c)),
+      hasUI,
+    });
+    const gatedMode = determineExecutionMode(score);
+    return { ...task, executionMode: gatedMode, gatedMode };
+  });
 }
 
 export function trackPhaseCost(
