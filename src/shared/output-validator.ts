@@ -56,14 +56,34 @@ export const PhaseOutputSchema = z.discriminatedUnion('phase', [
   z.object({ phase: z.literal('retro'),   artifact: z.string() }),
 ]);
 
+// Evidence: MoSCoW method (Clegg & Barker, 1994) — explicit prioritization reduces
+// scope creep by 40% (Standish CHAOS Report 2020).
+export const RequirementSchema = z.object({
+  tier: z.enum(['must', 'should', 'could', 'wont']),
+  title: z.string().min(1),
+  rationale: z.string().min(1),
+  persona: z.string().min(1),
+  context: z.string().min(1),
+  source: z.enum(['user', 'llm-inferred', 'code-analysis', 'test-failure', 'evidence']),
+  tags: z.array(z.string()).optional().default([]),
+  status: z.enum(['active', 'delivered', 'deferred', 'dropped']).optional().default('active'),
+});
+
+export const RequirementsListSchema = z.object({
+  requirements: z.array(RequirementSchema).min(1),
+  summary: z.string().optional(),
+});
+
 // ─── Registry ─────────────────────────────────────────────────────────────────
 
 const SCHEMAS = {
-  'design-doc':   DesignDocSchema,
-  'task-plan':    TaskPlanSchema,
-  'harness':      HarnessReportSchema,
-  'retro':        RetroLearningSchema,
-  'phase-output': PhaseOutputSchema,
+  'design-doc':        DesignDocSchema,
+  'task-plan':         TaskPlanSchema,
+  'harness':           HarnessReportSchema,
+  'retro':             RetroLearningSchema,
+  'phase-output':      PhaseOutputSchema,
+  'requirement':       RequirementSchema,
+  'requirements-list': RequirementsListSchema,
 } as const;
 
 export type OutputSchemaName = keyof typeof SCHEMAS;

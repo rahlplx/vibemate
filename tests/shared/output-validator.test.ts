@@ -14,6 +14,8 @@ import {
   PhaseOutputSchema,
 } from '../../src/shared/output-validator.js';
 
+// ─── RequirementSchema / RequirementsListSchema ───────────────────────────────
+
 // ─── validateLLMOutput ────────────────────────────────────────────────────────
 
 describe('validateLLMOutput — design-doc', () => {
@@ -343,5 +345,117 @@ describe('extractJSON', () => {
     const result = parseAndValidate(json!, 'design-doc');
     expect(result?.success).toBe(true);
     if (result?.success) expect(result.data.requirements).toEqual(['r1']);
+  });
+});
+
+// ─── RequirementSchema ────────────────────────────────────────────────────────
+
+describe('validateLLMOutput — requirement', () => {
+  const valid = {
+    tier: 'must',
+    title: 'User authentication',
+    rationale: 'OWASP A07 requires secure auth boundary.',
+    persona: 'security-engineer',
+    context: 'THINK',
+    source: 'evidence',
+    tags: ['auth'],
+    status: 'active',
+  };
+
+  it('accepts a fully valid requirement', () => {
+    const result = validateLLMOutput(valid, 'requirement');
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data.tier).toBe('must');
+  });
+
+  it('accepts all valid tier values', () => {
+    for (const tier of ['must', 'should', 'could', 'wont']) {
+      const result = validateLLMOutput({ ...valid, tier }, 'requirement');
+      expect(result.success).toBe(true);
+    }
+  });
+
+  it('accepts all valid source values', () => {
+    for (const source of ['user', 'llm-inferred', 'code-analysis', 'test-failure', 'evidence']) {
+      const result = validateLLMOutput({ ...valid, source }, 'requirement');
+      expect(result.success).toBe(true);
+    }
+  });
+
+  it('defaults tags to [] when omitted', () => {
+    const { tags: _, ...noTags } = valid;
+    const result = validateLLMOutput(noTags, 'requirement');
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data.tags).toEqual([]);
+  });
+
+  it('defaults status to active when omitted', () => {
+    const { status: _, ...noStatus } = valid;
+    const result = validateLLMOutput(noStatus, 'requirement');
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data.status).toBe('active');
+  });
+
+  it('rejects unknown tier', () => {
+    const result = validateLLMOutput({ ...valid, tier: 'nice-to-have' }, 'requirement');
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects empty title', () => {
+    const result = validateLLMOutput({ ...valid, title: '' }, 'requirement');
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects unknown source', () => {
+    const result = validateLLMOutput({ ...valid, source: 'gut-feeling' }, 'requirement');
+    expect(result.success).toBe(false);
+  });
+});
+
+// ─── RequirementsListSchema ───────────────────────────────────────────────────
+
+describe('validateLLMOutput — requirements-list', () => {
+  const validReq = {
+    tier: 'must',
+    title: 'Auth',
+    rationale: 'Security boundary.',
+    persona: 'security-engineer',
+    context: 'THINK',
+    source: 'evidence',
+  };
+
+  it('accepts a valid requirements list', () => {
+    const result = validateLLMOutput({ requirements: [validReq] }, 'requirements-list');
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data.requirements.length).toBe(1);
+  });
+
+  it('accepts optional summary field', () => {
+    const result = validateLLMOutput({ requirements: [validReq], summary: 'Core auth reqs' }, 'requirements-list');
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data.summary).toBe('Core auth reqs');
+  });
+
+  it('rejects empty requirements array (min 1)', () => {
+    const result = validateLLMOutput({ requirements: [] }, 'requirements-list');
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects when requirements field is missing', () => {
+    const result = validateLLMOutput({ summary: 'only summary' }, 'requirements-list');
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects if any requirement in the list is invalid', () => {
+    const result = validateLLMOutput({
+      requirements: [validReq, { ...validReq, tier: 'invalid-tier' }],
+    }, 'requirements-list');
+    expect(result.success).toBe(false);
+  });
+
+  it('parseAndValidate round-trip with JSON string works', () => {
+    const json = JSON.stringify({ requirements: [validReq] });
+    const result = parseAndValidate(json, 'requirements-list');
+    expect(result?.success).toBe(true);
   });
 });

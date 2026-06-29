@@ -499,6 +499,7 @@ import { PromptEvolver } from '../prompts/evolver.js';
 import { PromptMiner } from '../prompts/miner.js';
 import { loadConfig } from '../shared/config.js';
 import { createNodeAdapter } from '../context/embeddings.js';
+import { RequirementsTracker, type MoSCoWTier } from '../shared/requirements-tracker.js';
 
 const prompts = program.command('prompts').description('Manage system prompts and auto-evolution');
 
@@ -626,6 +627,138 @@ prompts
       for (const r of results) registry.add(r.template);
       await evolver.persist(registry, storeKey);
       console.log(`Applied ${results.length} mined prompt(s) to registry.`);
+    }
+  });
+
+// ─── requirements commands ────────────────────────────────────────────────────
+
+const requirements = program.command('requirements').description('Manage MoSCoW requirements — track must/should/could/wont with evidence and persona');
+
+requirements
+  .command('list')
+  .description('List all requirements, optionally filtered by tier')
+  .option('--tier <tier>', 'Filter by tier: must | should | could | wont')
+  .option('--status <status>', 'Filter by status: active | delivered | deferred | dropped')
+  .option('--dir <path>', 'Project root', process.cwd())
+  .option('--json', 'Output as JSON')
+  .action(async (options) => {
+    const reqFile = join(options.dir, '.vibe', 'requirements.json');
+    let tracker: RequirementsTracker;
+    try {
+      const raw = await import('fs/promises').then(fs => fs.readFile(reqFile, 'utf-8'));
+      tracker = RequirementsTracker.fromJSON(JSON.parse(raw));
+    } catch {
+      tracker = new RequirementsTracker();
+    }
+
+    const reqs = tracker.list(options.tier as MoSCoWTier | undefined, options.status as any);
+    if (options.json) { console.log(JSON.stringify(reqs, null, 2)); return; }
+
+    const stats = tracker.getStats();
+    console.log(`\nRequirements — ${stats.total} total | ${stats.delivered} delivered | ${(stats.deliveryRate * 100).toFixed(0)}% delivery rate\n`);
+
+    const tierLabels: Record<string, string> = { must: 'MUST', should: 'SHOULD', could: 'COULD', wont: "WON'T" };
+    const tiers: MoSCoWTier[] = options.tier ? [options.tier as MoSCoWTier] : ['must', 'should', 'could', 'wont'];
+    for (const tier of tiers) {
+      const items = reqs.filter(r => r.tier === tier);
+      if (items.length === 0) continue;
+      console.log(`── ${tierLabels[tier]} HAVE (${items.length}) ─────────────────────────`);
+      for (const r of items) {
+        const badge = r.status !== 'active' ? ` [${r.status}]` : '';
+        console.log(`  • ${r.title}${badge}`);
+        console.log(`    ${r.rationale.slice(0, 80)}${r.rationale.length > 80 ? '…' : ''}`);
+        console.log(`    persona=${r.persona} | source=${r.source} | context=${r.context}`);
+      }
+      console.log();
+    }
+  });
+
+requirements
+  .command('add')
+  .description('Add a new requirement (evidence-backed)')
+  .requiredOption('--tier <tier>', 'MoSCoW tier: must | should | could | wont')
+  .requiredOption('--title <title>', 'Short requirement title')
+  .requiredOption('--rationale <rationale>', 'WHY this tier — evidence-backed reasoning')
+  .option('--persona <persona>', 'Stakeholder perspective', 'developer')
+  .option('--context <context>', 'Pipeline phase or situation', 'user-stated')
+  .option('--source <source>', 'Source: user | llm-inferred | code-analysis | test-failure | evidence', 'user')
+  .option('--tags <tags>', 'Comma-separated tags', '')
+  .option('--dir <path>', 'Project root', process.cwd())
+  .action(async (options) => {
+    const vibeDir = join(options.dir, '.vibe');
+    const reqFile = join(vibeDir, 'requirements.json');
+    let tracker: RequirementsTracker;
+    try {
+      const raw = await import('fs/promises').then(fs => fs.readFile(reqFile, 'utf-8'));
+      tracker = RequirementsTracker.fromJSON(JSON.parse(raw));
+    } catch {
+      tracker = new RequirementsTracker();
+    }
+
+    const req = tracker.add({
+      tier: options.tier as MoSCoWTier,
+      title: options.title,
+      rationale: options.rationale,
+      persona: options.persona,
+      context: options.context,
+      source: options.source as any,
+      tags: options.tags ? options.tags.split(',').map((t: string) => t.trim()).filter(Boolean) : [],
+      status: 'active',
+    });
+
+    const { mkdir, writeFile } = await import('fs/promises');
+    await mkdir(vibeDir, { recursive: true });
+    await writeFile(reqFile, JSON.stringify(tracker.toJSON(), null, 2));
+    await writeFile(join(vibeDir, 'requirements.md'), tracker.toMarkdown());
+
+    console.log(`Added [${req.tier.toUpperCase()}] ${req.title} (${req.id})`);
+  });
+
+requirements
+  .command('stats')
+  .description('Show MoSCoW delivery statistics')
+  .option('--dir <path>', 'Project root', process.cwd())
+  .action(async (options) => {
+    const reqFile = join(options.dir, '.vibe', 'requirements.json');
+    let tracker: RequirementsTracker;
+    try {
+      const raw = await import('fs/promises').then(fs => fs.readFile(reqFile, 'utf-8'));
+      tracker = RequirementsTracker.fromJSON(JSON.parse(raw));
+    } catch {
+      tracker = new RequirementsTracker();
+    }
+    const s = tracker.getStats();
+    console.log(`\nMoSCoW Delivery Stats`);
+    console.log(`  Total:     ${s.total}`);
+    console.log(`  Must:      ${s.byTier.must}`);
+    console.log(`  Should:    ${s.byTier.should}`);
+    console.log(`  Could:     ${s.byTier.could}`);
+    console.log(`  Won't:     ${s.byTier.wont}`);
+    console.log(`  Active:    ${s.active}`);
+    console.log(`  Delivered: ${s.delivered}`);
+    console.log(`  Rate:      ${(s.deliveryRate * 100).toFixed(1)}%`);
+  });
+
+requirements
+  .command('export')
+  .description('Export requirements as markdown OKF document')
+  .option('--dir <path>', 'Project root', process.cwd())
+  .option('--out <file>', 'Output file (default: stdout)')
+  .action(async (options) => {
+    const reqFile = join(options.dir, '.vibe', 'requirements.json');
+    let tracker: RequirementsTracker;
+    try {
+      const raw = await import('fs/promises').then(fs => fs.readFile(reqFile, 'utf-8'));
+      tracker = RequirementsTracker.fromJSON(JSON.parse(raw));
+    } catch {
+      tracker = new RequirementsTracker();
+    }
+    const md = tracker.toMarkdown();
+    if (options.out) {
+      await import('fs/promises').then(fs => fs.writeFile(options.out, md));
+      console.log(`Written to ${options.out}`);
+    } else {
+      console.log(md);
     }
   });
 
