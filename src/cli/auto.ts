@@ -335,6 +335,7 @@ async function executePhase(
     routingDecision?: import('../types.js').RoutingDecision;
     composedPrompt?: ComposedPrompt;
     llmCaller?: LLMCallerOverride;
+    fetchFn?: typeof fetch;
   }
 ): Promise<{ artifact?: string; hasMoreTasks?: boolean; allChecksPassed?: boolean; ambiguity?: import('../discovery/scoring.js').AmbiguityResult }> {
   const { root, selfImprovement, circuitBreaker } = context;
@@ -442,6 +443,7 @@ Reference OKF bundle for pre-populated decisions.
         buildPlanPrompt(context.description, designDoc),
         4096,
         context.llmCaller,
+        context.fetchFn,
       );
 
       // Extract markdown plan section and write task-plan.md
@@ -483,6 +485,7 @@ Reference OKF bundle for pre-populated decisions.
         buildDesignPrompt(context.description, designDoc),
         4096,
         context.llmCaller,
+        context.fetchFn,
       );
 
       const wireframes = extractSection(llmResponse, 'WIREFRAMES') || llmResponse;
@@ -511,6 +514,7 @@ Reference OKF bundle for pre-populated decisions.
         buildBreakPrompt(context.description, taskPlan),
         4096,
         context.llmCaller,
+        context.fetchFn,
       );
 
       const tasks = parseLLMTasks(llmResponse);

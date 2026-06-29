@@ -15,6 +15,41 @@ export interface LLMTask {
 
 export type LLMCallerOverride = (model: string, system: string, user: string) => Promise<string>;
 
+// ─── OpenAI-compatible chat completions (Google + OpenAI) ────────────────────
+
+const PROVIDER_CONFIG: Record<string, { baseUrl: string; envKey: string }> = {
+  openai: { baseUrl: 'https://api.openai.com/v1', envKey: 'OPENAI_API_KEY' },
+  google: { baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai', envKey: 'GOOGLE_API_KEY' },
+};
+
+async function callOpenAICompatible(
+  baseUrl: string,
+  apiKey: string,
+  model: string,
+  systemPrompt: string,
+  userPrompt: string,
+  maxTokens: number,
+  fetchFn: typeof fetch,
+): Promise<string> {
+  const res = await fetchFn(`${baseUrl}/chat/completions`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+    body: JSON.stringify({
+      model,
+      max_tokens: maxTokens,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
+      ],
+    }),
+  });
+  if (!res.ok) {
+    return `[LLM error — ${model} returned HTTP ${res.status}: ${await res.text().catch(() => 'no body')}]`;
+  }
+  const data = await res.json() as { choices?: Array<{ message?: { content?: string } }> };
+  return data?.choices?.[0]?.message?.content ?? '';
+}
+
 // ─── LLM call with graceful fallback ─────────────────────────────────────────
 
 export async function callLLM(
@@ -24,24 +59,35 @@ export async function callLLM(
   userPrompt: string,
   maxTokens = 4096,
   override?: LLMCallerOverride,
+  fetchFn: typeof fetch = globalThis.fetch,
 ): Promise<string> {
   if (override) return override(model, systemPrompt, userPrompt);
 
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey || provider !== 'anthropic') {
-    return `[LLM unavailable — ANTHROPIC_API_KEY not set or unsupported provider "${provider}"]`;
+  if (provider === 'anthropic') {
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+    if (!apiKey) return `[LLM unavailable — ANTHROPIC_API_KEY not set]`;
+    const client = new Anthropic({ apiKey });
+    const response = await client.messages.create({
+      model,
+      max_tokens: maxTokens,
+      messages: [{ role: 'user', content: userPrompt }],
+      system: systemPrompt,
+    });
+    const block = response.content[0];
+    return block.type === 'text' ? block.text : '';
   }
 
-  const client = new Anthropic({ apiKey });
-  const response = await client.messages.create({
-    model,
-    max_tokens: maxTokens,
-    messages: [{ role: 'user', content: userPrompt }],
-    system: systemPrompt,
-  });
+  const cfg = PROVIDER_CONFIG[provider];
+  if (!cfg) return `[LLM unavailable — unsupported provider "${provider}"]`;
 
-  const block = response.content[0];
-  return block.type === 'text' ? block.text : '';
+  const apiKey = process.env[cfg.envKey];
+  if (!apiKey) return `[LLM unavailable — ${cfg.envKey} not set]`;
+
+  try {
+    return await callOpenAICompatible(cfg.baseUrl, apiKey, model, systemPrompt, userPrompt, maxTokens, fetchFn);
+  } catch (e) {
+    return `[LLM error — ${model}: ${e instanceof Error ? e.message : String(e)}]`;
+  }
 }
 
 // ─── Prompt builders ──────────────────────────────────────────────────────────
