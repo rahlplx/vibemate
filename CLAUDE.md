@@ -115,12 +115,12 @@ if (isVibemateError(error)) { error.code; error.context; }
 Domain errors: `DiscoveryError`, `ScaffoldError`, `DecisionError`, `StateError`, `ExecutionError`, etc. (all in `src/shared/errors.ts`).
 
 ### Module Factory Pattern
-Modules expose factory functions that own their SQLite lifecycle — no global singletons:
+Modules expose factory functions rather than global singletons. Higher-level factories take a `dbPath` and own the connection lifecycle; `createStore` takes an existing connection and delegates lifecycle to the caller:
 
 ```typescript
-const engine = createDiscoveryEngine(dbPath);   // discovery
-const dispatcher = createDispatcher(dbPath);     // execution
-const store = createStore(conn);                 // state
+const engine = createDiscoveryEngine(dbPath);   // owns connection lifecycle
+const dispatcher = createDispatcher(dbPath);     // owns connection lifecycle
+const store = createStore(conn);                 // caller owns conn lifecycle
 ```
 
 ### Database Testing Lifecycle
