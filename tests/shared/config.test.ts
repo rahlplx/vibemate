@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
 import { mkdirSync, writeFileSync, rmSync } from 'fs';
 import { join } from 'path';
+import { tmpdir } from 'os';
 import {
   createDefaultConfig,
   validateConfig,
@@ -61,9 +62,7 @@ describe('validateConfig', () => {
     expect(result.valid).toBe(false);
     expect(result.errors.some((e) => e.toLowerCase().includes('complexity'))).toBe(true);
   });
-});
 
-describe('validateConfig', () => {
   it('rejects negative maxComplexityForInline', () => {
     const config = createDefaultConfig({ maxComplexityForInline: -1, maxComplexityForSession: 15 });
     const result = validateConfig(config);
@@ -83,7 +82,7 @@ describe('loadConfig', () => {
   let tmpDir: string;
 
   beforeEach(() => {
-    tmpDir = join('/tmp', `vibemate-config-test-${Date.now()}`);
+    tmpDir = join(tmpdir(), `vibemate-config-test-${Date.now()}`);
     mkdirSync(tmpDir, { recursive: true });
   });
 
@@ -122,9 +121,7 @@ describe('loadConfig', () => {
       join(tmpDir, 'vibemate.config.json'),
       JSON.stringify({ budget: -999, evolutionCadence: 'never' }),
     );
-    // Zod parse will fail on invalid enum value; loadConfig falls back to {}
     const config = loadConfig(tmpDir);
-    // budget fallback: Zod safeParse fails → parsed = {} → default budget used
     expect(config.budget).toBe(10.0);
   });
 });
