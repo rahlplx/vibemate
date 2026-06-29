@@ -124,20 +124,26 @@ const store = createStore(conn);                 // state
 ```
 
 ### Database Testing Lifecycle
-Tests create isolated directories, run migrations, and tear down:
+Tests create isolated directories, run migrations, and tear down. Close the connection before removing the directory (required on Windows, good hygiene everywhere):
 
 ```typescript
 const TEST_DB_DIR = path.join(process.cwd(), '.test-<module>');
-beforeEach(() => fs.mkdirSync(TEST_DB_DIR, { recursive: true }));
-afterEach(() => fs.rmSync(TEST_DB_DIR, { recursive: true, force: true }));
+let conn: DatabaseConnection;
+
+beforeEach(() => {
+  fs.mkdirSync(TEST_DB_DIR, { recursive: true });
+  conn = createConnection(path.join(TEST_DB_DIR, 'test.db'));
+});
+
+afterEach(() => {
+  if (conn) closeConnection(conn);
+  fs.rmSync(TEST_DB_DIR, { recursive: true, force: true });
+});
 
 // Inside test
-const conn = createConnection(path.join(TEST_DB_DIR, 'test.db'));
 runMigrations(conn);
 const store = createStore(conn);
 ```
-
-Always call `closeConnection()` in `afterEach`/`finally`.
 
 ### Logging
 Use `StructuredLogger` from `src/shared/logger.ts`. Log level is controlled by `VIBEMATE_LOG_LEVEL` env var (info/debug/warn/error).
