@@ -276,3 +276,60 @@ describe('McpLogger', () => {
     logger.error('test error', new Error('test'));
   });
 });
+
+describe('VibemateMcpServer — tier-gated tool dispatch', () => {
+  it('callTool executes a free-tier tool without a token', async () => {
+    const server = new VibemateMcpServer({ logLevel: 'error' });
+    server.registerTool(
+      { name: 'free_tool', description: 'free', inputSchema: { type: 'object', properties: {}, required: [] }, minTier: 'free' },
+      async () => ({ content: [{ type: 'text', text: 'ok' }] }),
+    );
+    const result = await server.callTool('free_tool', {});
+    expect((result as { content: { text: string }[] }).content[0].text).toBe('ok');
+  });
+
+  it('callTool blocks a pro-tier tool when no token is stored', async () => {
+    const server = new VibemateMcpServer({ logLevel: 'error' });
+    server.registerTool(
+      { name: 'pro_tool', description: 'pro', inputSchema: { type: 'object', properties: {}, required: [] }, minTier: 'pro' },
+      async () => ({ content: [{ type: 'text', text: 'secret' }] }),
+    );
+    await expect(server.callTool('pro_tool', {})).rejects.toThrow(/Pro feature|upgrade/i);
+  });
+
+  it('callTool executes a pro-tier tool when a pro token is stored', async () => {
+    const server = new VibemateMcpServer({ logLevel: 'error' });
+    server.getAuthManager().storeToken('default', { token: 'tok', tier: 'pro', userId: 'u1' });
+    server.registerTool(
+      { name: 'pro_tool2', description: 'pro', inputSchema: { type: 'object', properties: {}, required: [] }, minTier: 'pro' },
+      async () => ({ content: [{ type: 'text', text: 'secret' }] }),
+    );
+    const result = await server.callTool('pro_tool2', {});
+    expect((result as { content: { text: string }[] }).content[0].text).toBe('secret');
+  });
+
+  it('callTool blocks a team-tier tool when user is pro', async () => {
+    const server = new VibemateMcpServer({ logLevel: 'error' });
+    server.getAuthManager().storeToken('default', { token: 'tok', tier: 'pro', userId: 'u1' });
+    server.registerTool(
+      { name: 'team_tool', description: 'team', inputSchema: { type: 'object', properties: {}, required: [] }, minTier: 'team' },
+      async () => ({ content: [{ type: 'text', text: 'team secret' }] }),
+    );
+    await expect(server.callTool('team_tool', {})).rejects.toThrow(/[Uu]pgrade/);
+  });
+
+  it('callTool throws for unknown tool name', async () => {
+    const server = new VibemateMcpServer({ logLevel: 'error' });
+    await expect(server.callTool('nonexistent', {})).rejects.toThrow(/not found/i);
+  });
+
+  it('tools without minTier default to free (always allowed)', async () => {
+    const server = new VibemateMcpServer({ logLevel: 'error' });
+    server.registerTool(
+      { name: 'no_tier_tool', description: 'x', inputSchema: { type: 'object', properties: {}, required: [] } },
+      async () => ({ content: [{ type: 'text', text: 'open' }] }),
+    );
+    const result = await server.callTool('no_tier_tool', {});
+    expect((result as { content: { text: string }[] }).content[0].text).toBe('open');
+  });
+});
