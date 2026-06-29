@@ -152,6 +152,17 @@ describe('callLLM', () => {
       else delete process.env.OPENAI_API_KEY;
     }
   });
+
+  it('anthropic path short-circuits to override before any fetch when override provided', async () => {
+    let overrideCalled = false;
+    const mockOverride = async (_model: string, _sys: string, _user: string) => {
+      overrideCalled = true;
+      return 'override-result';
+    };
+    const result = await callLLM('claude-sonnet-4-6', 'anthropic', 'sys', 'user', 1024, mockOverride);
+    expect(overrideCalled).toBe(true);
+    expect(result).toBe('override-result');
+  });
 });
 
 describe('buildPlanPrompt', () => {
