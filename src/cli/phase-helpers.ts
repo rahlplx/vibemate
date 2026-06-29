@@ -182,9 +182,12 @@ export function parseLLMTasks(raw: string): LLMTask[] {
       description: typeof task['description'] === 'string' ? task['description'] : '',
       milestone: typeof task['milestone'] === 'string' ? task['milestone'] : 'M1',
       complexityScore: typeof task['complexityScore'] === 'number' ? task['complexityScore'] : 5,
-      executionMode: (['inline', 'session', 'subagent'] as const).includes(task['executionMode'] as 'inline')
-        ? (task['executionMode'] as LLMTask['executionMode'])
-        : 'inline',
+      executionMode: (() => {
+        const mode = String(task['executionMode'] || '').replace(/[-_]/g, '').toLowerCase();
+        return (['inline', 'session', 'subagent'] as const).includes(mode as 'inline')
+          ? (mode as LLMTask['executionMode'])
+          : 'inline';
+      })(),
       acceptanceCriteria: Array.isArray(task['acceptanceCriteria'])
         ? (task['acceptanceCriteria'] as unknown[]).filter(s => typeof s === 'string') as string[]
         : [],
