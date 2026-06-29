@@ -66,6 +66,8 @@ function countFiles(dir: string): number {
   return count;
 }
 
+
+
 function hasCI(dir: string): boolean {
   return existsSync(join(dir, '.github', 'workflows')) || existsSync(join(dir, '.gitlab-ci.yml'));
 }

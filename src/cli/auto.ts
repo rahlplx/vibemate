@@ -363,6 +363,7 @@ async function executePhase(
         ? `\n## Past Learnings Advisory\n${advisory.guidance}\n`
         : '';
 
+
       const systemPromptSection = context.composedPrompt?.systemPrompt
         ? `\n## Active System Context\n> ${context.composedPrompt.systemPrompt.replace(/\n/g, '\n> ')}\n`
         : '';

@@ -424,7 +424,7 @@ describe('EvolveAgent.loadRules() — restart recovery', () => {
     });
 
     const okf = new OKFGenerator(tmpDir);
-    const agent = new EvolveAgent(okf, { persistence });
+    const agent = new EvolveAgent(okf, { persistence, fastTimescale: { thompsonSampling: { explorationRate: 0, decayFactor: 0.99 } } });
     await agent.loadRules();
 
     const selected = agent.selectSkill('some context');
@@ -658,7 +658,7 @@ describe('EvolveAgent.selectSkill() — useCount tracking', () => {
     await store.saveRule({ id: 'r-1', name: 'best-rule', description: 'desc', condition: 'always', action: 'do it', qualityScore: 0.9, lastUsed: new Date(), useCount: 0 });
 
     const okf = new OKFGenerator(tmpDir);
-    const agent = new EvolveAgent(okf, { persistence });
+    const agent = new EvolveAgent(okf, { persistence, fastTimescale: { thompsonSampling: { explorationRate: 0, decayFactor: 0.99 } } });
     await agent.loadRules();
 
     const skill1 = agent.selectSkill('context');
