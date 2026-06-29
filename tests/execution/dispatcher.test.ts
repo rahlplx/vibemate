@@ -3,6 +3,7 @@ import {
   createDispatcher,
   type Dispatcher,
 } from '../../src/execution/dispatcher.js';
+import { createMockSubagentRunner } from '../../src/execution/subagent.js';
 import { createConnection, closeConnection, type DatabaseConnection } from '../../src/state/connection.js';
 import { runMigrations } from '../../src/state/migrations.js';
 import { createStore, type StateStore } from '../../src/state/store.js';
@@ -124,6 +125,81 @@ describe('Dispatcher', () => {
       const task = dispatcher.getTask(taskId);
       expect(task!.status).toBe('failed');
       expect(task!.output).toBe('Error occurred');
+    });
+  });
+
+  describe('runSubagent', () => {
+    it('marks task completed when runner succeeds', async () => {
+      const runner = createMockSubagentRunner([{ exitCode: 0, stdout: 'done', stderr: '', timedOut: false }]);
+      const taskId = dispatcher.dispatch('p1', 's1', {
+        title: 'Subagent task',
+        description: 'Run subagent',
+        complexityScore: 16,
+        executionMode: 'subagent',
+      });
+      await dispatcher.runSubagent(taskId, 'bun', ['run', 'build'], runner);
+      const task = dispatcher.getTask(taskId);
+      expect(task!.status).toBe('completed');
+      expect(task!.output).toContain('done');
+    });
+
+    it('marks task failed when runner exits with non-zero', async () => {
+      const runner = createMockSubagentRunner([{ exitCode: 1, stdout: '', stderr: 'build error', timedOut: false }]);
+      const taskId = dispatcher.dispatch('p1', 's1', {
+        title: 'Failing task',
+        description: 'Should fail',
+        complexityScore: 16,
+        executionMode: 'subagent',
+      });
+      await dispatcher.runSubagent(taskId, 'bun', ['run', 'bad'], runner);
+      const task = dispatcher.getTask(taskId);
+      expect(task!.status).toBe('failed');
+      expect(task!.output).toContain('build error');
+    });
+
+    it('marks task failed on timeout', async () => {
+      const runner = createMockSubagentRunner([{ exitCode: -1, stdout: '', stderr: '', timedOut: true }]);
+      const taskId = dispatcher.dispatch('p1', 's1', {
+        title: 'Slow task',
+        description: 'Times out',
+        complexityScore: 16,
+        executionMode: 'subagent',
+      });
+      await dispatcher.runSubagent(taskId, 'sleep', ['999'], runner);
+      const task = dispatcher.getTask(taskId);
+      expect(task!.status).toBe('failed');
+      expect(task!.output).toContain('timed out');
+    });
+
+    it('passes options through to the runner', async () => {
+      const runner = createMockSubagentRunner();
+      const taskId = dispatcher.dispatch('p1', 's1', {
+        title: 'Task with options',
+        description: 'Desc',
+        complexityScore: 16,
+        executionMode: 'subagent',
+      });
+      await dispatcher.runSubagent(taskId, 'echo', ['hi'], runner, { cwd: '/tmp', env: { FOO: 'bar' } });
+      expect(runner.calls[0].options).toMatchObject({ cwd: '/tmp', env: { FOO: 'bar' } });
+    });
+
+    it('marks task failed when runner.run throws', async () => {
+      const throwingRunner = {
+        calls: [],
+        async run(): Promise<never> {
+          throw new Error('spawn error');
+        },
+      };
+      const taskId = dispatcher.dispatch('p1', 's1', {
+        title: 'Throwing task',
+        description: 'Throws',
+        complexityScore: 16,
+        executionMode: 'subagent',
+      });
+      await dispatcher.runSubagent(taskId, 'bad-cmd', [], throwingRunner);
+      const task = dispatcher.getTask(taskId);
+      expect(task!.status).toBe('failed');
+      expect(task!.output).toContain('spawn error');
     });
   });
 });
