@@ -18,6 +18,7 @@ import { PromptRegistry } from '../prompts/registry.js';
 import { loadConfig } from '../shared/config.js';
 import type { ComposedPrompt } from '../types.js';
 import { RequirementsTracker } from '../shared/requirements-tracker.js';
+import { callLLM, buildPlanPrompt, buildBreakPrompt, buildDesignPrompt, parseLLMTasks, extractSection, type LLMCallerOverride } from './phase-helpers.js';
 
 interface AutoOptions {
   budget?: number;
@@ -333,6 +334,7 @@ async function executePhase(
     circuitBreaker: CircuitBreaker;
     routingDecision?: import('../types.js').RoutingDecision;
     composedPrompt?: ComposedPrompt;
+    llmCaller?: LLMCallerOverride;
   }
 ): Promise<{ artifact?: string; hasMoreTasks?: boolean; allChecksPassed?: boolean; ambiguity?: import('../discovery/scoring.js').AmbiguityResult }> {
   const { root, selfImprovement, circuitBreaker } = context;
@@ -424,76 +426,102 @@ Reference OKF bundle for pre-populated decisions.
     case 'plan': {
       console.log('📋 Creating task plan...');
 
-      const taskPlan = `# Task Plan
+      // Read design doc from THINK phase as context
+      let designDoc = '';
+      try { designDoc = await readFile(join(vibeDir, 'design-doc.md'), 'utf-8'); } catch { /* no design doc yet */ }
 
-## Milestone 1: Core Implementation
-- [ ] Set up project structure
-- [ ] Implement core logic
-- [ ] Add unit tests
+      const model = context.routingDecision?.model ?? 'claude-sonnet-4-20250514';
+      const provider = context.routingDecision?.provider ?? 'anthropic';
+      const systemCtx = context.composedPrompt?.systemPrompt
+        ? `You are a senior engineer. ${context.composedPrompt.systemPrompt}`
+        : 'You are a senior engineering lead creating precise, actionable task plans.';
 
-## Milestone 2: Integration
-- [ ] Connect components
-- [ ] Add integration tests
-- [ ] Error handling
+      const llmResponse = await callLLM(
+        model, provider,
+        systemCtx,
+        buildPlanPrompt(context.description, designDoc),
+        4096,
+        context.llmCaller,
+      );
 
-## Milestone 3: Polish
-- [ ] Documentation
-- [ ] Performance optimization
-- [ ] Final review
-`;
-      await writeFile(join(vibeDir, 'task-plan.md'), taskPlan);
+      // Extract markdown plan section and write task-plan.md
+      const markdownPlan = extractSection(llmResponse, 'MARKDOWN_PLAN') || llmResponse;
+      await writeFile(join(vibeDir, 'task-plan.md'), markdownPlan.startsWith('#')
+        ? markdownPlan
+        : `# Task Plan\n\n${markdownPlan}`);
 
-      const tasks = {
+      // Extract and parse tasks.json — fall back to a minimal scaffold on parse failure
+      const tasks = parseLLMTasks(llmResponse);
+      const tasksObj = tasks.length > 0 ? { tasks } : {
         tasks: [
-          {
-            id: 'task-1',
-            title: 'Set up project structure',
-            description: 'Create directory structure and base files',
-            milestone: 'M1',
-            complexityScore: 2,
-            executionMode: 'inline',
-            acceptanceCriteria: ['Directories exist', 'Base files created'],
-            dependencies: [],
-            files: []
-          },
-          {
-            id: 'task-2',
-            title: 'Implement core logic',
-            description: 'Implement the main feature',
-            milestone: 'M1',
-            complexityScore: 8,
-            executionMode: 'session',
-            acceptanceCriteria: ['Core function works', 'Edge cases handled'],
-            dependencies: ['task-1'],
-            files: []
-          },
-          {
-            id: 'task-3',
-            title: 'Add tests',
-            description: 'Write unit and integration tests',
-            milestone: 'M2',
-            complexityScore: 5,
-            executionMode: 'inline',
-            acceptanceCriteria: ['All tests pass', 'Coverage >80%'],
-            dependencies: ['task-2'],
-            files: []
-          }
+          { id: 'task-1', title: 'Set up project structure', description: 'Create directory structure and base files', milestone: 'M1', complexityScore: 2, executionMode: 'inline', acceptanceCriteria: ['Directories exist', 'Base files created'], dependencies: [], files: [] },
+          { id: 'task-2', title: 'Implement core logic', description: context.description, milestone: 'M1', complexityScore: 8, executionMode: 'session', acceptanceCriteria: ['Core function works', 'Edge cases handled'], dependencies: ['task-1'], files: [] },
+          { id: 'task-3', title: 'Add tests', description: 'Write unit and integration tests', milestone: 'M2', complexityScore: 5, executionMode: 'inline', acceptanceCriteria: ['All tests pass', 'Coverage >80%'], dependencies: ['task-2'], files: [] },
         ]
       };
-      await writeFile(join(vibeDir, 'tasks.json'), JSON.stringify(tasks, null, 2));
+      await writeFile(join(vibeDir, 'tasks.json'), JSON.stringify(tasksObj, null, 2));
+      console.log(`   📋 Generated ${tasksObj.tasks.length} tasks`);
       return { artifact: 'task-plan.md' };
     }
 
     case 'design': {
       console.log('🎨 Generating UI design...');
       await mkdir(join(vibeDir, 'design'), { recursive: true });
-      await writeFile(join(vibeDir, 'design', 'wireframes.md'), '# Wireframes\n\nUI layout descriptions...');
-      await writeFile(join(vibeDir, 'design', 'components.md'), '# Components\n\nComponent hierarchy...');
+
+      let designDoc = '';
+      try { designDoc = await readFile(join(vibeDir, 'design-doc.md'), 'utf-8'); } catch { /* ok */ }
+
+      const model = context.routingDecision?.model ?? 'claude-sonnet-4-20250514';
+      const provider = context.routingDecision?.provider ?? 'anthropic';
+      const systemCtx = context.composedPrompt?.systemPrompt
+        ? `You are a UI/UX designer. ${context.composedPrompt.systemPrompt}`
+        : 'You are a UI/UX designer producing clear wireframe specifications for developers.';
+
+      const llmResponse = await callLLM(
+        model, provider,
+        systemCtx,
+        buildDesignPrompt(context.description, designDoc),
+        4096,
+        context.llmCaller,
+      );
+
+      const wireframes = extractSection(llmResponse, 'WIREFRAMES') || llmResponse;
+      const components = extractSection(llmResponse, 'COMPONENTS') || '# Components\n\nSee wireframes for component structure.';
+
+      await writeFile(join(vibeDir, 'design', 'wireframes.md'), `# Wireframes\n\n${wireframes}`);
+      await writeFile(join(vibeDir, 'design', 'components.md'), `# Components\n\n${components}`);
       return { artifact: 'design/' };
     }
 
     case 'break': {
-      console.log('🔨 Breaking down tasks...');
+      console.log('🔨 Breaking down tasks into atomic units...');
+
+      let taskPlan = '';
+      try { taskPlan = await readFile(join(vibeDir, 'task-plan.md'), 'utf-8'); } catch { /* ok */ }
+
+      const model = context.routingDecision?.model ?? 'claude-sonnet-4-20250514';
+      const provider = context.routingDecision?.provider ?? 'anthropic';
+      const systemCtx = context.composedPrompt?.systemPrompt
+        ? `You are a senior engineer. ${context.composedPrompt.systemPrompt}`
+        : 'You are a senior engineer decomposing milestones into atomic, implementable tasks.';
+
+      const llmResponse = await callLLM(
+        model, provider,
+        systemCtx,
+        buildBreakPrompt(context.description, taskPlan),
+        4096,
+        context.llmCaller,
+      );
+
+      const tasks = parseLLMTasks(llmResponse);
+      if (tasks.length > 0) {
+        // Merge with existing tasks.json if it exists — replace with LLM-refined list
+        await writeFile(join(vibeDir, 'tasks.json'), JSON.stringify({ tasks }, null, 2));
+        console.log(`   🔨 Decomposed into ${tasks.length} atomic tasks`);
+      } else {
+        console.log('   ℹ️  Using task plan from PLAN phase (LLM parse returned empty)');
+      }
+
       return { artifact: 'tasks.json' };
     }
 
@@ -551,22 +579,69 @@ Reference OKF bundle for pre-populated decisions.
     }
 
     case 'qa': {
-      console.log('🧪 Running QA tests...');
+      console.log('🧪 Running QA...');
+      await mkdir(join(vibeDir, 'qa'), { recursive: true });
+
+      // Run the test suite as the primary QA signal
+      let passed = 0;
+      let failed = 0;
+      let testOutput = '';
+      let testStatus: 'PASS' | 'FAIL' | 'ERROR' = 'PASS';
+
+      const qaStart = performance.now();
+      try {
+        console.log('   🧪 Running test suite...');
+        testOutput = execFileSync('bun', ['test'], {
+          cwd: root,
+          encoding: 'utf-8',
+          timeout: 120000,
+          stdio: ['pipe', 'pipe', 'pipe']
+        });
+        const passMatch = testOutput.match(/(\d+) pass/);
+        const failMatch = testOutput.match(/(\d+) fail/);
+        passed = passMatch ? parseInt(passMatch[1]) : 0;
+        failed = failMatch ? parseInt(failMatch[1]) : 0;
+        testStatus = failed > 0 ? 'FAIL' : 'PASS';
+        console.log(`   ${testStatus === 'PASS' ? '✅' : '❌'} Tests: ${passed} pass, ${failed} fail`);
+      } catch (e: unknown) {
+        const err = e as { stderr?: string; stdout?: string };
+        const combined = (err.stdout || '') + '\n' + (err.stderr || '');
+        const passMatch = combined.match(/(\d+) pass/);
+        const failMatch = combined.match(/(\d+) fail/);
+        passed = passMatch ? parseInt(passMatch[1]) : 0;
+        failed = failMatch ? parseInt(failMatch[1]) : 0;
+        testOutput = combined.slice(0, 2000);
+        testStatus = 'FAIL';
+        console.log(`   ❌ Tests: ${passed} pass, ${failed} fail`);
+      }
+      const qaDurationMs = Math.round(performance.now() - qaStart);
+
       const qaReport = `# QA Report
 
-## Status: PASS
+## Status: ${testStatus}
 
-## Tests Performed
-- [x] Application starts without errors
-- [x] Key flows accessible
-- [x] Error states handled
-- [x] Responsive design verified
+## Test Suite Results
+- **Tests passed:** ${passed}
+- **Tests failed:** ${failed}
+- **Duration:** ${qaDurationMs}ms
+- **Timestamp:** ${new Date().toISOString()}
+
+## Checks
+${testStatus === 'PASS' ? '- [x]' : '- [ ]'} Test suite ${testStatus === 'PASS' ? 'passed' : 'failed'} (${passed} pass / ${failed} fail)
+- [${state.hasUI ? 'x' : '-'}] UI mode: ${state.hasUI ? 'enabled' : 'disabled (skipped browser QA)'}
+
+## Test Output (last 2000 chars)
+\`\`\`
+${testOutput.slice(-2000).trim()}
+\`\`\`
 
 ## Notes
-Automated QA check completed.
+${testStatus === 'PASS'
+  ? 'All automated tests passing. QA phase complete.'
+  : `${failed} test(s) failing. Review the output above and fix failures before shipping.`}
 `;
       await writeFile(join(vibeDir, 'qa-report.md'), qaReport);
-      return { artifact: 'qa-report.md' };
+      return { artifact: 'qa-report.md', allChecksPassed: testStatus === 'PASS' };
     }
 
     case 'ship': {
