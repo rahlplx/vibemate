@@ -1,4 +1,5 @@
 import { GovernanceEngine } from '../governance/engine.js';
+import type { Permission } from '../governance/engine.js';
 import { AutoState, CircuitBreaker } from '../types.js';
 import { AmbiguityResult } from '../discovery/scoring.js';
 import { calculateComplexity, determineExecutionMode } from '../execution/gate.js';
@@ -38,14 +39,35 @@ export async function checkGovernancePermissionWithPersistence(
   phase: string,
   persistence: PersistenceManager,
 ): Promise<boolean> {
-  const engine = new GovernanceEngine({ persistence });
-  await engine.load();
+  const store = await persistence.getGovernanceStore();
+
+  // Build a minimal engine (no persistence — audit log stays empty so persist() is cheap)
+  const engine = new GovernanceEngine();
+
+  // Load custom roles from DB so any deny policies are respected
+  const dbRoles = await store.getAllRoles();
+  for (const r of dbRoles) {
+    engine.addRole({ name: r.name, permissions: r.permissions as Permission[], description: r.description });
+  }
+
+  // Load existing user to preserve original createdAt, or create on first use
   const userId = `auto-agent-${role}`;
-  if (!engine.getUser(userId)) {
+  const existingUser = await store.getUser(userId);
+  if (existingUser) {
+    engine.addUser(existingUser);
+  } else {
     engine.addUser({ id: userId, name: role, roles: [role], createdAt: new Date(), lastActive: new Date() });
   }
+
   const allowed = engine.hasPermission(userId, 'execute', `phase:${phase}`);
-  await engine.persist();
+
+  // Persist only the user (updated lastActive) and the new audit entries (not the whole log)
+  const user = engine.getUser(userId);
+  if (user) await store.saveUser(user);
+  for (const entry of engine.getAuditLog()) {
+    await store.saveAuditEntry(entry);
+  }
+
   return allowed;
 }
 

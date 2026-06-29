@@ -98,6 +98,7 @@ async function runAutoPipeline(description: string, options: AutoOptions): Promi
   const router = new CostAwareRouter([], parseFloat(String(options.budget || '10')), undefined, observationEngine);
   const governancePm = new PersistenceManager({ dbPath: join(vibeDir, 'state.db') });
   await governancePm.initialize();
+  try {
 
   const circuitBreaker: CircuitBreaker = {
     consecutiveFailures: 0,
@@ -325,6 +326,10 @@ async function runAutoPipeline(description: string, options: AutoOptions): Promi
   console.log('✅ Pipeline Complete!');
   console.log('='.repeat(60));
   printPipelineSummary(state, circuitBreaker);
+
+  } finally {
+    await governancePm.close();
+  }
 }
 
 async function executePhase(
