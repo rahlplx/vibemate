@@ -5,6 +5,15 @@ import { callLLM, buildPlanPrompt, buildBreakPrompt, buildDesignPrompt, parseLLM
 
 const TMP = '/tmp/phase-exec-test';
 
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function makeOpenAIResponse(content: string): Response {
+  return new Response(
+    JSON.stringify({ choices: [{ message: { role: 'assistant', content } }] }),
+    { status: 200, headers: { 'Content-Type': 'application/json' } },
+  );
+}
+
 describe('callLLM', () => {
   it('returns fallback text when ANTHROPIC_API_KEY is not set', async () => {
     const orig = process.env.ANTHROPIC_API_KEY;
@@ -13,16 +22,135 @@ describe('callLLM', () => {
       const result = await callLLM('claude-sonnet-4-20250514', 'anthropic', 'sys', 'user');
       expect(typeof result).toBe('string');
       expect(result.length).toBeGreaterThan(0);
+      expect(result).toContain('unavailable');
     } finally {
       if (orig !== undefined) process.env.ANTHROPIC_API_KEY = orig;
     }
   });
 
-  it('uses injected fetch override when provided', async () => {
+  it('uses injected LLMCallerOverride when provided', async () => {
     const mockText = '{"tasks": []}';
-    const mockFetch = async (_model: string, _system: string, _user: string) => mockText;
-    const result = await callLLM('claude-haiku', 'anthropic', 'sys', 'user', undefined, mockFetch);
+    const mockOverride = async (_model: string, _system: string, _user: string) => mockText;
+    const result = await callLLM('claude-haiku', 'anthropic', 'sys', 'user', undefined, mockOverride);
     expect(result).toBe(mockText);
+  });
+
+  it('calls OpenAI-compatible endpoint for openai provider', async () => {
+    const orig = process.env.OPENAI_API_KEY;
+    process.env.OPENAI_API_KEY = 'test-openai-key';
+    let capturedUrl = '';
+    let capturedBody = '';
+    const mockFetch = async (url: string | URL | Request, init?: RequestInit) => {
+      capturedUrl = String(url);
+      capturedBody = String(init?.body ?? '');
+      return makeOpenAIResponse('OpenAI response text');
+    };
+    try {
+      const result = await callLLM('gpt-4o', 'openai', 'sys', 'user prompt', 1024, undefined, mockFetch as typeof fetch);
+      expect(result).toBe('OpenAI response text');
+      expect(capturedUrl).toContain('openai.com');
+      expect(capturedUrl).toContain('chat/completions');
+      const body = JSON.parse(capturedBody);
+      expect(body.model).toBe('gpt-4o');
+      expect(body.messages.some((m: { role: string }) => m.role === 'system')).toBe(true);
+      expect(body.messages.some((m: { role: string }) => m.role === 'user')).toBe(true);
+    } finally {
+      if (orig !== undefined) process.env.OPENAI_API_KEY = orig;
+      else delete process.env.OPENAI_API_KEY;
+    }
+  });
+
+  it('calls Google Gemini OpenAI-compatible endpoint for google provider', async () => {
+    const orig = process.env.GOOGLE_API_KEY;
+    process.env.GOOGLE_API_KEY = 'test-google-key';
+    let capturedUrl = '';
+    const mockFetch = async (url: string | URL | Request) => {
+      capturedUrl = String(url);
+      return makeOpenAIResponse('Gemini response text');
+    };
+    try {
+      const result = await callLLM('gemini-2.5-flash', 'google', 'sys', 'user', 1024, undefined, mockFetch as typeof fetch);
+      expect(result).toBe('Gemini response text');
+      expect(capturedUrl).toContain('generativelanguage.googleapis.com');
+      expect(capturedUrl).toContain('chat/completions');
+    } finally {
+      if (orig !== undefined) process.env.GOOGLE_API_KEY = orig;
+      else delete process.env.GOOGLE_API_KEY;
+    }
+  });
+
+  it('returns fallback when OPENAI_API_KEY is not set', async () => {
+    const orig = process.env.OPENAI_API_KEY;
+    delete process.env.OPENAI_API_KEY;
+    try {
+      const result = await callLLM('gpt-4o', 'openai', 'sys', 'user');
+      expect(result).toContain('unavailable');
+      expect(result).toContain('OPENAI_API_KEY');
+    } finally {
+      if (orig !== undefined) process.env.OPENAI_API_KEY = orig;
+    }
+  });
+
+  it('returns fallback when GOOGLE_API_KEY is not set', async () => {
+    const orig = process.env.GOOGLE_API_KEY;
+    delete process.env.GOOGLE_API_KEY;
+    try {
+      const result = await callLLM('gemini-2.5-flash', 'google', 'sys', 'user');
+      expect(result).toContain('unavailable');
+      expect(result).toContain('GOOGLE_API_KEY');
+    } finally {
+      if (orig !== undefined) process.env.GOOGLE_API_KEY = orig;
+    }
+  });
+
+  it('returns fallback for unknown provider', async () => {
+    const result = await callLLM('some-model', 'unknown', 'sys', 'user');
+    expect(result).toContain('unavailable');
+    expect(result).toContain('unknown');
+  });
+
+  it('returns fallback when OpenAI API returns non-200', async () => {
+    const orig = process.env.OPENAI_API_KEY;
+    process.env.OPENAI_API_KEY = 'test-key';
+    const mockFetch = async () => new Response('Internal Server Error', { status: 500 });
+    try {
+      const result = await callLLM('gpt-4o', 'openai', 'sys', 'user', 1024, undefined, mockFetch as typeof fetch);
+      expect(result).toContain('error');
+    } finally {
+      if (orig !== undefined) process.env.OPENAI_API_KEY = orig;
+      else delete process.env.OPENAI_API_KEY;
+    }
+  });
+
+  it('returns fallback when fetch throws (network error)', async () => {
+    const orig = process.env.OPENAI_API_KEY;
+    process.env.OPENAI_API_KEY = 'test-key';
+    const mockFetch = async () => { throw new Error('Network error'); };
+    try {
+      const result = await callLLM('gpt-4o', 'openai', 'sys', 'user', 1024, undefined, mockFetch as typeof fetch);
+      expect(result).toContain('error');
+    } finally {
+      if (orig !== undefined) process.env.OPENAI_API_KEY = orig;
+      else delete process.env.OPENAI_API_KEY;
+    }
+  });
+
+  it('passes max_tokens to OpenAI request', async () => {
+    const orig = process.env.OPENAI_API_KEY;
+    process.env.OPENAI_API_KEY = 'test-key';
+    let capturedBody = '';
+    const mockFetch = async (_url: string | URL | Request, init?: RequestInit) => {
+      capturedBody = String(init?.body ?? '');
+      return makeOpenAIResponse('ok');
+    };
+    try {
+      await callLLM('gpt-4o', 'openai', 'sys', 'user', 2048, undefined, mockFetch as typeof fetch);
+      const body = JSON.parse(capturedBody);
+      expect(body.max_tokens).toBe(2048);
+    } finally {
+      if (orig !== undefined) process.env.OPENAI_API_KEY = orig;
+      else delete process.env.OPENAI_API_KEY;
+    }
   });
 });
 
