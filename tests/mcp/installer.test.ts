@@ -1,6 +1,7 @@
 import { describe, it, expect, afterEach, beforeEach } from 'bun:test';
 import { mkdirSync, existsSync, rmSync, writeFileSync, readFileSync } from 'fs';
 import { dirname, join } from 'path';
+import { tmpdir } from 'os';
 import {
   PLATFORMS,
   detectPlatform,
@@ -322,7 +323,7 @@ describe('compilePlatform', () => {
   let tmpRoot: string;
 
   beforeEach(async () => {
-    tmpRoot = join('/tmp', `vibemate-compile-${Date.now()}`);
+    tmpRoot = join(tmpdir(), `vibemate-compile-${Date.now()}`);
     mkdirSync(tmpRoot, { recursive: true });
   });
 

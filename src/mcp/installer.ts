@@ -274,20 +274,28 @@ export async function compilePlatform(root: string, platform: Platform): Promise
   if (platform === 'claude') {
     const pluginPath = join(root, '.claude-plugin', 'plugin.json');
     if (existsSync(pluginPath)) {
-      const raw = await readFile(pluginPath, 'utf-8');
-      const manifest = JSON.parse(raw) as Record<string, unknown>;
-      manifest.mcpServers = { vibemate: entry };
-      await writeFile(pluginPath, JSON.stringify(manifest, null, 2));
+      try {
+        const raw = await readFile(pluginPath, 'utf-8');
+        const manifest = JSON.parse(raw) as Record<string, unknown>;
+        manifest.mcpServers = { vibemate: entry };
+        await writeFile(pluginPath, JSON.stringify(manifest, null, 2));
+      } catch (error) {
+        throw new Error(`Failed to update Claude plugin manifest at ${pluginPath}: ${error instanceof Error ? error.message : error}`);
+      }
     }
   }
 
   if (platform === 'opencode') {
     const ocPath = join(root, 'opencode.json');
     if (existsSync(ocPath)) {
-      const raw = await readFile(ocPath, 'utf-8');
-      const manifest = JSON.parse(raw) as Record<string, unknown>;
-      manifest.mcp = { vibemate: entry };
-      await writeFile(ocPath, JSON.stringify(manifest, null, 2));
+      try {
+        const raw = await readFile(ocPath, 'utf-8');
+        const manifest = JSON.parse(raw) as Record<string, unknown>;
+        manifest.mcp = { vibemate: entry };
+        await writeFile(ocPath, JSON.stringify(manifest, null, 2));
+      } catch (error) {
+        throw new Error(`Failed to update OpenCode manifest at ${ocPath}: ${error instanceof Error ? error.message : error}`);
+      }
     }
   }
 

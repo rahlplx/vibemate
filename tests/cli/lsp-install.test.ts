@@ -1,9 +1,10 @@
 import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
 import { mkdirSync, rmSync, existsSync, readFileSync } from 'fs';
 import { join } from 'path';
+import { tmpdir } from 'os';
 import { resolveLSPConfig } from '../../src/cli/lsp.js';
 
-const TMP = '/tmp/lsp-install-test';
+const TMP = join(tmpdir(), 'lsp-install-test');
 
 describe('resolveLSPConfig', () => {
   it('returns typescript-language-server and eslint for typescript stack', () => {

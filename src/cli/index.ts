@@ -39,9 +39,10 @@ program
   .action(async (options) => {
     try {
       const root = process.cwd();
-      const platform: Platform = options.platform || detectPlatform() || 'claude';
+      const detectedPlatform = detectPlatform();
+      const platform: Platform = options.platform || detectedPlatform || 'claude';
 
-      if (!options.platform && !detectPlatform() && !options.dryRun) {
+      if (!options.platform && !detectedPlatform && !options.dryRun) {
         console.error('No supported AI coding tool detected. Please specify a platform with --platform.');
         process.exit(1);
       }

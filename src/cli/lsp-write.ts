@@ -19,17 +19,25 @@ export async function writeLSPConfig(
 export async function mergeLSPIntoManifests(root: string, lspConfigs: LSPConfig[]): Promise<void> {
   const pluginPath = join(root, '.claude-plugin', 'plugin.json');
   if (existsSync(pluginPath)) {
-    const raw = await readFile(pluginPath, 'utf-8');
-    const manifest = JSON.parse(raw) as Record<string, unknown>;
-    manifest.lsp = lspConfigs;
-    await writeFile(pluginPath, JSON.stringify(manifest, null, 2));
+    try {
+      const raw = await readFile(pluginPath, 'utf-8');
+      const manifest = JSON.parse(raw) as Record<string, unknown>;
+      manifest.lsp = lspConfigs;
+      await writeFile(pluginPath, JSON.stringify(manifest, null, 2));
+    } catch (error) {
+      console.warn(`Warning: Failed to merge LSP configs into ${pluginPath}:`, error instanceof Error ? error.message : error);
+    }
   }
 
   const ocPath = join(root, 'opencode.json');
   if (existsSync(ocPath)) {
-    const raw = await readFile(ocPath, 'utf-8');
-    const manifest = JSON.parse(raw) as Record<string, unknown>;
-    manifest.lsp = lspConfigs;
-    await writeFile(ocPath, JSON.stringify(manifest, null, 2));
+    try {
+      const raw = await readFile(ocPath, 'utf-8');
+      const manifest = JSON.parse(raw) as Record<string, unknown>;
+      manifest.lsp = lspConfigs;
+      await writeFile(ocPath, JSON.stringify(manifest, null, 2));
+    } catch (error) {
+      console.warn(`Warning: Failed to merge LSP configs into ${ocPath}:`, error instanceof Error ? error.message : error);
+    }
   }
 }
