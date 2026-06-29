@@ -1,6 +1,7 @@
 import { describe, it, expect, afterEach, beforeEach } from 'bun:test';
 import { mkdirSync, existsSync, rmSync, writeFileSync, readFileSync } from 'fs';
-import { dirname } from 'path';
+import { dirname, join } from 'path';
+import { tmpdir } from 'os';
 import {
   PLATFORMS,
   detectPlatform,
@@ -11,6 +12,7 @@ import {
   writeConfig,
   backupConfig,
   install,
+  compilePlatform,
   type Platform,
 } from '../../src/mcp/installer.js';
 
@@ -32,6 +34,12 @@ describe('PLATFORMS', () => {
     expect(p.name).toBe('Claude Code');
     expect(p.mcpKey).toBe('mcpServers');
     expect(p.configPath).toContain('.claude');
+  });
+
+  it('claude configPath points to settings.json not claude_desktop_config.json', () => {
+    const p = PLATFORMS.claude;
+    expect(p.configPath).toContain('settings.json');
+    expect(p.configPath).not.toContain('claude_desktop_config.json');
   });
 
   it('cursor has correct config', () => {
@@ -93,6 +101,19 @@ describe('createVibemateEntry', () => {
     const entry = createVibemateEntry({ apiKey: 'test-key' });
     expect(entry.env).toBeDefined();
     expect(entry.env!.ANTHROPIC_API_KEY).toBe('test-key');
+  });
+
+  it('uses scoped package -p flag for correct npx invocation', () => {
+    const entry = createVibemateEntry();
+    expect(entry.args).toContain('-p');
+    expect(entry.args).toContain('@vibemate/core');
+    const pIdx = entry.args.indexOf('-p');
+    expect(entry.args[pIdx + 1]).toBe('@vibemate/core');
+  });
+
+  it('preserves -y flag in npx args', () => {
+    const entry = createVibemateEntry();
+    expect(entry.args[0]).toBe('-y');
   });
 });
 
@@ -295,5 +316,39 @@ describe('install', () => {
     const result = await install({ platform: 'codex', dryRun: false });
     expect(result.backupPath).not.toBeNull();
     if (result.backupPath) rmSync(result.backupPath);
+  });
+});
+
+describe('compilePlatform', () => {
+  let tmpRoot: string;
+
+  beforeEach(async () => {
+    tmpRoot = join(tmpdir(), `vibemate-compile-${Date.now()}`);
+    mkdirSync(tmpRoot, { recursive: true });
+  });
+
+  afterEach(() => {
+    rmSync(tmpRoot, { recursive: true, force: true });
+  });
+
+  it('compiles claude-code artifacts into tmpRoot', async () => {
+    await compilePlatform(tmpRoot, 'claude');
+    expect(existsSync(join(tmpRoot, '.claude-plugin', 'plugin.json'))).toBe(true);
+    const manifest = JSON.parse(readFileSync(join(tmpRoot, '.claude-plugin', 'plugin.json'), 'utf-8'));
+    expect(manifest.name).toBeDefined();
+    expect(manifest.mcpServers).toBeDefined();
+    const entry = manifest.mcpServers.vibemate;
+    expect(entry.args).toContain('-p');
+    expect(entry.args).toContain('@vibemate/core');
+  });
+
+  it('compiles opencode artifacts into tmpRoot', async () => {
+    await compilePlatform(tmpRoot, 'opencode');
+    expect(existsSync(join(tmpRoot, 'opencode.json'))).toBe(true);
+    const manifest = JSON.parse(readFileSync(join(tmpRoot, 'opencode.json'), 'utf-8'));
+    expect(manifest.mcp).toBeDefined();
+    const entry = manifest.mcp.vibemate;
+    expect(entry.args).toContain('-p');
+    expect(entry.args).toContain('@vibemate/core');
   });
 });

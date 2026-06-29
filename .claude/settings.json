@@ -34,14 +34,14 @@
     },
     "vibemate-telemetry": {
       "command": "npx",
-      "args": ["-y", "vibemate-mcp"],
+      "args": ["-y", "-p", "@vibemate/core", "vibemate-mcp"],
       "env": {
         "VIBEMATE_MODE": "telemetry"
       }
     },
     "vibemate-okf": {
       "command": "npx",
-      "args": ["-y", "vibemate-mcp"],
+      "args": ["-y", "-p", "@vibemate/core", "vibemate-mcp"],
       "env": {
         "VIBEMATE_MODE": "okf"
       }
