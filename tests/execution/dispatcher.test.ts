@@ -182,5 +182,24 @@ describe('Dispatcher', () => {
       await dispatcher.runSubagent(taskId, 'echo', ['hi'], runner, { cwd: '/tmp', env: { FOO: 'bar' } });
       expect(runner.calls[0].options).toMatchObject({ cwd: '/tmp', env: { FOO: 'bar' } });
     });
+
+    it('marks task failed when runner.run throws', async () => {
+      const throwingRunner = {
+        calls: [],
+        async run(): Promise<never> {
+          throw new Error('spawn error');
+        },
+      };
+      const taskId = dispatcher.dispatch('p1', 's1', {
+        title: 'Throwing task',
+        description: 'Throws',
+        complexityScore: 16,
+        executionMode: 'subagent',
+      });
+      await dispatcher.runSubagent(taskId, 'bad-cmd', [], throwingRunner);
+      const task = dispatcher.getTask(taskId);
+      expect(task!.status).toBe('failed');
+      expect(task!.output).toContain('spawn error');
+    });
   });
 });

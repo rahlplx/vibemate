@@ -25,12 +25,23 @@ export function createSubagentRunner(): SubagentRunner {
     async run(command, args, options = {}): Promise<SubagentResult> {
       const { cwd, env, timeoutMs = 300_000 } = options;
 
-      const proc = Bun.spawn([command, ...args], {
-        cwd,
-        env: { ...process.env, ...env },
-        stdout: 'pipe',
-        stderr: 'pipe',
-      });
+      let proc: ReturnType<typeof Bun.spawn>;
+      try {
+        proc = Bun.spawn([command, ...args], {
+          cwd,
+          env: { ...process.env, ...env },
+          stdout: 'pipe',
+          stderr: 'pipe',
+        });
+      } catch (err: unknown) {
+        return {
+          exitCode: -1,
+          stdout: '',
+          stderr: err instanceof Error ? err.message : String(err),
+          timedOut: false,
+          success: false,
+        };
+      }
 
       let timedOut = false;
       const timer = setTimeout(() => {
@@ -38,22 +49,33 @@ export function createSubagentRunner(): SubagentRunner {
         proc.kill();
       }, timeoutMs);
 
-      const [stdout, stderr, exitCode] = await Promise.all([
-        new Response(proc.stdout).text(),
-        new Response(proc.stderr).text(),
-        proc.exited,
-      ]);
+      try {
+        const [stdout, stderr, exitCode] = await Promise.all([
+          new Response(proc.stdout as ReadableStream<Uint8Array<ArrayBuffer>>).text(),
+          new Response(proc.stderr as ReadableStream<Uint8Array<ArrayBuffer>>).text(),
+          proc.exited,
+        ]);
 
-      clearTimeout(timer);
-
-      const code = exitCode ?? -1;
-      return {
-        exitCode: code,
-        stdout,
-        stderr,
-        timedOut,
-        success: !timedOut && code === 0,
-      };
+        const code = exitCode ?? -1;
+        return {
+          exitCode: code,
+          stdout,
+          stderr,
+          timedOut,
+          success: !timedOut && code === 0,
+        };
+      } catch (err: unknown) {
+        proc.kill();
+        return {
+          exitCode: -1,
+          stdout: '',
+          stderr: err instanceof Error ? err.message : String(err),
+          timedOut,
+          success: false,
+        };
+      } finally {
+        clearTimeout(timer);
+      }
     },
   };
 }

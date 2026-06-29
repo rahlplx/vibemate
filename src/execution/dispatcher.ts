@@ -78,22 +78,29 @@ export function createDispatcher(dbPath: string): Dispatcher {
     },
 
     async runSubagent(taskId, command, args, runner, options) {
-      const result = await runner.run(command, args, options);
-      if (result.timedOut) {
+      try {
+        const result = await runner.run(command, args, options);
+        if (result.timedOut) {
+          store.updateTask(taskId, {
+            status: 'failed',
+            output: `Subagent timed out after ${options?.timeoutMs ?? 300_000}ms`,
+          });
+        } else if (result.success) {
+          store.updateTask(taskId, {
+            status: 'completed',
+            output: result.stdout,
+            completed_at: new Date().toISOString(),
+          });
+        } else {
+          store.updateTask(taskId, {
+            status: 'failed',
+            output: result.stderr || `Subagent exited with code ${result.exitCode}`,
+          });
+        }
+      } catch (error: unknown) {
         store.updateTask(taskId, {
           status: 'failed',
-          output: `Subagent timed out after ${options?.timeoutMs ?? 300_000}ms`,
-        });
-      } else if (result.success) {
-        store.updateTask(taskId, {
-          status: 'completed',
-          output: result.stdout,
-          completed_at: new Date().toISOString(),
-        });
-      } else {
-        store.updateTask(taskId, {
-          status: 'failed',
-          output: result.stderr || `Subagent exited with code ${result.exitCode}`,
+          output: error instanceof Error ? error.message : String(error),
         });
       }
     },
