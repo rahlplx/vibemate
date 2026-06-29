@@ -89,5 +89,50 @@ describe('Intent Extraction', () => {
       );
       expect(gaps.length).toBe(0);
     });
+
+    it('should not flag missing success metric when input has a measurable outcome', () => {
+      const gaps = identifyGaps('Build a tool for founders that should reduce bounce rate by 30%');
+      expect(gaps.some(g => g.toLowerCase().includes('success'))).toBe(false);
+    });
+
+    it('should detect audience from "targeting" pattern', () => {
+      const gaps = identifyGaps('Build a marketing tool targeting enterprise teams that deploys to Vercel in 5 minutes with no backend');
+      expect(gaps.some(g => g.toLowerCase().includes('audience'))).toBe(false);
+    });
+  });
+
+  describe('semantic improvements', () => {
+    it('extracts problem from "I need X" phrasing', () => {
+      const result = extractIntent('I need a SaaS dashboard for enterprise teams');
+      expect(result.inferredIntent.problem.toLowerCase()).toContain('saas dashboard');
+    });
+
+    it('extracts audience from "targeting X" phrasing', () => {
+      const result = extractIntent('Build a marketing tool targeting enterprise teams');
+      expect(result.inferredIntent.audience.toLowerCase()).toContain('enterprise teams');
+    });
+
+    it('extracts audience from "aimed at X" phrasing', () => {
+      const result = extractIntent('Build a CLI tool aimed at senior developers');
+      expect(result.inferredIntent.audience.toLowerCase()).toContain('senior developers');
+    });
+
+    it('gives positive confidence to "need" verb inputs', () => {
+      const confidence = calculateConfidence('I need a fast API gateway');
+      expect(confidence).toBeGreaterThan(20);
+    });
+
+    it('extracts non-deploy success metric like "reduce X by N%"', () => {
+      const result = extractIntent('Build a landing page for founders that should reduce bounce rate by 30%');
+      expect(result.inferredIntent.successMetric).toContain('bounce rate');
+    });
+
+    it('extracts problem from "we want to automate" phrasing without returning full input', () => {
+      const input = 'We want to automate our onboarding flow for new users';
+      const result = extractIntent(input);
+      // Should extract the specific artifact, not echo the full input
+      expect(result.inferredIntent.problem.toLowerCase()).toContain('onboarding');
+      expect(result.inferredIntent.problem).not.toBe(input);
+    });
   });
 });
