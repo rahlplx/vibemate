@@ -1,0 +1,26 @@
+# Source (dist/ is what ships)
+src/
+tests/
+bench/
+skills/
+learnings/
+
+# Config / tooling
+.github/
+.vscode/
+.claude/
+*.config.ts
+bunfig.toml
+bun.lockb
+bun.lock
+tsconfig.json
+biome.json
+.env
+.env.example
+docker-compose.yml
+Dockerfile
+
+# State / runtime artifacts
+.vibe/
+.vibemate/
+coverage/
