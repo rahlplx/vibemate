@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
-import { rm } from 'fs/promises';
+import { rm, writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
-import { dispatchBuildTasks, completeBuildTasks } from '../../src/cli/auto-helpers.js';
+import { dispatchBuildTasks, completeBuildTasks, parseBuildLogSuccess } from '../../src/cli/auto-helpers.js';
 import { createDispatcher } from '../../src/execution/dispatcher.js';
 import type { LLMTask } from '../../src/cli/phase-helpers.js';
 
@@ -76,6 +76,38 @@ describe('dispatchBuildTasks', () => {
     dispatchBuildTasks(makeTasks(), dispatcher, 'proj-1', 'sess-B');
     expect(dispatcher.listTasks('sess-A').length).toBe(3);
     expect(dispatcher.listTasks('sess-B').length).toBe(3);
+  });
+});
+
+describe('parseBuildLogSuccess', () => {
+  const TMP_LOG = join(process.cwd(), '.test-build-dispatch', 'build-output.log');
+
+  beforeEach(async () => {
+    await rm(join(process.cwd(), '.test-build-dispatch'), { recursive: true, force: true });
+    await mkdir(join(process.cwd(), '.test-build-dispatch'), { recursive: true });
+  });
+
+  afterEach(() =>
+    rm(join(process.cwd(), '.test-build-dispatch'), { recursive: true, force: true })
+  );
+
+  it('returns true when log has no FAIL', async () => {
+    await writeFile(TMP_LOG, 'TypeCheck: PASS\nTests: PASS\n');
+    expect(await parseBuildLogSuccess(TMP_LOG)).toBe(true);
+  });
+
+  it('returns false when log contains TypeCheck: FAIL', async () => {
+    await writeFile(TMP_LOG, 'TypeCheck: FAIL\nerror TS2345: ...\nTests: PASS\n');
+    expect(await parseBuildLogSuccess(TMP_LOG)).toBe(false);
+  });
+
+  it('returns false when log contains Tests: FAIL', async () => {
+    await writeFile(TMP_LOG, 'TypeCheck: PASS\nTests: FAIL\n3 tests failed\n');
+    expect(await parseBuildLogSuccess(TMP_LOG)).toBe(false);
+  });
+
+  it('returns false when log file is missing', async () => {
+    expect(await parseBuildLogSuccess('/nonexistent/path/build-output.log')).toBe(false);
   });
 });
 

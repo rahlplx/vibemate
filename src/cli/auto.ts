@@ -10,7 +10,7 @@ import { existsSync } from 'fs';
 import { join } from 'path';
 import { execFileSync } from 'child_process';
 import { AutoPhase, CircuitBreaker, AutoState, HarnessCheck, HarnessReport, PhaseObservation } from '../types.js';
-import { applyAmbiguityGate, checkGovernancePermissionWithPersistence, handleHarnessFailure, computeObservationScore, trackPhaseCost, classifyTasksWithGate, dispatchBuildTasks, completeBuildTasks } from './auto-helpers.js';
+import { applyAmbiguityGate, checkGovernancePermissionWithPersistence, handleHarnessFailure, computeObservationScore, trackPhaseCost, classifyTasksWithGate, dispatchBuildTasks, completeBuildTasks, parseBuildLogSuccess } from './auto-helpers.js';
 import { PersistenceManager } from '../shared/persistence.js';
 import { tokenBudgetGate, dlpGate, passRateGate } from './harness-gates.js';
 import { buildCritiqueReport } from './critique-engine.js';
@@ -550,7 +550,11 @@ Reference OKF bundle for pre-populated decisions.
         tasksJson = JSON.parse(await readFile(join(vibeDir, 'tasks.json'), 'utf-8'));
       } catch { /* no tasks.json yet */ }
 
-      const buildSessionId = state.sessionId ?? `build-${Date.now()}`;
+      // Stable session ID — persisted to state so retries reuse it, preventing orphaned tasks
+      if (!state.sessionId) {
+        state.sessionId = `build-${Date.now()}`;
+      }
+      const buildSessionId = state.sessionId;
       let dispatchedTaskIds: string[] = [];
       const dispatcher = createDispatcher(join(vibeDir, 'state.db'));
 
@@ -569,7 +573,10 @@ Reference OKF bundle for pre-populated decisions.
         }
 
         const buildResult = await runBuild(root);
-        completeBuildTasks(dispatchedTaskIds, dispatcher, !buildResult.hasMoreTasks);
+
+        // runBuild catches all errors internally, so we read the log to determine actual success
+        const buildSuccess = await parseBuildLogSuccess(join(vibeDir, 'build-output.log'));
+        completeBuildTasks(dispatchedTaskIds, dispatcher, buildSuccess);
         return { artifact: 'build-output.log', hasMoreTasks: buildResult.hasMoreTasks };
       } finally {
         dispatcher.close();

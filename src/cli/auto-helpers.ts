@@ -6,6 +6,7 @@ import { calculateComplexity, determineExecutionMode } from '../execution/gate.j
 import type { LLMTask } from './phase-helpers.js';
 import type { PersistenceManager } from '../shared/persistence.js';
 import type { Dispatcher } from '../execution/dispatcher.js';
+import { readFile } from 'fs/promises';
 
 export function computeObservationScore(
   errorCount: number,
@@ -112,6 +113,15 @@ export function dispatchBuildTasks(
       executionMode: task.executionMode,
     })
   );
+}
+
+export async function parseBuildLogSuccess(logPath: string): Promise<boolean> {
+  try {
+    const content = await readFile(logPath, 'utf-8');
+    return !content.includes('FAIL');
+  } catch {
+    return false;
+  }
 }
 
 export function completeBuildTasks(
