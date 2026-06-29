@@ -1,7 +1,10 @@
-import { describe, it, expect } from 'bun:test';
+import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
+import { mkdirSync, writeFileSync, rmSync } from 'fs';
+import { join } from 'path';
 import {
   createDefaultConfig,
   validateConfig,
+  loadConfig,
   type VibemateExtendedConfig,
 } from '../../src/shared/config.js';
 
@@ -57,6 +60,72 @@ describe('validateConfig', () => {
     const result = validateConfig(config);
     expect(result.valid).toBe(false);
     expect(result.errors.some((e) => e.toLowerCase().includes('complexity'))).toBe(true);
+  });
+});
+
+describe('validateConfig', () => {
+  it('rejects negative maxComplexityForInline', () => {
+    const config = createDefaultConfig({ maxComplexityForInline: -1, maxComplexityForSession: 15 });
+    const result = validateConfig(config);
+    expect(result.valid).toBe(false);
+    expect(result.errors.some((e) => e.includes('non-negative'))).toBe(true);
+  });
+
+  it('rejects maxComplexityForSession less than 1', () => {
+    const config = createDefaultConfig({ maxComplexityForInline: 0, maxComplexityForSession: 0 });
+    const result = validateConfig(config);
+    expect(result.valid).toBe(false);
+    expect(result.errors.some((e) => e.includes('maxComplexityForSession'))).toBe(true);
+  });
+});
+
+describe('loadConfig', () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = join('/tmp', `vibemate-config-test-${Date.now()}`);
+    mkdirSync(tmpDir, { recursive: true });
+  });
+
+  afterEach(() => {
+    rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('returns defaults when no config file exists', () => {
+    const config = loadConfig(tmpDir);
+    expect(config.version).toBe('1.0.0');
+    expect(config.budget).toBe(10.0);
+  });
+
+  it('reads and applies values from vibemate.config.json', () => {
+    writeFileSync(
+      join(tmpDir, 'vibemate.config.json'),
+      JSON.stringify({ budget: 25.0, telemetryEnabled: false, stateDir: '.custom-vibe' }),
+    );
+    const config = loadConfig(tmpDir);
+    expect(config.budget).toBe(25.0);
+    expect(config.telemetryEnabled).toBe(false);
+    expect(config.stateDir).toBe('.custom-vibe');
+    // Defaults preserved for unspecified fields
+    expect(config.version).toBe('1.0.0');
+  });
+
+  it('falls back to defaults when config file contains invalid JSON', () => {
+    writeFileSync(join(tmpDir, 'vibemate.config.json'), 'not valid json {{{');
+    const config = loadConfig(tmpDir);
+    expect(config.budget).toBe(10.0);
+    expect(config.version).toBe('1.0.0');
+  });
+
+  it('falls back to defaults when config fails Zod validation', () => {
+    writeFileSync(
+      join(tmpDir, 'vibemate.config.json'),
+      JSON.stringify({ budget: -999, evolutionCadence: 'never' }),
+    );
+    // Zod parse will fail on invalid enum value; loadConfig falls back to {}
+    const config = loadConfig(tmpDir);
+    // budget fallback: Zod safeParse fails → parsed = {} → default budget used
+    expect(config.budget).toBe(10.0);
   });
 });
 
