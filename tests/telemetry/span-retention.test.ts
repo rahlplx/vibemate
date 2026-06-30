@@ -15,50 +15,82 @@ describe('Span Retention — Bounded Storage', () => {
     });
   });
 
-  it('evicts oldest span when 1001st span is inserted (LRU)', () => {
-    const firstSpan = collector.startSpan('first.span');
-    for (let i = 0; i < 1000; i++) {
-      collector.startSpan(`span.${i}`);
+  it('evicts oldest span when limit is reached (LRU)', () => {
+    // We use a small limit for testing batching
+    const smallCollector = new TelemetryCollector({
+      enabled: true,
+      exportDir: '/tmp/test-telemetry',
+      serviceName: 'test',
+      serviceVersion: '0.0.1',
+      maxSpanCount: 10,
+      evictionStrategy: 'lru',
+    });
+
+    const firstSpan = smallCollector.startSpan('first.span');
+    // maxSpanCount is 10, threshold is 11.
+    // 1 (first) + 10 = 11. 12th should trigger eviction of 2 spans.
+    for (let i = 0; i < 11; i++) {
+      smallCollector.startSpan(`span.${i}`);
     }
-    const stats = collector.getRetentionStats();
-    expect(stats.currentCount).toBe(1000);
-    const retained = collector.getSpan(firstSpan.spanId);
+    const stats = smallCollector.getRetentionStats();
+    // After 12 insertions, it should have evicted 12 - 10 = 2 spans.
+    expect(stats.currentCount).toBe(10);
+    expect(stats.totalEvicted).toBe(2);
+    const retained = smallCollector.getSpan(firstSpan.spanId);
     expect(retained).toBeUndefined();
   });
 
-  it('spans.length never exceeds maxSpanCount after many insertions', () => {
+  it('spans.length remains bounded with batching', () => {
     for (let i = 0; i < 1500; i++) {
       collector.startSpan(`span.${i}`);
     }
     const stats = collector.getRetentionStats();
-    expect(stats.currentCount).toBeLessThanOrEqual(1000);
+    // maxSpanCount 1000, threshold 1100.
+    expect(stats.currentCount).toBeLessThanOrEqual(1100);
+    expect(stats.currentCount).toBeGreaterThanOrEqual(1000);
   });
 
-  it('traces Map is pruned when all spans of a trace are evicted', () => {
+  it('traces Map is pruned when all spans of a trace are evicted', async () => {
+    const smallCollector = new TelemetryCollector({
+      enabled: true,
+      exportDir: '/tmp/test-telemetry',
+      serviceName: 'test',
+      serviceVersion: '0.0.1',
+      maxSpanCount: 10,
+    });
+
     // Fill up to max with a distinct trace
-    const firstSpan = collector.startSpan('trace.root');
+    const firstSpan = smallCollector.startSpan('trace.root');
     const traceId = firstSpan.traceId;
 
-    for (let i = 0; i < 1000; i++) {
-      collector.startSpan(`span.${i}`);
+    for (let i = 0; i < 11; i++) {
+      smallCollector.startSpan(`span.${i}`);
     }
 
     // The original trace should have been pruned
-    const stats = collector.getRetentionStats();
-    expect(stats.currentCount).toBe(1000);
-    // traceId should no longer exist in traces map (all spans of that trace evicted)
-    collector.getTrace(traceId).then(spans => {
-      expect(spans.length).toBe(0);
-    });
+    const stats = smallCollector.getRetentionStats();
+    expect(stats.currentCount).toBe(10);
+
+    const spans = await smallCollector.getTrace(traceId);
+    expect(spans.length).toBe(0);
   });
 
   it('tracks total evicted count across evictions', () => {
-    for (let i = 0; i < 1500; i++) {
+    // maxSpanCount 1000, threshold 1100.
+    // 1101st span triggers eviction of 101 spans.
+    // 1202nd span triggers eviction of another 101 spans.
+    // ...
+    for (let i = 0; i < 1300; i++) {
       collector.startSpan(`span.${i}`);
     }
     const stats = collector.getRetentionStats();
     expect(stats.totalEvicted).toBeGreaterThan(0);
-    expect(stats.totalEvicted).toBe(500);
+    // 1300 total.
+    // At 1101: evict 101 -> 1000 left, totalEvicted 101.
+    // At 1101 + 101 = 1202: evict 101 -> 1000 left, totalEvicted 202.
+    // Final count: 1300 - 202 = 1098.
+    expect(stats.totalEvicted).toBe(202);
+    expect(stats.currentCount).toBe(1098);
   });
 
   it('retains error spans preferentially over ok spans in priority eviction', () => {
