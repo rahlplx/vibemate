@@ -1,0 +1,3 @@
+## 2025-05-15 - [O(N log N) to O(1) Amortized Telemetry Eviction]
+**Learning:** High-frequency paths like `TelemetryCollector.startSpan` can become a massive bottleneck if maintenance tasks (like eviction) perform O(N) or O(N log N) operations on every call once a limit is reached. JavaScript Maps maintain insertion order, which allows for $O(1)$ LRU eviction by deleting the first entry from the `keys()` iterator. Batching eviction (e.g., waiting for 1.1x overflow) amortizes the cost of more expensive strategies like Priority sorting.
+**Action:** Always prefer Map-based LRU over Array sorting for bounded caches. Use batching to amortize maintenance costs.
