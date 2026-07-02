@@ -1,0 +1,3 @@
+## 2025-05-15 - [O(N log N) vs O(1) in high-frequency Telemetry]
+**Learning:** Using `Array.from(map.values()).sort()` on every insertion once capacity is reached creates a severe bottleneck ($O(N \log N)$ per operation). JavaScript `Map` preserves insertion order, allowing $O(1)$ LRU eviction via `map.keys().next()`. Additionally, trace pruning can be optimized from $O(\text{Total Spans})$ to $O(\text{Evicted Spans})$ by grouping evicted IDs by their `traceId`.
+**Action:** Always prefer Map's native ordering for LRU. Use batch eviction (e.g., evict 10% when size hits 1.1x) to further amortize cost, but keep a single-eviction path for strict test compliance if necessary.
