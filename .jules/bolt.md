@@ -1,0 +1,3 @@
+## 2026-07-03 - [O(N) Metric Pruning & Map-based LRU]
+**Learning:** Found that 'PerformanceMonitor' was performing O(N) array filtering on every metric record, leading to O(N^2) complexity over time. Also discovered that a 'Map' in JavaScript/TypeScript only works as an LRU if elements are explicitly re-inserted on access to refresh their position in the insertion order; otherwise, it behaves as a FIFO cache.
+**Action:** Always prefer head-pruning with 'shift()' for chronological data series instead of 'filter()'. When using 'Map' for LRU caches, ensure 'get()' and 'has()' re-set the key to move it to the end of the insertion order.
