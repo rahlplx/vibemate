@@ -56,12 +56,11 @@ export class PerformanceMonitor {
     const values = this.metrics.get(name)!;
     values.push(metric);
 
-    // Cleanup old metrics
+    // Cleanup old metrics - head pruning (O(1) amortized)
     const cutoff = Date.now() - this.config.retentionPeriod;
-    this.metrics.set(
-      name,
-      values.filter(m => m.timestamp.getTime() >= cutoff)
-    );
+    while (values.length > 0 && values[0].timestamp.getTime() < cutoff) {
+      values.shift();
+    }
   }
 
   getMetric(name: string, duration?: number): MetricValue[] {
@@ -184,11 +183,11 @@ export class PerformanceMonitor {
   clearOldMetrics(): void {
     const cutoff = Date.now() - this.config.retentionPeriod;
     for (const [name, values] of this.metrics.entries()) {
-      const filtered = values.filter(m => m.timestamp.getTime() >= cutoff);
-      if (filtered.length === 0) {
+      while (values.length > 0 && values[0].timestamp.getTime() < cutoff) {
+        values.shift();
+      }
+      if (values.length === 0) {
         this.metrics.delete(name);
-      } else {
-        this.metrics.set(name, filtered);
       }
     }
   }
