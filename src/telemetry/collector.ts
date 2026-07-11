@@ -51,9 +51,9 @@ class SpanRetentionPolicy {
       });
       toEvict = new Set(sorted.slice(0, overflow).map(s => s.spanId));
     } else {
-      // LRU: evict oldest by startTime
-      const sorted = [...spans].sort((a, b) => a.startTime - b.startTime);
-      toEvict = new Set(sorted.slice(0, overflow).map(s => s.spanId));
+      // LRU: Since Map maintains insertion order, we can just take the first N elements
+      // which correspond to the oldest spans added to the spanMap.
+      toEvict = new Set(spans.slice(0, overflow).map(s => s.spanId));
     }
 
     this.totalEvicted += toEvict.size;
@@ -174,12 +174,15 @@ export class TelemetryCollector {
       });
     }
 
-    const spansArray = Array.from(this.spanMap.values());
-    const kept = this.retentionPolicy.evictIfNeeded(spansArray, this.traces);
-    if (kept.length < spansArray.length) {
-      const keptIds = new Set(kept.map(s => s.spanId));
-      for (const id of this.spanMap.keys()) {
-        if (!keptIds.has(id)) this.spanMap.delete(id);
+    // Bounded eviction - batch delete to avoid O(N) array copies on every span
+    if (this.spanMap.size > (this.config.maxSpanCount ?? 10_000) * 1.1) {
+      const spansArray = Array.from(this.spanMap.values());
+      const kept = this.retentionPolicy.evictIfNeeded(spansArray, this.traces);
+      if (kept.length < spansArray.length) {
+        const keptIds = new Set(kept.map(s => s.spanId));
+        for (const id of this.spanMap.keys()) {
+          if (!keptIds.has(id)) this.spanMap.delete(id);
+        }
       }
     }
     this.spansSinceExport.push(span);
