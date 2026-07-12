@@ -1,0 +1,3 @@
+## 2025-05-15 - LRUCache Optimization and Correction
+**Learning:** Using JavaScript Map's insertion-order property is the most efficient way to implement LRU eviction. Simply using Map as a store without re-inserting on access makes it a FIFO cache, not LRU. Additionally, functional chains like `Array.from(map.entries()).filter().map()` create multiple intermediate arrays and are significantly slower than a single manual `for...of` loop for collection methods.
+**Action:** Always re-insert keys into Map on `get()` and `has()` to maintain LRU order. Use manual loops for performance-critical collection filtering to avoid O(N) overhead from intermediate array creation.
