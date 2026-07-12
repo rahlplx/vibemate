@@ -60,9 +60,12 @@ export class LRUCache<T> {
       return undefined;
     }
 
-    // Update access stats
+    // Update access stats and maintain LRU order by re-inserting
+    this.cache.delete(key);
     entry.hits++;
     entry.lastAccess = Date.now();
+    this.cache.set(key, entry);
+
     this.stats.hits++;
     this.updateHitRate();
 
@@ -70,12 +73,23 @@ export class LRUCache<T> {
   }
 
   set(key: string, value: T, ttl?: number): void {
-    if (this.cache.size >= this.config.maxSize && !this.cache.has(key)) {
-      this.evict();
+    const existing = this.cache.get(key);
+    let hits = 0;
+
+    if (existing) {
+      // If it exists but is expired, treat it as new
+      if (Date.now() > existing.expiresAt) {
+        this.cache.delete(key);
+      } else {
+        // Otherwise, we'll replace it and keep the hit count
+        this.cache.delete(key);
+        hits = existing.hits;
+      }
     }
 
-    if (this.cache.has(key)) {
-      this.cache.delete(key);
+    // Only evict if we're adding a truly new key and at capacity
+    if (this.cache.size >= this.config.maxSize && !this.cache.has(key)) {
+      this.evict();
     }
 
     const expiresAt = Date.now() + (ttl || this.config.defaultTTL);
@@ -84,7 +98,7 @@ export class LRUCache<T> {
       key,
       value,
       expiresAt,
-      hits: 0,
+      hits,
       lastAccess: Date.now(),
     });
 
@@ -109,8 +123,12 @@ export class LRUCache<T> {
       return false;
     }
 
+    // Maintain LRU order even for has() checks
+    this.cache.delete(key);
     entry.lastAccess = Date.now();
     entry.hits++;
+    this.cache.set(key, entry);
+
     return true;
   }
 
@@ -153,20 +171,34 @@ export class LRUCache<T> {
 
   keys(): string[] {
     const now = Date.now();
-    return Array.from(this.cache.entries())
-      .filter(([_, entry]) => now <= entry.expiresAt)
-      .map(([key]) => key);
+    const result: string[] = [];
+    for (const [key, entry] of this.cache) {
+      if (now <= entry.expiresAt) {
+        result.push(key);
+      }
+    }
+    return result;
   }
 
   values(): T[] {
-    return Array.from(this.cache.entries())
-      .filter(([_, entry]) => Date.now() <= entry.expiresAt)
-      .map(([_, entry]) => entry.value);
+    const now = Date.now();
+    const result: T[] = [];
+    for (const entry of this.cache.values()) {
+      if (now <= entry.expiresAt) {
+        result.push(entry.value);
+      }
+    }
+    return result;
   }
 
   entries(): Array<[string, T]> {
-    return Array.from(this.cache.entries())
-      .filter(([_, entry]) => Date.now() <= entry.expiresAt)
-      .map(([key, entry]) => [key, entry.value]);
+    const now = Date.now();
+    const result: Array<[string, T]> = [];
+    for (const [key, entry] of this.cache) {
+      if (now <= entry.expiresAt) {
+        result.push([key, entry.value]);
+      }
+    }
+    return result;
   }
 }
