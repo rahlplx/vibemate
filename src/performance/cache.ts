@@ -153,20 +153,34 @@ export class LRUCache<T> {
 
   keys(): string[] {
     const now = Date.now();
-    return Array.from(this.cache.entries())
-      .filter(([_, entry]) => now <= entry.expiresAt)
-      .map(([key]) => key);
+    const result: string[] = [];
+    for (const [key, entry] of this.cache.entries()) {
+      if (now <= entry.expiresAt) {
+        result.push(key);
+      }
+    }
+    return result;
   }
 
   values(): T[] {
-    return Array.from(this.cache.entries())
-      .filter(([_, entry]) => Date.now() <= entry.expiresAt)
-      .map(([_, entry]) => entry.value);
+    const now = Date.now();
+    const result: T[] = [];
+    for (const [_, entry] of this.cache.entries()) {
+      if (now <= entry.expiresAt) {
+        result.push(entry.value);
+      }
+    }
+    return result;
   }
 
   entries(): Array<[string, T]> {
-    return Array.from(this.cache.entries())
-      .filter(([_, entry]) => Date.now() <= entry.expiresAt)
-      .map(([key, entry]) => [key, entry.value]);
+    const now = Date.now();
+    const result: Array<[string, T]> = [];
+    for (const [key, entry] of this.cache.entries()) {
+      if (now <= entry.expiresAt) {
+        result.push([key, entry.value]);
+      }
+    }
+    return result;
   }
 }

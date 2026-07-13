@@ -56,12 +56,11 @@ export class PerformanceMonitor {
     const values = this.metrics.get(name)!;
     values.push(metric);
 
-    // Cleanup old metrics
+    // Cleanup old metrics (efficient head-pruning)
     const cutoff = Date.now() - this.config.retentionPeriod;
-    this.metrics.set(
-      name,
-      values.filter(m => m.timestamp.getTime() >= cutoff)
-    );
+    while (values.length > 0 && values[0].timestamp.getTime() < cutoff) {
+      values.shift();
+    }
   }
 
   getMetric(name: string, duration?: number): MetricValue[] {
@@ -184,11 +183,15 @@ export class PerformanceMonitor {
   clearOldMetrics(): void {
     const cutoff = Date.now() - this.config.retentionPeriod;
     for (const [name, values] of this.metrics.entries()) {
-      const filtered = values.filter(m => m.timestamp.getTime() >= cutoff);
-      if (filtered.length === 0) {
+      // Efficiently find the first index that should be kept
+      const firstKeepIndex = values.findIndex(m => m.timestamp.getTime() >= cutoff);
+
+      if (firstKeepIndex === -1) {
+        // All metrics are old
         this.metrics.delete(name);
-      } else {
-        this.metrics.set(name, filtered);
+      } else if (firstKeepIndex > 0) {
+        // Remove all metrics before the first keep index in one go
+        values.splice(0, firstKeepIndex);
       }
     }
   }
