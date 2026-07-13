@@ -183,11 +183,15 @@ export class PerformanceMonitor {
   clearOldMetrics(): void {
     const cutoff = Date.now() - this.config.retentionPeriod;
     for (const [name, values] of this.metrics.entries()) {
-      while (values.length > 0 && values[0].timestamp.getTime() < cutoff) {
-        values.shift();
-      }
-      if (values.length === 0) {
+      // Efficiently find the first index that should be kept
+      const firstKeepIndex = values.findIndex(m => m.timestamp.getTime() >= cutoff);
+
+      if (firstKeepIndex === -1) {
+        // All metrics are old
         this.metrics.delete(name);
+      } else if (firstKeepIndex > 0) {
+        // Remove all metrics before the first keep index in one go
+        values.splice(0, firstKeepIndex);
       }
     }
   }
