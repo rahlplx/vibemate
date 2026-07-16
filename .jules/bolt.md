@@ -1,0 +1,3 @@
+## 2025-05-18 - Optimized PerformanceMonitor time-series pruning
+**Learning:** Pruning time-series metrics data using `Array.prototype.filter()` on every metric insertion creates an $O(N^2)$ bottleneck. When elements are chronologically sorted, head-pruning via a simple `while` loop and a single `splice(0, evictCount)` call provides an $O(N)$ overall (and amortized $O(1)$ per insertion) alternative. Similarly, lookup query methods that filter based on duration can be optimized using a binary search to find the cutoff index, taking $O(\log N)$ instead of $O(N)$.
+**Action:** Replace `filter()` with amortized head-pruning (`splice`) for bounded chronological arrays and use binary search (`slice`) for range queries on sorted data.
