@@ -26,6 +26,25 @@ export interface PerformanceConfig {
   retentionPeriod: number;
 }
 
+// Helper: binary search to find the first index where metric timestamp is >= cutoff.
+// Since metrics are inserted chronologically, this reduces getMetric lookup to O(log N).
+function findFirstIndexAfterCutoff(values: MetricValue[], cutoff: number): number {
+  let low = 0;
+  let high = values.length - 1;
+  let result = values.length;
+
+  while (low <= high) {
+    const mid = (low + high) >> 1;
+    if (values[mid].timestamp.getTime() >= cutoff) {
+      result = mid;
+      high = mid - 1;
+    } else {
+      low = mid + 1;
+    }
+  }
+  return result;
+}
+
 export class PerformanceMonitor {
   private config: PerformanceConfig;
   private metrics: Map<string, MetricValue[]> = new Map();
@@ -56,12 +75,16 @@ export class PerformanceMonitor {
     const values = this.metrics.get(name)!;
     values.push(metric);
 
-    // Cleanup old metrics
+    // Amortized head pruning (O(K) where K is number of evicted elements, usually 0 or 1)
+    // Avoids O(N) Array.prototype.filter on every insertion, resolving O(N^2) bottleneck.
     const cutoff = Date.now() - this.config.retentionPeriod;
-    this.metrics.set(
-      name,
-      values.filter(m => m.timestamp.getTime() >= cutoff)
-    );
+    let evictCount = 0;
+    while (evictCount < values.length && values[evictCount].timestamp.getTime() < cutoff) {
+      evictCount++;
+    }
+    if (evictCount > 0) {
+      values.splice(0, evictCount);
+    }
   }
 
   getMetric(name: string, duration?: number): MetricValue[] {
@@ -69,7 +92,8 @@ export class PerformanceMonitor {
     if (!duration) return values;
 
     const cutoff = Date.now() - duration;
-    return values.filter(m => m.timestamp.getTime() >= cutoff);
+    const index = findFirstIndexAfterCutoff(values, cutoff);
+    return index === 0 ? values : values.slice(index);
   }
 
   getMetricStats(name: string): {
@@ -184,11 +208,15 @@ export class PerformanceMonitor {
   clearOldMetrics(): void {
     const cutoff = Date.now() - this.config.retentionPeriod;
     for (const [name, values] of this.metrics.entries()) {
-      const filtered = values.filter(m => m.timestamp.getTime() >= cutoff);
-      if (filtered.length === 0) {
+      let evictCount = 0;
+      while (evictCount < values.length && values[evictCount].timestamp.getTime() < cutoff) {
+        evictCount++;
+      }
+      if (evictCount > 0) {
+        values.splice(0, evictCount);
+      }
+      if (values.length === 0) {
         this.metrics.delete(name);
-      } else {
-        this.metrics.set(name, filtered);
       }
     }
   }
