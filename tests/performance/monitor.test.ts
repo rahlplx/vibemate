@@ -78,4 +78,34 @@ describe('PerformanceMonitor', () => {
     const metrics = monitor.getMetric('cpu');
     expect(metrics).toHaveLength(1); // Within retention period
   });
+
+  it('should correctly prune and filter historical metrics using binary search', () => {
+    // Manually seed metrics map with backdated timestamps to test binary search logic precisely
+    const name = 'memory';
+    const now = Date.now();
+    const metricsArray = [
+      { name, value: 10, timestamp: new Date(now - 5000) }, // 5s ago
+      { name, value: 20, timestamp: new Date(now - 3000) }, // 3s ago
+      { name, value: 30, timestamp: new Date(now - 1000) }, // 1s ago
+      { name, value: 40, timestamp: new Date(now) },        // now
+    ];
+
+    // Seed internal map of PerformanceMonitor
+    (monitor as any).metrics.set(name, metricsArray);
+
+    // Query with duration = 2000 ms (only metrics in last 2 seconds)
+    const activeMetrics = monitor.getMetric(name, 2000);
+    expect(activeMetrics).toHaveLength(2);
+    expect(activeMetrics[0].value).toBe(30);
+    expect(activeMetrics[1].value).toBe(40);
+
+    // Test clearOldMetrics with custom retention period (e.g. 2000ms)
+    (monitor as any).config.retentionPeriod = 2000;
+    monitor.clearOldMetrics();
+
+    const remainingMetrics = monitor.getMetric(name);
+    expect(remainingMetrics).toHaveLength(2);
+    expect(remainingMetrics[0].value).toBe(30);
+    expect(remainingMetrics[1].value).toBe(40);
+  });
 });
