@@ -41,6 +41,29 @@ export class PerformanceMonitor {
     };
   }
 
+  /**
+   * Finds the first index of a metric whose timestamp is greater than or equal to the cutoff.
+   * Since metrics are recorded chronologically, the values array is sorted by timestamp.
+   * Runs in O(log N) time complexity.
+   */
+  private findFirstIndexAfterOrEqual(values: MetricValue[], cutoff: number): number {
+    let low = 0;
+    let high = values.length - 1;
+    let result = values.length;
+
+    while (low <= high) {
+      const mid = (low + high) >> 1;
+      if (values[mid].timestamp.getTime() >= cutoff) {
+        result = mid;
+        high = mid - 1;
+      } else {
+        low = mid + 1;
+      }
+    }
+
+    return result;
+  }
+
   recordMetric(name: string, value: number, tags?: Record<string, string>): void {
     const metric: MetricValue = {
       name,
@@ -56,12 +79,12 @@ export class PerformanceMonitor {
     const values = this.metrics.get(name)!;
     values.push(metric);
 
-    // Cleanup old metrics
+    // Cleanup old metrics using binary search and in-place pruning (O(log N) + O(k))
     const cutoff = Date.now() - this.config.retentionPeriod;
-    this.metrics.set(
-      name,
-      values.filter(m => m.timestamp.getTime() >= cutoff)
-    );
+    const index = this.findFirstIndexAfterOrEqual(values, cutoff);
+    if (index > 0) {
+      values.splice(0, index);
+    }
   }
 
   getMetric(name: string, duration?: number): MetricValue[] {
@@ -69,7 +92,8 @@ export class PerformanceMonitor {
     if (!duration) return values;
 
     const cutoff = Date.now() - duration;
-    return values.filter(m => m.timestamp.getTime() >= cutoff);
+    const index = this.findFirstIndexAfterOrEqual(values, cutoff);
+    return values.slice(index);
   }
 
   getMetricStats(name: string): {
@@ -184,11 +208,11 @@ export class PerformanceMonitor {
   clearOldMetrics(): void {
     const cutoff = Date.now() - this.config.retentionPeriod;
     for (const [name, values] of this.metrics.entries()) {
-      const filtered = values.filter(m => m.timestamp.getTime() >= cutoff);
-      if (filtered.length === 0) {
+      const index = this.findFirstIndexAfterOrEqual(values, cutoff);
+      if (index === values.length) {
         this.metrics.delete(name);
-      } else {
-        this.metrics.set(name, filtered);
+      } else if (index > 0) {
+        values.splice(0, index);
       }
     }
   }
