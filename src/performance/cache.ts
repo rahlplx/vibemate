@@ -60,6 +60,10 @@ export class LRUCache<T> {
       return undefined;
     }
 
+    // Move key to the end of the Map to preserve insertion-order (LRU)
+    this.cache.delete(key);
+    this.cache.set(key, entry);
+
     // Update access stats
     entry.hits++;
     entry.lastAccess = Date.now();
@@ -109,6 +113,10 @@ export class LRUCache<T> {
       return false;
     }
 
+    // Move key to the end of the Map to preserve insertion-order (LRU)
+    this.cache.delete(key);
+    this.cache.set(key, entry);
+
     entry.lastAccess = Date.now();
     entry.hits++;
     return true;
@@ -153,20 +161,34 @@ export class LRUCache<T> {
 
   keys(): string[] {
     const now = Date.now();
-    return Array.from(this.cache.entries())
-      .filter(([_, entry]) => now <= entry.expiresAt)
-      .map(([key]) => key);
+    const result: string[] = [];
+    for (const [key, entry] of this.cache.entries()) {
+      if (now <= entry.expiresAt) {
+        result.push(key);
+      }
+    }
+    return result;
   }
 
   values(): T[] {
-    return Array.from(this.cache.entries())
-      .filter(([_, entry]) => Date.now() <= entry.expiresAt)
-      .map(([_, entry]) => entry.value);
+    const now = Date.now();
+    const result: T[] = [];
+    for (const entry of this.cache.values()) {
+      if (now <= entry.expiresAt) {
+        result.push(entry.value);
+      }
+    }
+    return result;
   }
 
   entries(): Array<[string, T]> {
-    return Array.from(this.cache.entries())
-      .filter(([_, entry]) => Date.now() <= entry.expiresAt)
-      .map(([key, entry]) => [key, entry.value]);
+    const now = Date.now();
+    const result: Array<[string, T]> = [];
+    for (const [key, entry] of this.cache.entries()) {
+      if (now <= entry.expiresAt) {
+        result.push([key, entry.value]);
+      }
+    }
+    return result;
   }
 }
