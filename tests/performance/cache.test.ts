@@ -50,6 +50,42 @@ describe('LRUCache', () => {
     expect(cache.get('key6')).toBe('value6');
   });
 
+  it('should evict correctly based on access order (True LRU behavior)', () => {
+    cache.set('key1', 'value1');
+    cache.set('key2', 'value2');
+    cache.set('key3', 'value3');
+    cache.set('key4', 'value4');
+    cache.set('key5', 'value5');
+
+    // Access key1 to move it to the MRU (Most Recently Used) end of the cache
+    cache.get('key1');
+
+    // Set key6. This must evict key2 (the second inserted element, which is currently the LRU)
+    // instead of key1 (the first inserted element, which was recently accessed).
+    cache.set('key6', 'value6');
+
+    expect(cache.get('key2')).toBeUndefined();
+    expect(cache.get('key1')).toBe('value1');
+    expect(cache.get('key6')).toBe('value6');
+  });
+
+  it('should evict correctly based on has() check order (True LRU behavior)', () => {
+    cache.set('key1', 'value1');
+    cache.set('key2', 'value2');
+    cache.set('key3', 'value3');
+    cache.set('key4', 'value4');
+    cache.set('key5', 'value5');
+
+    // Check key1 via has() to move it to the MRU end of the cache
+    expect(cache.has('key1')).toBe(true);
+
+    // Set key6. This must evict key2, not key1.
+    cache.set('key6', 'value6');
+
+    expect(cache.get('key2')).toBeUndefined();
+    expect(cache.get('key1')).toBe('value1');
+  });
+
   it('should delete entries', () => {
     cache.set('key1', 'value1');
     cache.delete('key1');
