@@ -50,6 +50,24 @@ describe('LRUCache', () => {
     expect(cache.get('key6')).toBe('value6');
   });
 
+  it('should keep recently accessed entries and evict the actual least recently used entry', () => {
+    cache.set('key1', 'value1');
+    cache.set('key2', 'value2');
+    cache.set('key3', 'value3');
+    cache.set('key4', 'value4');
+    cache.set('key5', 'value5');
+
+    // Access key1 to make it recently used
+    cache.get('key1');
+
+    // Add key6, which should evict key2, NOT key1
+    cache.set('key6', 'value6');
+
+    expect(cache.get('key1')).toBe('value1');
+    expect(cache.get('key2')).toBeUndefined();
+    expect(cache.get('key6')).toBe('value6');
+  });
+
   it('should delete entries', () => {
     cache.set('key1', 'value1');
     cache.delete('key1');
