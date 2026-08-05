@@ -1,0 +1,3 @@
+## 2026-07-01 - O(N) Array Filtering in Telemetry/Metrics Pruning
+**Learning:** Pruning chronological time-series arrays using `Array.prototype.filter()` is an anti-pattern that creates O(N^2) bottlenecks when run inside frequent write/read loops. Since the elements are sorted chronologically, finding the expired cut-off can be done in O(1) amortized time by scanning from the head of the array (head-pruning) and removing the expired range in-place using `splice()`.
+**Action:** Always leverage the sorted property of time-series/chronological sequences. Use O(1) amortized head-pruning with `splice` for evictions, and O(log N) binary search instead of O(N) linear filtering for duration-based metric queries.
