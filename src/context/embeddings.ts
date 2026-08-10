@@ -248,11 +248,21 @@ export class EmbeddingStore {
 export interface BM25Chunk { id: string; content: string; source: string; }
 export interface BM25Result { chunk: BM25Chunk; score: number; }
 
+export interface CachedDoc {
+  chunk: BM25Chunk;
+  tokens: string[];
+  length: number;
+  freq: Map<string, number>;
+}
+
 export class BM25Store {
   private docs: BM25Chunk[] = [];
   private adapter: StorageAdapter;
   private k1 = 1.5;
   private b = 0.75;
+  private cachedDocs: CachedDoc[] = [];
+  private avgdl = 0;
+  private dfMap: Map<string, number> = new Map();
 
   constructor(adapter?: StorageAdapter) {
     this.adapter = adapter ?? createNodeAdapter();
@@ -262,22 +272,53 @@ export class BM25Store {
     return text.toLowerCase().split(/\W+/).filter(Boolean);
   }
 
+  private ensureIndexCached(): void {
+    if (this.cachedDocs.length === this.docs.length) {
+      return;
+    }
+
+    this.cachedDocs = [];
+    this.dfMap.clear();
+    let totalLength = 0;
+
+    for (const doc of this.docs) {
+      const tokens = this.tokenize(doc.content);
+      const length = tokens.length;
+      const freq = new Map<string, number>();
+
+      for (const t of tokens) {
+        freq.set(t, (freq.get(t) ?? 0) + 1);
+      }
+
+      for (const term of freq.keys()) {
+        this.dfMap.set(term, (this.dfMap.get(term) ?? 0) + 1);
+      }
+
+      totalLength += length;
+      this.cachedDocs.push({
+        chunk: doc,
+        tokens,
+        length,
+        freq,
+      });
+    }
+
+    this.avgdl = this.docs.length > 0 ? totalLength / this.docs.length : 0;
+  }
+
   private idf(term: string): number {
-    const df = this.docs.filter(d => this.tokenize(d.content).includes(term)).length;
+    const df = this.dfMap.get(term) ?? 0;
     return Math.log((this.docs.length - df + 0.5) / (df + 0.5) + 1);
   }
 
-  private bm25Score(query: string, doc: BM25Chunk): number {
-    const qTerms = this.tokenize(query);
-    const dTokens = this.tokenize(doc.content);
-    const dl = dTokens.length;
-    const avgdl = this.docs.reduce((s, d) => s + this.tokenize(d.content).length, 0) / (this.docs.length || 1);
-    const freq = new Map<string, number>();
-    for (const t of dTokens) freq.set(t, (freq.get(t) ?? 0) + 1);
+  private bm25Score(qTerms: string[], cachedDoc: CachedDoc): number {
+    const dl = cachedDoc.length;
+    const freq = cachedDoc.freq;
     let total = 0;
     for (const term of qTerms) {
       const f = freq.get(term) ?? 0;
-      const tf = (f * (this.k1 + 1)) / (f + this.k1 * (1 - this.b + this.b * dl / avgdl));
+      if (f === 0) continue;
+      const tf = (f * (this.k1 + 1)) / (f + this.k1 * (1 - this.b + this.b * dl / this.avgdl));
       total += this.idf(term) * tf;
     }
     return total;
@@ -285,7 +326,12 @@ export class BM25Store {
 
   retrieve(query: string, topK = 3): BM25Result[] {
     if (this.docs.length === 0) return [];
-    const scored = this.docs.map(d => ({ chunk: d, score: this.bm25Score(query, d) }));
+    this.ensureIndexCached();
+    const qTerms = this.tokenize(query);
+    const scored = this.cachedDocs.map(cd => ({
+      chunk: cd.chunk,
+      score: this.bm25Score(qTerms, cd)
+    }));
     scored.sort((a, b) => b.score - a.score);
     return scored.slice(0, topK);
   }
