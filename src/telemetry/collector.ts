@@ -36,24 +36,54 @@ class SpanRetentionPolicy {
     this.strategy = strategy;
   }
 
-  evictIfNeeded(spans: TelemetrySpan[], traces: Map<string, TelemetrySpan[]>): TelemetrySpan[] {
-    if (spans.length <= this.maxSpanCount) return spans;
+  evictIfNeeded(spans: TelemetrySpan[], traces: Map<string, TelemetrySpan[]>): { kept: TelemetrySpan[], toEvict: Set<string> } {
+    if (spans.length <= this.maxSpanCount) {
+      return { kept: spans, toEvict: new Set() };
+    }
 
     const overflow = spans.length - this.maxSpanCount;
     let toEvict: Set<string>;
 
-    if (this.strategy === 'priority') {
-      // Sort: errors last (keep), ok first (evict), then oldest first within each group
-      const sorted = [...spans].sort((a, b) => {
-        if (a.status === 'error' && b.status !== 'error') return 1;
-        if (a.status !== 'error' && b.status === 'error') return -1;
-        return a.startTime - b.startTime;
-      });
-      toEvict = new Set(sorted.slice(0, overflow).map(s => s.spanId));
+    if (overflow === 1) {
+      if (this.strategy === 'priority') {
+        let oldestNonError: TelemetrySpan | null = null;
+        let oldestError: TelemetrySpan | null = null;
+        for (const span of spans) {
+          if (span.status !== 'error') {
+            if (!oldestNonError || span.startTime < oldestNonError.startTime) {
+              oldestNonError = span;
+            }
+          } else {
+            if (!oldestError || span.startTime < oldestError.startTime) {
+              oldestError = span;
+            }
+          }
+        }
+        const target = oldestNonError || oldestError;
+        toEvict = target ? new Set([target.spanId]) : new Set();
+      } else {
+        let oldest: TelemetrySpan | null = null;
+        for (const span of spans) {
+          if (!oldest || span.startTime < oldest.startTime) {
+            oldest = span;
+          }
+        }
+        toEvict = oldest ? new Set([oldest.spanId]) : new Set();
+      }
     } else {
-      // LRU: evict oldest by startTime
-      const sorted = [...spans].sort((a, b) => a.startTime - b.startTime);
-      toEvict = new Set(sorted.slice(0, overflow).map(s => s.spanId));
+      if (this.strategy === 'priority') {
+        // Sort: errors last (keep), ok first (evict), then oldest first within each group
+        const sorted = [...spans].sort((a, b) => {
+          if (a.status === 'error' && b.status !== 'error') return 1;
+          if (a.status !== 'error' && b.status === 'error') return -1;
+          return a.startTime - b.startTime;
+        });
+        toEvict = new Set(sorted.slice(0, overflow).map(s => s.spanId));
+      } else {
+        // LRU: evict oldest by startTime
+        const sorted = [...spans].sort((a, b) => a.startTime - b.startTime);
+        toEvict = new Set(sorted.slice(0, overflow).map(s => s.spanId));
+      }
     }
 
     this.totalEvicted += toEvict.size;
@@ -77,7 +107,10 @@ class SpanRetentionPolicy {
       }
     }
 
-    return spans.filter(s => !toEvict.has(s.spanId));
+    return {
+      kept: spans.filter(s => !toEvict.has(s.spanId)),
+      toEvict
+    };
   }
 
   getTotalEvicted(): number {
@@ -174,17 +207,17 @@ export class TelemetryCollector {
       });
     }
 
-    const spansArray = Array.from(this.spanMap.values());
-    const kept = this.retentionPolicy.evictIfNeeded(spansArray, this.traces);
-    if (kept.length < spansArray.length) {
-      const keptIds = new Set(kept.map(s => s.spanId));
-      for (const id of this.spanMap.keys()) {
-        if (!keptIds.has(id)) this.spanMap.delete(id);
+    const maxCount = this.retentionPolicy.getMaxSpanCount();
+    if (this.spanMap.size > maxCount) {
+      const spansArray = Array.from(this.spanMap.values());
+      const { toEvict } = this.retentionPolicy.evictIfNeeded(spansArray, this.traces);
+      for (const id of toEvict) {
+        this.spanMap.delete(id);
+        this.contentSpanIds.delete(id); // Synchronize contentSpanIds to prevent memory leak
       }
     }
     this.spansSinceExport.push(span);
     // Keep spansSinceExport bounded to the same limit as spans
-    const maxCount = this.retentionPolicy.getMaxSpanCount();
     if (this.spansSinceExport.length > maxCount) {
       this.spansSinceExport.splice(0, this.spansSinceExport.length - maxCount);
     }
