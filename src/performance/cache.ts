@@ -52,17 +52,20 @@ export class LRUCache<T> {
       return undefined;
     }
 
+    const now = Date.now();
     // Check TTL
-    if (Date.now() > entry.expiresAt) {
+    if (now > entry.expiresAt) {
       this.cache.delete(key);
       this.stats.misses++;
       this.updateHitRate();
       return undefined;
     }
 
-    // Update access stats
+    // Update access stats and refresh LRU position in Map
     entry.hits++;
-    entry.lastAccess = Date.now();
+    entry.lastAccess = now;
+    this.cache.delete(key);
+    this.cache.set(key, entry);
     this.stats.hits++;
     this.updateHitRate();
 
@@ -103,14 +106,17 @@ export class LRUCache<T> {
     const entry = this.cache.get(key);
     if (!entry) return false;
 
-    if (Date.now() > entry.expiresAt) {
+    const now = Date.now();
+    if (now > entry.expiresAt) {
       this.cache.delete(key);
       this.stats.size = this.cache.size;
       return false;
     }
 
-    entry.lastAccess = Date.now();
+    entry.lastAccess = now;
     entry.hits++;
+    this.cache.delete(key);
+    this.cache.set(key, entry);
     return true;
   }
 
@@ -121,7 +127,7 @@ export class LRUCache<T> {
 
   private evict(): void {
     const firstKey = this.cache.keys().next().value;
-    if (firstKey) {
+    if (firstKey !== undefined) {
       this.cache.delete(firstKey);
       this.stats.evictions++;
       this.stats.size = this.cache.size;
@@ -153,20 +159,34 @@ export class LRUCache<T> {
 
   keys(): string[] {
     const now = Date.now();
-    return Array.from(this.cache.entries())
-      .filter(([_, entry]) => now <= entry.expiresAt)
-      .map(([key]) => key);
+    const result: string[] = [];
+    for (const [key, entry] of this.cache.entries()) {
+      if (now <= entry.expiresAt) {
+        result.push(key);
+      }
+    }
+    return result;
   }
 
   values(): T[] {
-    return Array.from(this.cache.entries())
-      .filter(([_, entry]) => Date.now() <= entry.expiresAt)
-      .map(([_, entry]) => entry.value);
+    const now = Date.now();
+    const result: T[] = [];
+    for (const [_, entry] of this.cache.entries()) {
+      if (now <= entry.expiresAt) {
+        result.push(entry.value);
+      }
+    }
+    return result;
   }
 
   entries(): Array<[string, T]> {
-    return Array.from(this.cache.entries())
-      .filter(([_, entry]) => Date.now() <= entry.expiresAt)
-      .map(([key, entry]) => [key, entry.value]);
+    const now = Date.now();
+    const result: Array<[string, T]> = [];
+    for (const [key, entry] of this.cache.entries()) {
+      if (now <= entry.expiresAt) {
+        result.push([key, entry.value]);
+      }
+    }
+    return result;
   }
 }
