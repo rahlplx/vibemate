@@ -58,11 +58,12 @@ export function scanForSecrets(
   options: { redact?: boolean } = {},
 ): SecretFinding[] {
   const findings: SecretFinding[] = []
+  // Split lines once to avoid repeated O(N) string splits across patterns
+  let cachedLines: string[] | null = null
 
   for (const { kind, pattern, confidence } of SECRET_PATTERNS) {
-    const regex = new RegExp(pattern.source, pattern.flags)
-
     if (MULTILINE_KINDS.has(kind)) {
+      const regex = new RegExp(pattern.source, pattern.flags)
       let match: RegExpExecArray | null
       while ((match = regex.exec(text)) !== null) {
         const value = match[0]
@@ -77,10 +78,14 @@ export function scanForSecrets(
         }
       }
     } else {
-      const lines = text.split("\n")
-      for (let i = 0; i < lines.length; i++) {
-        const line = lines[i]
-        const lineRegex = new RegExp(pattern.source, pattern.flags)
+      if (!cachedLines) {
+        cachedLines = text.split("\n")
+      }
+      // Re-use regex instance per pattern across lines by resetting lastIndex
+      const lineRegex = new RegExp(pattern.source, pattern.flags)
+      for (let i = 0; i < cachedLines.length; i++) {
+        const line = cachedLines[i]
+        lineRegex.lastIndex = 0
         let match: RegExpExecArray | null
 
         while ((match = lineRegex.exec(line)) !== null) {
