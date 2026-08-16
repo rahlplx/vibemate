@@ -36,48 +36,104 @@ class SpanRetentionPolicy {
     this.strategy = strategy;
   }
 
-  evictIfNeeded(spans: TelemetrySpan[], traces: Map<string, TelemetrySpan[]>): TelemetrySpan[] {
-    if (spans.length <= this.maxSpanCount) return spans;
+  // Optimized in-place bounded eviction: avoids O(N log N) sorting and full array allocations
+  evictIfNeeded(
+    spanMap: Map<string, TelemetrySpan>,
+    traces: Map<string, TelemetrySpan[]>,
+    contentSpanIds?: Set<string>
+  ): void {
+    if (spanMap.size <= this.maxSpanCount) return;
 
-    const overflow = spans.length - this.maxSpanCount;
-    let toEvict: Set<string>;
+    const overflow = spanMap.size - this.maxSpanCount;
+
+    // Fast path: single-span overflow (most common case on continuous span insertion)
+    if (overflow === 1) {
+      let targetSpan: TelemetrySpan | undefined;
+
+      if (this.strategy === 'priority') {
+        // Priority strategy: evict oldest non-error span first
+        for (const span of spanMap.values()) {
+          if (span.status !== 'error') {
+            targetSpan = span;
+            break;
+          }
+        }
+        // If all spans are errors, evict the oldest span
+        if (!targetSpan) {
+          targetSpan = spanMap.values().next().value;
+        }
+      } else {
+        // LRU strategy: evict oldest span (first entry in Map insertion order)
+        targetSpan = spanMap.values().next().value;
+      }
+
+      if (targetSpan) {
+        this.totalEvicted++;
+        spanMap.delete(targetSpan.spanId);
+        contentSpanIds?.delete(targetSpan.spanId);
+
+        // Prune from traces Map
+        const traceSpans = traces.get(targetSpan.traceId);
+        if (traceSpans) {
+          if (traceSpans.length <= 1) {
+            traces.delete(targetSpan.traceId);
+          } else {
+            const idx = traceSpans.findIndex(s => s.spanId === targetSpan!.spanId);
+            if (idx !== -1) {
+              traceSpans.splice(idx, 1);
+            }
+          }
+        }
+      }
+      return;
+    }
+
+    // General path: bulk eviction when overflow > 1
+    const toEvict: TelemetrySpan[] = [];
 
     if (this.strategy === 'priority') {
-      // Sort: errors last (keep), ok first (evict), then oldest first within each group
-      const sorted = [...spans].sort((a, b) => {
-        if (a.status === 'error' && b.status !== 'error') return 1;
-        if (a.status !== 'error' && b.status === 'error') return -1;
-        return a.startTime - b.startTime;
-      });
-      toEvict = new Set(sorted.slice(0, overflow).map(s => s.spanId));
+      // First gather non-error spans in insertion order
+      for (const span of spanMap.values()) {
+        if (span.status !== 'error') {
+          toEvict.push(span);
+          if (toEvict.length === overflow) break;
+        }
+      }
+      // If not enough non-error spans, gather oldest error spans
+      if (toEvict.length < overflow) {
+        for (const span of spanMap.values()) {
+          if (span.status === 'error') {
+            toEvict.push(span);
+            if (toEvict.length === overflow) break;
+          }
+        }
+      }
     } else {
-      // LRU: evict oldest by startTime
-      const sorted = [...spans].sort((a, b) => a.startTime - b.startTime);
-      toEvict = new Set(sorted.slice(0, overflow).map(s => s.spanId));
-    }
-
-    this.totalEvicted += toEvict.size;
-
-    // Prune only affected traces by grouping evicted spans by traceId (O(evicted) vs O(all traces))
-    const evictedByTrace = new Map<string, Set<string>>();
-    for (const span of spans) {
-      if (!toEvict.has(span.spanId)) continue;
-      const ids = evictedByTrace.get(span.traceId) ?? new Set();
-      ids.add(span.spanId);
-      evictedByTrace.set(span.traceId, ids);
-    }
-    for (const [traceId, evictedIds] of evictedByTrace) {
-      const traceSpans = traces.get(traceId);
-      if (!traceSpans) continue;
-      const remaining = traceSpans.filter(ts => !evictedIds.has(ts.spanId));
-      if (remaining.length === 0) {
-        traces.delete(traceId);
-      } else {
-        traces.set(traceId, remaining);
+      // LRU: gather first overflow elements
+      for (const span of spanMap.values()) {
+        toEvict.push(span);
+        if (toEvict.length === overflow) break;
       }
     }
 
-    return spans.filter(s => !toEvict.has(s.spanId));
+    this.totalEvicted += toEvict.length;
+
+    for (const span of toEvict) {
+      spanMap.delete(span.spanId);
+      contentSpanIds?.delete(span.spanId);
+
+      const traceSpans = traces.get(span.traceId);
+      if (traceSpans) {
+        if (traceSpans.length <= 1) {
+          traces.delete(span.traceId);
+        } else {
+          const idx = traceSpans.findIndex(s => s.spanId === span.spanId);
+          if (idx !== -1) {
+            traceSpans.splice(idx, 1);
+          }
+        }
+      }
+    }
   }
 
   getTotalEvicted(): number {
@@ -174,14 +230,7 @@ export class TelemetryCollector {
       });
     }
 
-    const spansArray = Array.from(this.spanMap.values());
-    const kept = this.retentionPolicy.evictIfNeeded(spansArray, this.traces);
-    if (kept.length < spansArray.length) {
-      const keptIds = new Set(kept.map(s => s.spanId));
-      for (const id of this.spanMap.keys()) {
-        if (!keptIds.has(id)) this.spanMap.delete(id);
-      }
-    }
+    this.retentionPolicy.evictIfNeeded(this.spanMap, this.traces, this.contentSpanIds);
     this.spansSinceExport.push(span);
     // Keep spansSinceExport bounded to the same limit as spans
     const maxCount = this.retentionPolicy.getMaxSpanCount();
