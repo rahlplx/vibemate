@@ -58,32 +58,53 @@ export function scanForSecrets(
   options: { redact?: boolean } = {},
 ): SecretFinding[] {
   const findings: SecretFinding[] = []
+  let linesCache: string[] | null = null
+
+  // Lazy getter to ensure text is split into lines at most once per scan invocation
+  const getLines = (): string[] => {
+    if (!linesCache) {
+      linesCache = text.split("\n")
+    }
+    return linesCache
+  }
 
   for (const { kind, pattern, confidence } of SECRET_PATTERNS) {
-    const regex = new RegExp(pattern.source, pattern.flags)
+    const flags = pattern.flags.includes("g") ? pattern.flags : pattern.flags + "g"
+    const regex = new RegExp(pattern.source, flags)
 
     if (MULTILINE_KINDS.has(kind)) {
       let match: RegExpExecArray | null
       while ((match = regex.exec(text)) !== null) {
         const value = match[0]
         if (!isPlaceholder(value)) {
+          const lines = getLines()
+          let lineNum = 1
+          let charCount = 0
+          for (let i = 0; i < lines.length; i++) {
+            charCount += lines[i].length + 1
+            if (charCount > match.index) {
+              lineNum = i + 1
+              break
+            }
+          }
           findings.push({
             kind,
             value,
             redacted: options.redact ? redactSecret(value) : undefined,
             confidence,
-            line: text.slice(0, match.index).split("\n").length,
+            line: lineNum,
           })
         }
       }
     } else {
-      const lines = text.split("\n")
+      const lines = getLines()
+      // Compile pattern RegExp once per pattern check rather than once per line
       for (let i = 0; i < lines.length; i++) {
         const line = lines[i]
-        const lineRegex = new RegExp(pattern.source, pattern.flags)
+        regex.lastIndex = 0
         let match: RegExpExecArray | null
 
-        while ((match = lineRegex.exec(line)) !== null) {
+        while ((match = regex.exec(line)) !== null) {
           const value = match[0]
           if (!isPlaceholder(value)) {
             findings.push({
