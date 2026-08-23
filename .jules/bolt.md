@@ -1,0 +1,3 @@
+## 2026-03-30 - Single-Pass Code Base Scans for Multi-Detector Extraction Engines
+**Learning:** Calling separate analysis detectors in repository extractors (such as `extractData` in `src/learnings/extract.ts`) can create massive I/O bottlenecks if each detector independently re-walks directory trees and re-reads files from disk via `readFileSync`. Pre-collecting in-memory `CollectedFile` structures and pre-splitting file lines in a single initial pass completely eliminates redundant I/O traversals and CPU string split allocations.
+**Action:** Always structure repository-wide metrics/pattern extractors around a single initial file collection pass, passing in-memory file representations (with cached pre-split lines) to downstream detector functions.
