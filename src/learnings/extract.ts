@@ -1,4 +1,4 @@
-import { readFileSync, existsSync, readdirSync, statSync } from "fs"
+import { readFileSync, existsSync, readdirSync } from "fs"
 import { join, relative } from "path"
 import type { ExtractedData, DetectedPattern, StyleProfile } from "./types"
 
@@ -18,6 +18,7 @@ function isCodeFile(name: string): boolean {
 interface CollectedFile {
   path: string
   content: string
+  lines: string[]
   isTest: boolean
 }
 
@@ -31,7 +32,8 @@ function collectAllCode(dir: string): CollectedFile[] {
       if (isCodeFile(entry.name)) {
         try {
           const content = readFileSync(full, "utf-8")
-          files.push({ path: full, content, isTest: isTestFile(full) })
+          const lines = content.split("\n")
+          files.push({ path: full, content, lines, isTest: isTestFile(full) })
         } catch (error) {
           console.error(`[Extract] Failed to read file ${full}: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
@@ -43,23 +45,11 @@ function collectAllCode(dir: string): CollectedFile[] {
   return files
 }
 
+// Optimization: walkCode uses pre-collected files in memory when called on directory or passes through
 function walkCode(dir: string, cb: (path: string, content: string) => void) {
-  try {
-    for (const entry of readdirSync(dir, { withFileTypes: true })) {
-      if (IGNORE_DIRS.has(entry.name)) continue
-      const full = join(dir, entry.name)
-      if (entry.isDirectory()) { walkCode(full, cb); continue }
-      if (isCodeFile(entry.name)) {
-        try {
-          const content = readFileSync(full, "utf-8")
-          cb(full, content)
-        } catch (error) {
-          console.error(`[Extract] Failed to read file ${full}: ${error instanceof Error ? error.message : 'Unknown error'}`);
-        }
-      }
-    }
-  } catch (error) {
-    console.error(`[Extract] Failed to walk directory ${dir}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  const files = collectAllCode(dir)
+  for (const f of files) {
+    cb(f.path, f.content)
   }
 }
 
@@ -144,14 +134,14 @@ interface ApiSurface {
   jsdocCoverage: number
 }
 
-function analyzeApiSurface(dir: string): ApiSurface {
+// Optimization: Operates on in-memory CollectedFile[] and pre-split lines instead of disk re-traversal
+function analyzeApiSurface(files: CollectedFile[]): ApiSurface {
   const surface: ApiSurface = {
     exportedTypes: 0, exportedFunctions: 0, exportedClasses: 0,
     exportedConstants: 0, documentedExports: 0, totalExports: 0, jsdocCoverage: 0,
   }
 
-  walkCode(dir, (_path, content) => {
-    const lines = content.split("\n")
+  for (const { lines } of files) {
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i]
       // Count export types
@@ -171,7 +161,7 @@ function analyzeApiSurface(dir: string): ApiSurface {
         if (hasJsDoc) surface.documentedExports++
       }
     }
-  })
+  }
 
   surface.jsdocCoverage = surface.totalExports > 0
     ? surface.documentedExports / surface.totalExports
@@ -181,17 +171,18 @@ function analyzeApiSurface(dir: string): ApiSurface {
 }
 
 // GAP 6: Streaming/async pattern detection
-function detectAsyncPatterns(dir: string): string[] {
+// Optimization: Operates on in-memory CollectedFile[] instead of disk re-traversal
+function detectAsyncPatterns(files: CollectedFile[]): string[] {
   const patterns = new Set<string>()
 
-  walkCode(dir, (_path, content) => {
+  for (const { content } of files) {
     if (content.match(/AsyncIterator|AsyncIterable|for\s+await\s*\(/)) patterns.add("async-iterator")
     if (content.match(/yield\s*\*?|function\*|generator/i)) patterns.add("generator")
     if (content.match(/Observable|subscribe|Subject/i)) patterns.add("observable")
     if (content.match(/EventEmitter|\.on\(|\.emit\(/)) patterns.add("event-emitter")
     if (content.match(/ReadableStream|WritableStream|TransformStream/)) patterns.add("web-streams")
     if (content.match(/createReadStream|createWriteStream/)) patterns.add("node-streams")
-  })
+  }
 
   return [...patterns]
 }
@@ -205,20 +196,21 @@ interface SecurityPatterns {
   secretPatterns: string[]
 }
 
-function detectSecurityPatterns(dir: string): SecurityPatterns {
+// Optimization: Operates on in-memory CollectedFile[] instead of disk re-traversal
+function detectSecurityPatterns(files: CollectedFile[]): SecurityPatterns {
   const result: SecurityPatterns = {
     apiKeyHandling: false, envVarUsage: [], deprecatedSecurityPatterns: [],
     authPatterns: [], secretPatterns: [],
   }
 
-  walkCode(dir, (_path, content) => {
+  for (const { content } of files) {
     if (content.match(/api[_-]?key|apiKey|API_KEY/i)) result.apiKeyHandling = true
     const envVars = content.match(/process\.env\.(\w+)/g) || []
     result.envVarUsage.push(...envVars)
     if (content.match(/@deprecated|DEPRECATED/i)) result.deprecatedSecurityPatterns.push("deprecated-usage")
     if (content.match(/bearer|authorization|token|jwt|oauth/i)) result.authPatterns.push("auth-detected")
     if (content.match(/password|secret|private.?key|credentials/i)) result.secretPatterns.push("secret-pattern")
-  })
+  }
 
   result.envVarUsage = [...new Set(result.envVarUsage)]
   return result
@@ -237,7 +229,8 @@ interface TestOrganization {
   avgTestFileSize: number
 }
 
-function analyzeTestOrganization(dir: string): TestOrganization {
+// Optimization: Operates on in-memory CollectedFile[] instead of re-walking directory and statSyncing files
+function analyzeTestOrganization(dir: string, files: CollectedFile[]): TestOrganization {
   const result: TestOrganization = {
     totalTestFiles: 0, testDirectories: [], testCategories: [],
     hasUnitTests: false, hasIntegrationTests: false, hasE2ETests: false,
@@ -246,39 +239,33 @@ function analyzeTestOrganization(dir: string): TestOrganization {
 
   let totalTestSize = 0
 
-  function walkTests(d: string) {
-    try {
-      for (const entry of readdirSync(d, { withFileTypes: true })) {
-        if (IGNORE_DIRS.has(entry.name)) continue
-        const full = join(d, entry.name)
-        if (entry.isDirectory()) {
-          const rel = relative(dir, full).toLowerCase()
-          if (entry.name === "tests" || entry.name === "test" || entry.name === "__tests__") {
-            result.testDirectories.push(relative(dir, full))
-          }
-          if (rel.includes("unit")) { result.hasUnitTests = true; result.testCategories.push("unit") }
-          if (rel.includes("integration")) { result.hasIntegrationTests = true; result.testCategories.push("integration") }
-          if (rel.includes("e2e") || rel.includes("end-to-end")) { result.hasE2ETests = true; result.testCategories.push("e2e") }
-          if (rel.includes("mock") || rel.includes("fixture")) { result.hasMocks = true; result.testCategories.push("mocks") }
-          if (rel.includes("smoke")) { result.testCategories.push("smoke") }
-          walkTests(full)
-          continue
-        }
-        if (isTestFile(full)) {
-          result.totalTestFiles++
-          try {
-            const stat = statSync(full)
-            totalTestSize += stat.size
-          } catch (error) {
-            console.error(`[Extract] Failed to stat test file ${full}: ${error instanceof Error ? error.message : 'Unknown error'}`);
-          }
+  for (const file of files) {
+    const rel = relative(dir, file.path).toLowerCase()
+
+    // Track test directories by path segments
+    const pathParts = file.path.split(/[/\\]/)
+    for (let i = 0; i < pathParts.length - 1; i++) {
+      const part = pathParts[i]
+      if (part === "tests" || part === "test" || part === "__tests__") {
+        const dirPath = pathParts.slice(0, i + 1).join("/")
+        const relDir = relative(dir, dirPath)
+        if (relDir && !result.testDirectories.includes(relDir)) {
+          result.testDirectories.push(relDir)
         }
       }
-    } catch (error) {
-      console.error(`[Extract] Failed to walk test directory ${d}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+
+    if (rel.includes("unit")) { result.hasUnitTests = true; result.testCategories.push("unit") }
+    if (rel.includes("integration")) { result.hasIntegrationTests = true; result.testCategories.push("integration") }
+    if (rel.includes("e2e") || rel.includes("end-to-end")) { result.hasE2ETests = true; result.testCategories.push("e2e") }
+    if (rel.includes("mock") || rel.includes("fixture")) { result.hasMocks = true; result.testCategories.push("mocks") }
+    if (rel.includes("smoke")) { result.testCategories.push("smoke") }
+
+    if (file.isTest) {
+      result.totalTestFiles++
+      totalTestSize += Buffer.byteLength(file.content, 'utf-8')
     }
   }
-  walkTests(dir)
 
   result.testDirectories = [...new Set(result.testDirectories)]
   result.testCategories = [...new Set(result.testCategories)]
@@ -299,10 +286,11 @@ function analyzeTestOrganization(dir: string): TestOrganization {
   return result
 }
 
-function detectDesignPatterns(dir: string): DetectedPattern[] {
+// Optimization: Operates on in-memory CollectedFile[] and pre-split lines instead of disk re-traversal
+function detectDesignPatterns(files: CollectedFile[]): DetectedPattern[] {
   const patterns: DetectedPattern[] = []
 
-  walkCode(dir, (path, content) => {
+  for (const { path, content, lines, isTest } of files) {
     if (content.match(/private\s+static\s+instance|getInstance|_instance/i)) {
       patterns.push({ name: "Singleton", type: "design", locations: [{ file: path, line: 1 }], confidence: 0.8, description: "Singleton pattern detected" })
     }
@@ -328,32 +316,35 @@ function detectDesignPatterns(dir: string): DetectedPattern[] {
     }
 
     // Only flag anti-patterns for SOURCE files, not test files
-    if (!isTestFile(path)) {
-      const lines = content.split("\n").length
-      if (lines > 500) {
-        patterns.push({ name: "God File", type: "anti", locations: [{ file: path, line: 1 }], confidence: 0.9, description: `File has ${lines} lines` })
+    if (!isTest) {
+      const lineCount = lines.length
+      if (lineCount > 500) {
+        patterns.push({ name: "God File", type: "anti", locations: [{ file: path, line: 1 }], confidence: 0.9, description: `File has ${lineCount} lines` })
       }
-      const maxNesting = Math.max(...content.split("\n").map(line => {
-        const indent = line.match(/^\s*/)?.[0]?.length || 0
-        return Math.floor(indent / 2)
-      }))
+      let maxNesting = 0
+      for (let i = 0; i < lines.length; i++) {
+        const indent = lines[i].match(/^\s*/)?.[0]?.length || 0
+        const depth = Math.floor(indent / 2)
+        if (depth > maxNesting) maxNesting = depth
+      }
       if (maxNesting > 5) {
         patterns.push({ name: "Deep Nesting", type: "anti", locations: [{ file: path, line: 1 }], confidence: 0.8, description: `Max nesting depth: ${maxNesting}` })
       }
     }
-  })
+  }
 
   return patterns
 }
 
-function detectCodingStyle(dir: string): StyleProfile {
+// Optimization: Operates on in-memory CollectedFile[] and pre-split lines instead of disk re-traversal
+function detectCodingStyle(files: CollectedFile[]): StyleProfile {
   let indentSpaces = 0, indentTabs = 0
   let singleQuotes = 0, doubleQuotes = 0
   let semicolons = 0, noSemicolons = 0
   let maxLine = 0
 
-  walkCode(dir, (_path, content) => {
-    for (const line of content.split("\n")) {
+  for (const { lines } of files) {
+    for (const line of lines) {
       if (line.startsWith("\t")) indentTabs++
       else if (line.startsWith("  ")) indentSpaces++
       if (line.includes("'")) singleQuotes++
@@ -362,7 +353,7 @@ function detectCodingStyle(dir: string): StyleProfile {
       else if (line.trim().length > 0) noSemicolons++
       if (line.length > maxLine) maxLine = line.length
     }
-  })
+  }
 
   return {
     indentStyle: indentTabs > indentSpaces ? "tabs" : "spaces",
@@ -397,17 +388,18 @@ function detectConventions(dir: string): string[] {
   return conventions
 }
 
-function detectErrorHandling(dir: string): "typed" | "generic" | "mixed" {
+// Optimization: Operates on in-memory CollectedFile[] instead of disk re-traversal
+function detectErrorHandling(files: CollectedFile[]): "typed" | "generic" | "mixed" {
   let typed = 0, generic = 0, hierarchyClasses = 0
 
-  walkCode(dir, (_path, content) => {
+  for (const { content } of files) {
     if (content.match(/catch\s*\(\s*\w+\s*:\s*\w+Error/)) typed++
     if (content.match(/catch\s*\(\s*\w+\s*\)/)) generic++
     if (content.match(/throw\s+new\s+\w+Error/)) typed++
     if (content.match(/throw\s+/)) generic++
     // GAP 2: Detect error class hierarchies
     if (content.match(/class\s+\w+Error\s+extends\s+\w+Error/)) hierarchyClasses++
-  })
+  }
 
   // If we detect error class hierarchies, it's well-typed
   if (hierarchyClasses >= 1) return "typed"
@@ -447,9 +439,10 @@ function extractEntryPoints(dir: string): string[] {
   return [...new Set(entryPoints)]
 }
 
-function detectLayerViolations(dir: string): string[] {
+// Optimization: Operates on in-memory CollectedFile[] instead of disk re-traversal
+function detectLayerViolations(files: CollectedFile[]): string[] {
   const violations: string[] = []
-  walkCode(dir, (path, content) => {
+  for (const { path, content } of files) {
     const isUI = path.includes("/components/") || path.includes("/pages/")
     if (isUI) {
       const imports = content.match(/from\s+["']([^"']+)["']/g) || []
@@ -459,11 +452,12 @@ function detectLayerViolations(dir: string): string[] {
         }
       }
     }
-  })
+  }
   return [...new Set(violations)].slice(0, 20)
 }
 
-function extractDependencyData(dir: string) {
+// Optimization: Operates on in-memory CollectedFile[] instead of disk re-traversal
+function extractDependencyData(dir: string, files: CollectedFile[]) {
   const direct: Array<{ name: string; version: string; license: string; size: number | null }> = []
   const dev: Array<{ name: string; version: string; license: string; size: number | null }> = []
 
@@ -480,13 +474,13 @@ function extractDependencyData(dir: string) {
   }
 
   const usedDeps = new Set<string>()
-  walkCode(dir, (_path, content) => {
+  for (const { content } of files) {
     const imports = content.match(/from\s+["']([^"@][^"']*)["']/g) || []
     for (const imp of imports) {
       const pkg = imp.replace(/from\s+["']/, "").replace(/["']/, "").split("/")[0]
       usedDeps.add(pkg)
     }
-  })
+  }
 
   const unused = direct.filter(d => !usedDeps.has(d.name)).map(d => d.name)
   return { direct, dev, outdated: [] as string[], vulnerable: [] as string[], unused, bundled: false }
@@ -497,28 +491,28 @@ export function extractData(repoPath: string): ExtractedData {
   const sourceFiles = allFiles.filter(f => !f.isTest)
   const testFiles = allFiles.filter(f => f.isTest)
 
-  const patterns = detectDesignPatterns(repoPath)
-  const style = detectCodingStyle(repoPath)
+  const patterns = detectDesignPatterns(allFiles)
+  const style = detectCodingStyle(allFiles)
   const conventions = detectConventions(repoPath)
-  const errorHandling = detectErrorHandling(repoPath)
+  const errorHandling = detectErrorHandling(allFiles)
   const entryPoints = extractEntryPoints(repoPath)
-  const layerViolations = detectLayerViolations(repoPath)
-  const deps = extractDependencyData(repoPath)
+  const layerViolations = detectLayerViolations(allFiles)
+  const deps = extractDependencyData(repoPath, allFiles)
   const monorepo = detectMonorepo(repoPath)
-  const apiSurface = analyzeApiSurface(repoPath)
-  const asyncPatterns = detectAsyncPatterns(repoPath)
-  const security = detectSecurityPatterns(repoPath)
-  const testOrg = analyzeTestOrganization(repoPath)
+  const apiSurface = analyzeApiSurface(allFiles)
+  const asyncPatterns = detectAsyncPatterns(allFiles)
+  const security = detectSecurityPatterns(allFiles)
+  const testOrg = analyzeTestOrganization(repoPath, allFiles)
 
   let sourceLines = 0, testLines = 0
   let maxFileLen = 0
   for (const f of sourceFiles) {
-    const len = f.content.split("\n").length
+    const len = f.lines.length
     sourceLines += len
     if (len > maxFileLen) maxFileLen = len
   }
   for (const f of testFiles) {
-    testLines += f.content.split("\n").length
+    testLines += f.lines.length
   }
 
   const totalFiles = allFiles.length
