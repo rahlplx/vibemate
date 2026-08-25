@@ -49,27 +49,46 @@ export class PerformanceMonitor {
       tags,
     };
 
-    if (!this.metrics.has(name)) {
-      this.metrics.set(name, []);
+    let values = this.metrics.get(name);
+    if (!values) {
+      values = [];
+      this.metrics.set(name, values);
     }
 
-    const values = this.metrics.get(name)!;
     values.push(metric);
 
-    // Cleanup old metrics
+    // Efficiently head-prune metrics older than retention cutoff (O(N) instead of O(N^2) allocations/filtering)
     const cutoff = Date.now() - this.config.retentionPeriod;
-    this.metrics.set(
-      name,
-      values.filter(m => m.timestamp.getTime() >= cutoff)
-    );
+    let removeCount = 0;
+    while (removeCount < values.length && values[removeCount].timestamp.getTime() < cutoff) {
+      removeCount++;
+    }
+    if (removeCount > 0) {
+      values.splice(0, removeCount);
+    }
   }
 
   getMetric(name: string, duration?: number): MetricValue[] {
     const values = this.metrics.get(name) || [];
     if (!duration) return values;
 
+    // Use binary search for O(log N) lookup since values are chronologically sorted
     const cutoff = Date.now() - duration;
-    return values.filter(m => m.timestamp.getTime() >= cutoff);
+    let low = 0;
+    let high = values.length - 1;
+    let startIndex = values.length;
+
+    while (low <= high) {
+      const mid = (low + high) >> 1;
+      if (values[mid].timestamp.getTime() >= cutoff) {
+        startIndex = mid;
+        high = mid - 1;
+      } else {
+        low = mid + 1;
+      }
+    }
+
+    return values.slice(startIndex);
   }
 
   getMetricStats(name: string): {
@@ -184,11 +203,14 @@ export class PerformanceMonitor {
   clearOldMetrics(): void {
     const cutoff = Date.now() - this.config.retentionPeriod;
     for (const [name, values] of this.metrics.entries()) {
-      const filtered = values.filter(m => m.timestamp.getTime() >= cutoff);
-      if (filtered.length === 0) {
+      let removeCount = 0;
+      while (removeCount < values.length && values[removeCount].timestamp.getTime() < cutoff) {
+        removeCount++;
+      }
+      if (removeCount === values.length) {
         this.metrics.delete(name);
-      } else {
-        this.metrics.set(name, filtered);
+      } else if (removeCount > 0) {
+        values.splice(0, removeCount);
       }
     }
   }
