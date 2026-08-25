@@ -1,0 +1,3 @@
+## 2026-08-25 - PerformanceMonitor Array Filter Bottleneck
+**Learning:** Pruning time-series data using `Array.prototype.filter()` on every insert or query creates an $O(N^2)$ quadratic allocation bottleneck as array size increases. Since metric timestamps are strictly monotonic (chronological), head-pruning via `splice(0, count)` and querying via binary search reduces retention pruning to $O(N)$ and duration queries to $O(\log N)$, providing ~300x faster insertion rates.
+**Action:** When working with chronologically sorted arrays, use binary search to locate range cutoffs and head-pruning `splice(0, count)` instead of allocating new arrays via `filter()`.
