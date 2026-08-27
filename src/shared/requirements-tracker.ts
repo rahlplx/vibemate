@@ -58,11 +58,15 @@ export class RequirementsTracker {
     return req ? cloneReq(req) : undefined;
   }
 
+  // Performance optimization: Single-pass iteration directly over Map values without intermediate array allocations.
   list(tier?: MoSCoWTier, status?: RequirementStatus): Requirement[] {
-    let all = [...this.reqs.values()].map(r => cloneReq(r));
-    if (tier) all = all.filter(r => r.tier === tier);
-    if (status) all = all.filter(r => r.status === status);
-    return all;
+    const result: Requirement[] = [];
+    for (const req of this.reqs.values()) {
+      if (tier !== undefined && req.tier !== tier) continue;
+      if (status !== undefined && req.status !== status) continue;
+      result.push(cloneReq(req));
+    }
+    return result;
   }
 
   update(id: string, patch: Partial<Omit<Requirement, 'id' | 'addedAt'>>): boolean {
@@ -76,17 +80,28 @@ export class RequirementsTracker {
     return this.update(id, { tier: to });
   }
 
+  // Performance optimization: Single-pass calculation of stats avoiding multi-array filtering.
   getStats(): RequirementStats {
-    const all = [...this.reqs.values()];
-    const total = all.length;
-    const active = all.filter(r => r.status === 'active').length;
-    const delivered = all.filter(r => r.status === 'delivered').length;
-    const nonWont = all.filter(r => r.tier !== 'wont').length;
-    // deliveryRate only counts non-wont delivered to avoid rate > 1 when wont reqs are marked delivered
-    const deliveredNonWont = all.filter(r => r.tier !== 'wont' && r.status === 'delivered').length;
-    const deliveryRate = nonWont > 0 ? deliveredNonWont / nonWont : 0;
+    let total = 0;
+    let active = 0;
+    let delivered = 0;
+    let nonWont = 0;
+    let deliveredNonWont = 0;
     const byTier: Record<MoSCoWTier, number> = { must: 0, should: 0, could: 0, wont: 0 };
-    for (const r of all) byTier[r.tier]++;
+
+    for (const r of this.reqs.values()) {
+      total++;
+      if (r.status === 'active') active++;
+      if (r.status === 'delivered') delivered++;
+      if (r.tier !== 'wont') {
+        nonWont++;
+        if (r.status === 'delivered') deliveredNonWont++;
+      }
+      byTier[r.tier]++;
+    }
+
+    // deliveryRate only counts non-wont delivered to avoid rate > 1 when wont reqs are marked delivered
+    const deliveryRate = nonWont > 0 ? deliveredNonWont / nonWont : 0;
     return { total, active, delivered, deliveryRate, byTier };
   }
 
@@ -144,8 +159,13 @@ export class RequirementsTracker {
     return lines.join('\n');
   }
 
+  // Performance optimization: Single-pass iteration directly over Map values.
   toJSON(): Requirement[] {
-    return [...this.reqs.values()].map(r => cloneReq(r));
+    const result: Requirement[] = [];
+    for (const req of this.reqs.values()) {
+      result.push(cloneReq(req));
+    }
+    return result;
   }
 
   static fromJSON(data: Requirement[]): RequirementsTracker {
