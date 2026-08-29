@@ -1,3 +1,0 @@
-## 2025-08-29 - Single-pass criteria scoring and hoisted weight calculation
-**Learning:** In decision-making matrices and options scoring, calculating total criteria weights inside option mapping loops creates redundant $O(N \cdot M)$ computations. Replacing double `.reduce()` array traversals with single-pass indexed `for` loops and hoisting total weight calculations outside option loops yields a 1.6x - 2.6x performance improvement.
-**Action:** When working with scoring matrices or weighted options ranking, always calculate common aggregate weights once before option loops and use single-pass indexed `for` loops for weighted sums.
