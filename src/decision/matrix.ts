@@ -50,22 +50,42 @@ export function scoreOption(
   optionId: string,
   scores: Record<string, number>
 ): ComparisonMatrix {
+  const criteriaLen = matrix.criteria.length;
+
+  // Pre-calculate totalWeight once outside the options loop, avoiding O(N * M) redundant weight sums
+  let totalWeight = 0;
+  for (let j = 0; j < criteriaLen; j++) {
+    totalWeight += matrix.criteria[j].weight;
+  }
+
+  const optionsLen = matrix.options.length;
+  // Pre-allocate array to avoid intermediate callback allocation from .map()
+  const newOptions = new Array<MatrixOption>(optionsLen);
+
+  for (let i = 0; i < optionsLen; i++) {
+    const opt = matrix.options[i];
+    if (opt.id !== optionId) {
+      newOptions[i] = opt;
+      continue;
+    }
+
+    let weightedScore = 0;
+    if (totalWeight > 0) {
+      let weightedSum = 0;
+      for (let j = 0; j < criteriaLen; j++) {
+        const c = matrix.criteria[j];
+        const score = scores[c.id] ?? 0;
+        weightedSum += score * c.weight;
+      }
+      weightedScore = weightedSum / totalWeight;
+    }
+
+    newOptions[i] = { ...opt, scores, weightedScore };
+  }
+
   return {
     ...matrix,
-    options: matrix.options.map((opt) => {
-      if (opt.id !== optionId) return opt;
-
-      const totalWeight = matrix.criteria.reduce((sum, c) => sum + c.weight, 0);
-      const weightedScore =
-        totalWeight > 0
-          ? matrix.criteria.reduce((sum, c) => {
-              const score = scores[c.id] ?? 0;
-              return sum + score * c.weight;
-            }, 0) / totalWeight
-          : 0;
-
-      return { ...opt, scores, weightedScore };
-    }),
+    options: newOptions,
   };
 }
 
