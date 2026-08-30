@@ -127,13 +127,21 @@ export function parseAndValidate<K extends OutputSchemaName>(
 
 /** Extract the first complete JSON object from an LLM response that may contain prose + JSON. */
 export function extractJSON(text: string): string | null {
+  // Fast-forward to the first opening brace using native indexOf
+  const firstBrace = text.indexOf('{');
+  if (firstBrace === -1) return null;
+
   let start = -1;
   let depth = 0;
-  for (let i = 0; i < text.length; i++) {
-    if (text[i] === '{') {
+  const len = text.length;
+
+  // Optimized loop using charCodeAt to avoid string slice/indexing allocations during traversal
+  for (let i = firstBrace; i < len; i++) {
+    const code = text.charCodeAt(i);
+    if (code === 123) { // '{'
       if (depth === 0) start = i;
       depth++;
-    } else if (text[i] === '}') {
+    } else if (code === 125) { // '}'
       depth--;
       if (depth === 0 && start !== -1) return text.slice(start, i + 1);
     }
