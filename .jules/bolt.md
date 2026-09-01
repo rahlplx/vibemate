@@ -1,0 +1,3 @@
+## 2025-05-18 - PageRank Array Indexing in RepoMap
+**Learning:** Performing PageRank iterations using JavaScript `Map<string, number>` lookups and allocations inside nested iteration loops creates severe GC pressure and string hash table overhead. Mapping string symbol keys to contiguous 0..N-1 integer indices and running double-buffered `Float64Array` loops dramatically speeds up graph calculations.
+**Action:** When performing iterative matrix or graph computations (like PageRank), map string node identifiers to array indices once and use pre-allocated typed arrays (`Float64Array`) with buffer swapping.
