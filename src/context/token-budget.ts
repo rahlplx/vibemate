@@ -15,26 +15,29 @@ interface ContentChunk {
 
 export class TokenBudgetAllocator {
   // Approximate token count (1 token ≈ 4 chars for English, 2 chars for CJK)
-  countTokens(text: string): number {
+  // Optimized: uses indexed loop to avoid string iterator allocations, supports maxLen and stopAtTokenCount for early-exit.
+  countTokens(text: string, maxLen?: number, stopAtTokenCount?: number): number {
     if (!text) return 0;
     
-    // Count ASCII vs non-ASCII characters
+    const limit = maxLen !== undefined ? Math.min(text.length, maxLen) : text.length;
     let asciiChars = 0;
     let nonAsciiChars = 0;
     
-    for (const char of text) {
-      if (char.charCodeAt(0) < 128) {
+    for (let i = 0; i < limit; i++) {
+      if (text.charCodeAt(i) < 128) {
         asciiChars++;
       } else {
         nonAsciiChars++;
       }
+      if (stopAtTokenCount !== undefined) {
+        const tokens = Math.ceil(asciiChars / 4) + Math.ceil(nonAsciiChars / 2);
+        if (tokens > stopAtTokenCount) {
+          return tokens;
+        }
+      }
     }
     
-    // Approximate: ASCII ~4 chars/token, non-ASCII ~2 chars/token
-    const asciiTokens = Math.ceil(asciiChars / 4);
-    const nonAsciiTokens = Math.ceil(nonAsciiChars / 2);
-    
-    return asciiTokens + nonAsciiTokens;
+    return Math.ceil(asciiChars / 4) + Math.ceil(nonAsciiChars / 2);
   }
 
   allocate(config: { totalBudget: number; layers: string[] }): BudgetAllocation {
@@ -59,32 +62,36 @@ export class TokenBudgetAllocator {
   }
 
   fitToBudget(content: string, budget: number): string {
-    const contentTokens = this.countTokens(content);
+    // Early exit check with stopAtTokenCount so oversized content returns quickly without full scanning
+    const contentTokens = this.countTokens(content, undefined, budget);
     
     if (contentTokens <= budget) {
       return content;
     }
     
-    // Binary search for the right truncation point (with 10% safety margin)
+    // Single-pass bounded scan (with 10% safety margin). Since ASCII is 4 chars/token, bestFitLen cannot exceed safeBudget * 4.
     const safeBudget = Math.floor(budget * 0.9);
-    let low = 0;
-    let high = content.length;
-    let bestFit = '';
+    const maxChars = Math.min(content.length, safeBudget * 4);
+
+    let asciiChars = 0;
+    let nonAsciiChars = 0;
+    let bestFitLen = 0;
     
-    while (low <= high) {
-      const mid = Math.floor((low + high) / 2);
-      const truncated = content.slice(0, mid);
-      const tokens = this.countTokens(truncated);
-      
-      if (tokens <= safeBudget) {
-        bestFit = truncated;
-        low = mid + 1;
+    for (let i = 0; i < maxChars; i++) {
+      if (content.charCodeAt(i) < 128) {
+        asciiChars++;
       } else {
-        high = mid - 1;
+        nonAsciiChars++;
+      }
+      const tokens = Math.ceil(asciiChars / 4) + Math.ceil(nonAsciiChars / 2);
+      if (tokens <= safeBudget) {
+        bestFitLen = i + 1;
+      } else {
+        break;
       }
     }
     
-    return bestFit + '\n// [truncated to fit token budget]';
+    return content.slice(0, bestFitLen) + '\n// [truncated to fit token budget]';
   }
 
   adaptRatios(chunks: { type: string; content: string }[]): ContentChunk[] {
