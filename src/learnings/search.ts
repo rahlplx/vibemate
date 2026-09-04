@@ -15,58 +15,71 @@ export interface SearchOptions {
   useTags?: boolean
 }
 
+interface IndexedMemory extends SearchableMemory {
+  contentTokens: string[]
+  allTokens: string[]
+  contentBoost: number
+}
+
 function tokenize(text: string): string[] {
   return text.toLowerCase().split(/\s+/).filter(t => t.length > 2)
 }
 
-function calculateScore(query: string, content: string, tags: string[], useTags: boolean): number {
-  const queryTokens = tokenize(query)
-  const contentTokens = tokenize(content)
-  const allContent = useTags ? [...contentTokens, ...tags.map(t => t.toLowerCase())] : contentTokens
-
-  let matches = 0
-  for (const qt of queryTokens) {
-    for (const ct of allContent) {
-      if (ct.includes(qt) || qt.includes(ct)) {
-        matches++
-        break
-      }
-    }
-  }
-
-  const matchRatio = queryTokens.length > 0 ? matches / queryTokens.length : 0
-  const contentBoost = Math.min(1, content.length / 100)
-  return matchRatio * 0.8 + contentBoost * 0.2
-}
-
 export function createMemorySearchEngine() {
-  const index = new Map<string, SearchableMemory>()
+  const index = new Map<string, IndexedMemory>()
 
   return {
     index(entries: SearchableMemory[]) {
-      for (const entry of entries) {
-        index.set(entry.id, entry)
+      for (let i = 0; i < entries.length; i++) {
+        const entry = entries[i]
+        const contentTokens = tokenize(entry.content)
+        const tagTokens = entry.tags.map(t => t.toLowerCase())
+        // Pre-combine content and tag tokens to avoid array allocations during search calls
+        const allTokens = [...contentTokens, ...tagTokens]
+        const contentBoost = Math.min(1, entry.content.length / 100) * 0.2
+
+        index.set(entry.id, {
+          ...entry,
+          contentTokens,
+          allTokens,
+          contentBoost,
+        })
       }
     },
 
     search(query: string, options: SearchOptions = {}): SearchResult[] {
       const { limit = 10, useTags = false } = options
+
+      // Tokenize search query ONCE per search call instead of per document (O(1) vs O(N))
+      const queryTokens = tokenize(query)
+      if (queryTokens.length === 0) return []
+
       const results: SearchResult[] = []
 
-      for (const [id, memory] of index) {
-        const score = calculateScore(query, memory.content, memory.tags, useTags)
+      for (const memory of index.values()) {
+        const tokens = useTags ? memory.allTokens : memory.contentTokens
+        let matches = 0
+
+        for (let q = 0; q < queryTokens.length; q++) {
+          const qt = queryTokens[q]
+          for (let c = 0; c < tokens.length; c++) {
+            const ct = tokens[c]
+            if (ct.includes(qt) || qt.includes(ct)) {
+              matches++
+              break
+            }
+          }
+        }
+
+        const matchRatio = matches / queryTokens.length
+        const score = matchRatio * 0.8 + memory.contentBoost
         if (score > 0.1) {
-          results.push({ id, content: memory.content, score })
+          results.push({ id: memory.id, content: memory.content, score })
         }
       }
 
-      const seen = new Set<string>()
+      // Map keys are already unique by id, no need for redundant deduplication Set filtering
       return results
-        .filter(r => {
-          if (seen.has(r.id)) return false
-          seen.add(r.id)
-          return true
-        })
         .sort((a, b) => b.score - a.score)
         .slice(0, limit)
     },
