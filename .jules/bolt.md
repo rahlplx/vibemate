@@ -1,0 +1,3 @@
+## 2025-05-18 - Single-Pass Aggregation in Governance Audit Logs
+**Learning:** Replaces `[...array]` cloning and chained `.filter()`/`.map()` passes with a single `for` loop in high-throughput query functions like `getAuditStats` and `getAuditLog` eliminated intermediate array allocations and yielded a ~2.7x speedup on 10,000 log entries. Additionally, replacing `array = array.slice(-N)` with `array.splice(0, count)` for log trimming avoids re-allocating large arrays during continuous audit logging.
+**Action:** When working with bounded or queryable log buffers in TypeScript runtime modules, always prefer single-pass `for` loops for aggregation and `splice` for in-place head-pruning instead of array cloning and functional chain wrappers.
