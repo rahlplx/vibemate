@@ -113,7 +113,7 @@ function extractSuccessMetric(input: string): string {
     /(?:in|under|within|less than)\s+(\d+)\s+(minutes?|hours?|seconds?)/i,
     /(?:deploy|launch|ship)\s+(?:in|under|within)\s+(.+?)(?:\s+that|\s+and|$)/i,
   ];
-  
+
   for (const pattern of timePatterns) {
     const match = input.match(pattern);
     if (match) {
@@ -148,7 +148,7 @@ function extractConstraints(input: string): string[] {
     /no\s+(backend|database|server|auth|authentication|payment)/i,
     /without\s+(backend|database|server|auth|authentication|payment)/i,
   ];
-  
+
   for (const pattern of noPatterns) {
     const match = input.match(pattern);
     if (match) {
@@ -161,7 +161,7 @@ function extractConstraints(input: string): string[] {
     /must\s+(be\s+)?(mobile|responsive|fast|secure|simple)/i,
     /should\s+(be\s+)?(mobile|responsive|fast|secure|simple)/i,
   ];
-  
+
   for (const pattern of mustPatterns) {
     const match = input.match(pattern);
     if (match) {
