@@ -72,19 +72,29 @@ export class AutoScaler {
   }
 
   getAverageCpu(): number {
-    const workers = Array.from(this.workers.values());
-    if (workers.length === 0) return 0;
-    return workers.reduce((sum, w) => sum + w.cpu, 0) / workers.length;
+    if (this.workers.size === 0) return 0;
+    let sum = 0;
+    for (const w of this.workers.values()) {
+      sum += w.cpu;
+    }
+    return sum / this.workers.size;
   }
 
   getAverageMemory(): number {
-    const workers = Array.from(this.workers.values());
-    if (workers.length === 0) return 0;
-    return workers.reduce((sum, w) => sum + w.memory, 0) / workers.length;
+    if (this.workers.size === 0) return 0;
+    let sum = 0;
+    for (const w of this.workers.values()) {
+      sum += w.memory;
+    }
+    return sum / this.workers.size;
   }
 
   getTotalTasks(): number {
-    return Array.from(this.workers.values()).reduce((sum, w) => sum + w.tasks, 0);
+    let sum = 0;
+    for (const w of this.workers.values()) {
+      sum += w.tasks;
+    }
+    return sum;
   }
 
   canScale(): boolean {
@@ -92,9 +102,21 @@ export class AutoScaler {
   }
 
   makeDecision(): ScalingDecision {
-    const avgCpu = this.getAverageCpu();
-    const avgMemory = this.getAverageMemory();
     const currentWorkers = this.workers.size;
+    // Single pass to gather metrics array and accumulate resource totals
+    const metrics: WorkerMetrics[] = new Array(currentWorkers);
+    let totalCpu = 0;
+    let totalMemory = 0;
+    let idx = 0;
+
+    for (const w of this.workers.values()) {
+      metrics[idx++] = w;
+      totalCpu += w.cpu;
+      totalMemory += w.memory;
+    }
+
+    const avgCpu = currentWorkers > 0 ? totalCpu / currentWorkers : 0;
+    const avgMemory = currentWorkers > 0 ? totalMemory / currentWorkers : 0;
 
     let action: ScalingDecision['action'] = 'maintain';
     let reason = '';
@@ -119,12 +141,12 @@ export class AutoScaler {
       reason,
       currentWorkers,
       targetWorkers,
-      metrics: Array.from(this.workers.values()),
+      metrics,
     };
 
     this.scalingHistory.push(decision);
     if (this.scalingHistory.length > 100) {
-      this.scalingHistory = this.scalingHistory.slice(-100);
+      this.scalingHistory.shift();
     }
     if (action !== 'maintain') {
       this.lastScaleTime = Date.now();

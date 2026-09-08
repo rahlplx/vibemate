@@ -104,10 +104,17 @@ export class WorkerPool {
     this.workers.delete(worker.id);
   }
 
+  private findIdleWorker(): WorkerInfo | undefined {
+    for (const worker of this.workers.values()) {
+      if (!worker.busy) return worker;
+    }
+    return undefined;
+  }
+
   async execute<T, R>(scriptPath: string, data: T): Promise<R> {
     const id = `task-${this.taskIdCounter++}`;
 
-    let worker = Array.from(this.workers.values()).find(w => !w.busy);
+    let worker = this.findIdleWorker();
 
     if (!worker && this.workers.size < this.config.maxWorkers) {
       worker = await this.createWorker(scriptPath);
@@ -155,7 +162,7 @@ export class WorkerPool {
   private processQueue(): void {
     if (this.taskQueue.length === 0) return;
 
-    const worker = Array.from(this.workers.values()).find(w => !w.busy);
+    const worker = this.findIdleWorker();
     if (!worker) return;
 
     const task = this.taskQueue.shift()!;
@@ -202,13 +209,25 @@ export class WorkerPool {
     queueSize: number;
     totalTasksCompleted: number;
   } {
-    const workers = Array.from(this.workers.values());
+    let busyWorkers = 0;
+    let idleWorkers = 0;
+    let totalTasksCompleted = 0;
+
+    for (const w of this.workers.values()) {
+      if (w.busy) {
+        busyWorkers++;
+      } else {
+        idleWorkers++;
+      }
+      totalTasksCompleted += w.tasksCompleted;
+    }
+
     return {
-      totalWorkers: workers.length,
-      busyWorkers: workers.filter(w => w.busy).length,
-      idleWorkers: workers.filter(w => !w.busy).length,
+      totalWorkers: this.workers.size,
+      busyWorkers,
+      idleWorkers,
       queueSize: this.taskQueue.length,
-      totalTasksCompleted: workers.reduce((sum, w) => sum + w.tasksCompleted, 0),
+      totalTasksCompleted,
     };
   }
 }
