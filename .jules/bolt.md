@@ -1,0 +1,3 @@
+## 2025-05-10 - Eliminate Array.from Allocations in Map Traversals for Scaling Engine
+**Learning:** Calling `Array.from(map.values())` inside high-frequency monitoring or worker dispatch loops creates unnecessary object allocations and causes multi-pass array traversals (`.reduce()`, `.find()`, `.filter()`). Iterating over `map.values()` directly with `for...of` loops avoids intermediate array allocations and allows aggregating multiple statistics (e.g. sum of CPU, sum of Memory, metrics array building) in a single pass.
+**Action:** Always prefer `for...of` over `map.values()` or a dedicated helper method over `Array.from(map.values()).find(...)` on high-frequency execution paths involving JavaScript Maps.
