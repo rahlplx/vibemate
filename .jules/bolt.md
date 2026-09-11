@@ -1,0 +1,3 @@
+## 2025-09-11 - Credential Filter Fast-Path Optimization
+**Learning:** Recompiling regexes inside hot string sanitization loops and allocating `Object.entries()` tuples adds noticeable overhead in security boundary functions. Pre-filtering by checking initial character sets (`PREFIX_INITIAL_CHARS.has(value[0])`) and direct key lookups before string normalization avoids redundant regex execution while keeping prefix definitions maintainable and dynamic.
+**Action:** When optimizing string matching routines, derive fast-path lookup sets dynamically at module scope and use direct key matches prior to string transformation passes.
