@@ -29,17 +29,42 @@ export class QualityGuard {
     }
 
     // Check 2: Summary contains key terms from original
-    const originalWords = new Set(original.toLowerCase().split(/\s+/));
-    const summaryWords = new Set(summary.toLowerCase().split(/\s+/));
-    
+    // OPTIMIZATION: Avoid `original.toLowerCase().split(/\s+/)` which allocates a large array and Set
+    // for large original texts. Instead, collect target summary words (> 3 chars) in a Set and scan
+    // `original.toLowerCase()` with regex matching, early-exiting when all target words are found.
+    const summaryRaw = summary.toLowerCase().split(/\s+/);
+    const targetWords = new Set<string>();
+    const summaryUniqueWords = new Set<string>();
+
+    for (let i = 0; i < summaryRaw.length; i++) {
+      const w = summaryRaw[i];
+      if (w.length > 0) {
+        summaryUniqueWords.add(w);
+        if (w.length > 3) {
+          targetWords.add(w);
+        }
+      }
+    }
+
+    const summaryUniqueCount = summaryUniqueWords.size;
     let commonWords = 0;
-    for (const word of summaryWords) {
-      if (originalWords.has(word) && word.length > 3) {
-        commonWords++;
+
+    if (targetWords.size > 0) {
+      const lowerOriginal = original.toLowerCase();
+      const wordRegex = /\S+/g;
+      let match: RegExpExecArray | null;
+
+      while ((match = wordRegex.exec(lowerOriginal)) !== null) {
+        const word = match[0];
+        if (targetWords.has(word)) {
+          commonWords++;
+          targetWords.delete(word);
+          if (targetWords.size === 0) break; // Early exit once all target words are found
+        }
       }
     }
     
-    const termCoverage = commonWords / Math.max(summaryWords.size, 1);
+    const termCoverage = commonWords / Math.max(summaryUniqueCount, 1);
     if (termCoverage > 0.2) {
       score += 0.4;
     } else if (termCoverage > 0.05) {
@@ -67,7 +92,7 @@ export class QualityGuard {
     }
 
     // Check 5: Summary is meaningful (not just filler)
-    const meaningfulWords = summaryWords.size;
+    const meaningfulWords = summaryUniqueCount;
     if (meaningfulWords >= 5) {
       score += 0.1;
     }
