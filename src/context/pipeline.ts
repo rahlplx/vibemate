@@ -158,6 +158,9 @@ export class ContextPipeline {
     let result = response;
     
     for (const mask of DLP_PATTERNS) {
+      // Fast path: skip expensive regex matching on original text if response doesn't contain replacement tag
+      if (!result.includes(mask.replacement)) continue;
+
       const matches = original.match(mask.pattern);
       if (matches) {
         for (const match of matches) {
