@@ -82,13 +82,20 @@ function matchesPattern(name: string, patterns: CompiledPattern[]): boolean {
   return false
 }
 
+function matchCompiledPolicy(
+  name: string,
+  denyPatterns: CompiledPattern[],
+  allowPatterns: CompiledPattern[],
+): boolean {
+  if (denyPatterns.length > 0 && matchesPattern(name, denyPatterns)) return false
+  if (allowPatterns.length === 0) return true
+  return matchesPattern(name, allowPatterns)
+}
+
 export function matchToolPolicy(name: string, policy: ToolPolicy): boolean {
   const denyPatterns = (policy.deny ?? []).map(compilePattern)
   const allowPatterns = (policy.allow ?? []).map(compilePattern)
-
-  if (matchesPattern(name, denyPatterns)) return false
-  if (allowPatterns.length === 0) return true
-  return matchesPattern(name, allowPatterns)
+  return matchCompiledPolicy(name, denyPatterns, allowPatterns)
 }
 
 function filterToolsByPolicy(tools: string[], policy: ToolPolicy): string[] {
@@ -123,30 +130,57 @@ export function applyToolPolicyPipeline(
   pipeline: ToolPolicyPipeline,
   availableTools: string[],
 ): ToolPolicyResult {
+  // Pre-compile steps to avoid re-compiling regex patterns per tool on each step
+  const compiledSteps: Array<{
+    label: string
+    deny: CompiledPattern[]
+    allow: CompiledPattern[]
+  }> = []
+
+  for (let i = 0; i < pipeline.steps.length; i++) {
+    const step = pipeline.steps[i]
+    if (!step.policy) continue
+    compiledSteps.push({
+      label: step.label,
+      deny: (step.policy.deny ?? []).map(compilePattern),
+      allow: (step.policy.allow ?? []).map(compilePattern),
+    })
+  }
+
   let filtered = [...availableTools]
   const layers: ToolPolicyResult["layers"] = []
   const audit: ToolPolicyAuditEntry[] = []
 
-  for (const step of pipeline.steps) {
-    if (!step.policy) continue
+  for (let i = 0; i < compiledSteps.length; i++) {
+    const step = compiledSteps[i]
+    const before = filtered
+    const nextFiltered: string[] = []
+    const deniedTools: string[] = []
 
-    const before = [...filtered]
-    filtered = filterToolsByPolicy(filtered, step.policy)
+    // Single-pass partitioning of tools for current pipeline layer
+    for (let j = 0; j < before.length; j++) {
+      const tool = before[j]
+      if (matchCompiledPolicy(tool, step.deny, step.allow)) {
+        nextFiltered.push(tool)
+      } else {
+        deniedTools.push(tool)
+      }
+    }
 
-    const deniedTools = before.filter(t => !filtered.includes(t))
-    const allowedTools = filtered
-
-    layers.push({ label: step.label, before, after: [...filtered] })
+    filtered = nextFiltered
+    layers.push({ label: step.label, before, after: filtered })
 
     if (deniedTools.length > 0) {
       audit.push({ label: step.label, action: "deny", tools: deniedTools })
     }
-    if (allowedTools.length > 0) {
-      audit.push({ label: step.label, action: "allow", tools: allowedTools })
+    if (filtered.length > 0) {
+      audit.push({ label: step.label, action: "allow", tools: filtered })
     }
   }
 
-  const denied = availableTools.filter(t => !filtered.includes(t))
+  // O(1) set lookup to determine overall denied tools
+  const filteredSet = new Set(filtered)
+  const denied = availableTools.filter(t => !filteredSet.has(t))
 
   return { allowed: filtered, denied, layers, audit }
 }
