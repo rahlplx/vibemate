@@ -78,14 +78,25 @@ function securityLens(code: string): CritiqueFinding[] {
   }
 
   const protoMatch = code.match(/\w+\[\w+\]\s*=/);
-  if (protoMatch && !/const\s+\w+\s*=/.test(code.split('\n').find(l => /\[\w+\]\s*=/.test(l)) ?? '')) {
-    findings.push({
-      lens: 'security',
-      category: 'security',
-      severity: 'high',
-      message: 'Dynamic property assignment via bracket notation — potential prototype pollution if key is attacker-controlled (__proto__, constructor)',
-      line: lineOf(code, protoMatch[0]),
-    });
+  if (protoMatch) {
+    // Single-pass search for line matching bracket assignment without splitting or array allocation
+    const lines = code.split('\n');
+    let matchingLine = '';
+    for (let i = 0; i < lines.length; i++) {
+      if (/\[\w+\]\s*=/.test(lines[i])) {
+        matchingLine = lines[i];
+        break;
+      }
+    }
+    if (!/const\s+\w+\s*=/.test(matchingLine)) {
+      findings.push({
+        lens: 'security',
+        category: 'security',
+        severity: 'high',
+        message: 'Dynamic property assignment via bracket notation — potential prototype pollution if key is attacker-controlled (__proto__, constructor)',
+        line: lineOf(code, protoMatch[0]),
+      });
+    }
   }
 
   if (/readFile(Sync)?\s*\(\s*req\b/.test(code) || /readFile(Sync)?\s*\(\s*\w+\.params/.test(code)) {
@@ -104,20 +115,20 @@ function securityLens(code: string): CritiqueFinding[] {
 function cleanupLens(code: string): CritiqueFinding[] {
   const findings: CritiqueFinding[] = [];
 
-  // Per-line check: avoids global hasCatch suppressing unrelated .then() chains
+  // Single-pass per-line check: short-circuits on first unhandled .then() without intermediate objects/arrays
   const lines = code.split('\n');
-  const thenLines = lines
-    .map((l, i) => ({ line: l, num: i + 1 }))
-    .filter(({ line }) => /\.then\s*\(/.test(line) && !/await\s/.test(line));
-  const unhandledThenLine = thenLines.find(({ line }) => !/.catch\s*\(/.test(line));
-  if (unhandledThenLine) {
-    findings.push({
-      lens: 'cleanup',
-      category: 'cleanup',
-      severity: 'high',
-      message: 'Promise `.then()` without `.catch()` — unhandled rejection will crash Node ≥15 / Bun silently',
-      line: unhandledThenLine.num,
-    });
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (/\.then\s*\(/.test(line) && !/await\s/.test(line) && !/\.catch\s*\(/.test(line)) {
+      findings.push({
+        lens: 'cleanup',
+        category: 'cleanup',
+        severity: 'high',
+        message: 'Promise `.then()` without `.catch()` — unhandled rejection will crash Node ≥15 / Bun silently',
+        line: i + 1,
+      });
+      break;
+    }
   }
 
   if (/catch\s*\([^)]*\)\s*\{\s*\}/.test(code)) {
@@ -188,7 +199,11 @@ export function runCritiqueLens(
 }
 
 export function scoreCritique(findings: CritiqueFinding[]): number {
-  return findings.reduce((sum, f) => sum + (SEVERITY_WEIGHTS[f.severity] ?? 0), 0);
+  let sum = 0;
+  for (let i = 0; i < findings.length; i++) {
+    sum += SEVERITY_WEIGHTS[findings[i].severity] ?? 0;
+  }
+  return sum;
 }
 
 export function enforceMinimumFindings(
@@ -197,12 +212,15 @@ export function enforceMinimumFindings(
 ): CritiqueFinding[] {
   if (findings.length >= minimum) return findings;
   const gap = minimum - findings.length;
-  const synthetic: CritiqueFinding[] = Array.from({ length: gap }, (_, i) => ({
-    lens: 'edge_cases' as CritiqueLens,
-    category: 'synthetic' as FindingCategory,
-    severity: 'low' as FindingSeverity,
-    message: SYNTHETIC_PROMPTS[i % SYNTHETIC_PROMPTS.length],
-  }));
+  const synthetic: CritiqueFinding[] = new Array(gap);
+  for (let i = 0; i < gap; i++) {
+    synthetic[i] = {
+      lens: 'edge_cases' as CritiqueLens,
+      category: 'synthetic' as FindingCategory,
+      severity: 'low' as FindingSeverity,
+      message: SYNTHETIC_PROMPTS[i % SYNTHETIC_PROMPTS.length],
+    };
+  }
   return [...findings, ...synthetic];
 }
 
@@ -210,11 +228,25 @@ export function buildCritiqueReport(
   code: string,
   testContent: string
 ): CritiqueReport {
-  const lenses: CritiqueLens[] = ['edge_cases', 'security', 'cleanup', 'invariants', 'coverage_gaps'];
-  const raw = lenses.flatMap(l => runCritiqueLens(l, code, { testContent }));
+  const raw = [
+    ...edgeCaseLens(code),
+    ...securityLens(code),
+    ...cleanupLens(code),
+    ...invariantsLens(code),
+    ...coverageGapsLens(code, testContent),
+  ];
   const findings = enforceMinimumFindings(raw, MINIMUM_FINDINGS);
   const score = scoreCritique(findings);
-  const hasCritical = findings.some(f => f.severity === 'critical');
+
+  let critCount = 0;
+  let highCount = 0;
+  for (let i = 0; i < findings.length; i++) {
+    const sev = findings[i].severity;
+    if (sev === 'critical') critCount++;
+    else if (sev === 'high') highCount++;
+  }
+
+  const hasCritical = critCount > 0;
   const blocksHarness = hasCritical || score >= BLOCK_THRESHOLD;
 
   let verdict: CritiqueVerdict;
@@ -222,8 +254,6 @@ export function buildCritiqueReport(
   else if (score >= 20) verdict = 'warn';
   else verdict = 'pass';
 
-  const critCount = findings.filter(f => f.severity === 'critical').length;
-  const highCount = findings.filter(f => f.severity === 'high').length;
   const summary = `Score ${score} | ${findings.length} finding(s): ${critCount} critical, ${highCount} high — verdict: ${verdict}`;
 
   return {
@@ -239,7 +269,11 @@ export function buildCritiqueReport(
 function lineOf(code: string, snippet: string): number {
   const idx = code.indexOf(snippet);
   if (idx === -1) return 1;
-  return code.slice(0, idx).split('\n').length;
+  let line = 1;
+  for (let i = 0; i < idx; i++) {
+    if (code.charCodeAt(i) === 10) line++;
+  }
+  return line;
 }
 
 // Investigative prompts injected when real findings fall short of minimum — forces active search over declaring "all clear"
