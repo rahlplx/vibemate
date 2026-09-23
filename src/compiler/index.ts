@@ -101,11 +101,13 @@ export class HarnessCompiler {
     const claudeMd = this.generateClaudeMd(okfBundle);
     await writeFile(join(this.root, 'CLAUDE.md'), claudeMd);
 
-    // Generate skill files
-    for (const skill of skills) {
-      const skillContent = await this.generateSkillContent(skill, okfBundle);
-      await writeFile(join(skillDir, `${skill}.md`), skillContent);
-    }
+    // Generate skill files concurrently
+    await Promise.all(
+      skills.map(async (skill) => {
+        const skillContent = await this.generateSkillContent(skill, okfBundle);
+        await writeFile(join(skillDir, `${skill}.md`), skillContent);
+      })
+    );
 
     // Generate plugin.json
     const pluginJson = {
@@ -158,11 +160,13 @@ export class HarnessCompiler {
     };
     await writeFile(join(this.root, 'opencode.json'), JSON.stringify(opencodeJson, null, 2));
 
-    // Generate skill files
-    for (const skill of skills) {
-      const skillContent = await this.generateSkillContent(skill, okfBundle);
-      await writeFile(join(skillDir, `${skill}.md`), skillContent);
-    }
+    // Generate skill files concurrently
+    await Promise.all(
+      skills.map(async (skill) => {
+        const skillContent = await this.generateSkillContent(skill, okfBundle);
+        await writeFile(join(skillDir, `${skill}.md`), skillContent);
+      })
+    );
 
     return {
       agent: 'opencode',
@@ -181,11 +185,13 @@ export class HarnessCompiler {
     const cursorRules = this.generateCursorRules(okfBundle);
     await writeFile(join(this.root, '.cursorrules'), cursorRules);
 
-    // Generate .mdc rule files
-    for (const skill of skills) {
-      const ruleContent = await this.generateCursorRule(skill, okfBundle);
-      await writeFile(join(ruleDir, `${skill}.mdc`), ruleContent);
-    }
+    // Generate .mdc rule files concurrently
+    await Promise.all(
+      skills.map(async (skill) => {
+        const ruleContent = await this.generateCursorRule(skill, okfBundle);
+        await writeFile(join(ruleDir, `${skill}.mdc`), ruleContent);
+      })
+    );
 
     return {
       agent: 'cursor',
@@ -204,11 +210,13 @@ export class HarnessCompiler {
     const agentsMd = this.generateAgentsMd(okfBundle);
     await writeFile(join(this.root, 'AGENTS.md'), agentsMd);
 
-    // Generate skill files
-    for (const skill of skills) {
-      const skillContent = await this.generateSkillContent(skill, okfBundle);
-      await writeFile(join(skillDir, `${skill}.md`), skillContent);
-    }
+    // Generate skill files concurrently
+    await Promise.all(
+      skills.map(async (skill) => {
+        const skillContent = await this.generateSkillContent(skill, okfBundle);
+        await writeFile(join(skillDir, `${skill}.md`), skillContent);
+      })
+    );
 
     return {
       agent: 'codex',
@@ -226,10 +234,12 @@ export class HarnessCompiler {
     const kilocodeMd = this.generateContextMd('KILOCODE', okfBundle);
     await writeFile(join(this.root, 'KILOCODE.md'), kilocodeMd);
 
-    for (const skill of skills) {
-      const skillContent = await this.generateSkillContent(skill, okfBundle);
-      await writeFile(join(skillDir, `${skill}.md`), skillContent);
-    }
+    await Promise.all(
+      skills.map(async (skill) => {
+        const skillContent = await this.generateSkillContent(skill, okfBundle);
+        await writeFile(join(skillDir, `${skill}.md`), skillContent);
+      })
+    );
 
     const pluginJson = { name: 'vibemate', version: '1.0.0', skills: skills.map(s => `.kilocode/skills/${s}.md`) };
     await mkdir(join(this.root, '.kilocode'), { recursive: true });
@@ -251,10 +261,12 @@ export class HarnessCompiler {
     const contextMd = this.generateContextMd('Antigravity', okfBundle);
     await writeFile(join(this.root, '.antigravity', 'context.md'), contextMd);
 
-    for (const skill of skills) {
-      const skillContent = await this.generateSkillContent(skill, okfBundle);
-      await writeFile(join(skillDir, `${skill}.md`), skillContent);
-    }
+    await Promise.all(
+      skills.map(async (skill) => {
+        const skillContent = await this.generateSkillContent(skill, okfBundle);
+        await writeFile(join(skillDir, `${skill}.md`), skillContent);
+      })
+    );
 
     const configJson = { name: 'vibemate', version: '1.0.0', skills: skills.map(s => `.antigravity/skills/${s}.md`) };
     await writeFile(join(this.root, '.antigravity', 'config.json'), JSON.stringify(configJson, null, 2));
@@ -275,10 +287,12 @@ export class HarnessCompiler {
     const agentsMd = this.generateAgentsMd(okfBundle);
     await writeFile(join(this.root, 'AGENTS.md'), agentsMd);
 
-    for (const skill of skills) {
-      const skillContent = await this.generateSkillContent(skill, okfBundle);
-      await writeFile(join(skillDir, `${skill}.md`), skillContent);
-    }
+    await Promise.all(
+      skills.map(async (skill) => {
+        const skillContent = await this.generateSkillContent(skill, okfBundle);
+        await writeFile(join(skillDir, `${skill}.md`), skillContent);
+      })
+    );
 
     // skills.toml — minimal TOML manifest
     const tomlLines = ['[vibemate]', `version = "1.0.0"`, 'skills = ['];
