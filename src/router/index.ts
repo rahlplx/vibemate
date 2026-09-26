@@ -107,6 +107,13 @@ const MODEL_CONFIGS: Record<string, {
   }
 };
 
+// Pre-computed lookup table for model capability hierarchy to eliminate object allocation during selection
+const CAPABILITY_ORDER: Record<'basic' | 'intermediate' | 'advanced', number> = {
+  basic: 0,
+  intermediate: 1,
+  advanced: 2,
+};
+
 // Complexity scoring criteria
 interface ComplexityCriteria {
   filesImplicated: number;
@@ -123,6 +130,8 @@ export class CostAwareRouter {
   private budget: number;
   private totalCost: number = 0;
   private modelConfigs: typeof MODEL_CONFIGS;
+  // Pre-computed model entries array to avoid Object.entries() allocations on route calls
+  private modelEntries: Array<[string, (typeof MODEL_CONFIGS)[string]]>;
   private observationEngine?: ObservationEngine;
 
   constructor(_providers: CloudProvider[], budget: number, config?: VibemateExtendedConfig, observationEngine?: ObservationEngine) {
@@ -149,6 +158,8 @@ export class CostAwareRouter {
         }
       }
     }
+    // Pre-cache entries array for single-pass indexed iteration without allocation overhead
+    this.modelEntries = Object.entries(this.modelConfigs);
   }
 
   // Calculate task complexity score
@@ -263,17 +274,22 @@ export class CostAwareRouter {
   }
 
   private selectCheapest(minCapability: 'basic' | 'intermediate' | 'advanced'): string {
-    const capabilityOrder = { basic: 0, intermediate: 1, advanced: 2 };
+    const minCapVal = CAPABILITY_ORDER[minCapability];
 
     let cheapest: string | null = null;
     let cheapestCost = Infinity;
 
-    for (const [name, config] of Object.entries(this.modelConfigs)) {
-      if (capabilityOrder[config.capability] >= capabilityOrder[minCapability]) {
+    // Fast indexed loop over pre-cached entries array eliminating Object.entries allocations
+    const entries = this.modelEntries;
+    const len = entries.length;
+    for (let i = 0; i < len; i++) {
+      const entry = entries[i];
+      const config = entry[1];
+      if (CAPABILITY_ORDER[config.capability] >= minCapVal) {
         const cost = config.costPer1kInput + config.costPer1kOutput;
         if (cost < cheapestCost) {
           cheapestCost = cost;
-          cheapest = name;
+          cheapest = entry[0];
         }
       }
     }
@@ -283,21 +299,27 @@ export class CostAwareRouter {
 
   private selectBalanced(minCapability: 'basic' | 'intermediate' | 'advanced'): string {
     // Balance cost and capability
-    const capabilityOrder = { basic: 0, intermediate: 1, advanced: 2 };
+    const minCapVal = CAPABILITY_ORDER[minCapability];
 
     let best: string | null = null;
     let bestScore = -Infinity;
 
-    for (const [name, config] of Object.entries(this.modelConfigs)) {
-      if (capabilityOrder[config.capability] >= capabilityOrder[minCapability]) {
+    // Fast indexed loop over pre-cached entries array eliminating Object.entries allocations
+    const entries = this.modelEntries;
+    const len = entries.length;
+    for (let i = 0; i < len; i++) {
+      const entry = entries[i];
+      const config = entry[1];
+      const capVal = CAPABILITY_ORDER[config.capability];
+      if (capVal >= minCapVal) {
         // Score = capability - normalized cost
         const cost = config.costPer1kInput + config.costPer1kOutput;
         const normalizedCost = cost / 0.1; // Normalize to 0-1 range
-        const score = capabilityOrder[config.capability] - normalizedCost;
+        const score = capVal - normalizedCost;
 
         if (score > bestScore) {
           bestScore = score;
-          best = name;
+          best = entry[0];
         }
       }
     }
@@ -306,16 +328,22 @@ export class CostAwareRouter {
   }
 
   private selectMostCapable(minCapability: 'basic' | 'intermediate' | 'advanced'): string {
-    const capabilityOrder = { basic: 0, intermediate: 1, advanced: 2 };
+    const minCapVal = CAPABILITY_ORDER[minCapability];
 
     let mostCapable: string | null = null;
     let highestCapability = -1;
 
-    for (const [name, config] of Object.entries(this.modelConfigs)) {
-      if (capabilityOrder[config.capability] >= capabilityOrder[minCapability]) {
-        if (capabilityOrder[config.capability] > highestCapability) {
-          highestCapability = capabilityOrder[config.capability];
-          mostCapable = name;
+    // Fast indexed loop over pre-cached entries array eliminating Object.entries allocations
+    const entries = this.modelEntries;
+    const len = entries.length;
+    for (let i = 0; i < len; i++) {
+      const entry = entries[i];
+      const config = entry[1];
+      const capVal = CAPABILITY_ORDER[config.capability];
+      if (capVal >= minCapVal) {
+        if (capVal > highestCapability) {
+          highestCapability = capVal;
+          mostCapable = entry[0];
         }
       }
     }
