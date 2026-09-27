@@ -301,22 +301,48 @@ export function getTemplate(name: string): ScaffoldTemplate | undefined {
   return TEMPLATES[name];
 }
 
+/**
+ * Renders a scaffold template by substituting variables into file paths and contents.
+ * Performance Optimization:
+ * Pre-compiles RegExp instances and pre-computes sanitized variable values outside the file loop
+ * to avoid repeated RegExp creation and string sanitization per file. Also uses `.includes('{{')`
+ * fast-path checks before executing regex replacements.
+ */
 export function renderTemplate(
   template: ScaffoldTemplate,
   variables: Record<string, string>
 ): TemplateFile[] {
-  return template.files.map((file) => ({
-    path: template.variables.reduce(
-      (p, varName) =>
-        p.replace(new RegExp(`\\{\\{${varName}\\}\\}`, 'g'), sanitizePathSegment(variables[varName] ?? '')),
-      file.path
-    ),
-    content: template.variables.reduce(
-      (content, varName) =>
-        content.replace(new RegExp(`\\{\\{${varName}\\}\\}`, 'g'), variables[varName] ?? ''),
-      file.content
-    ),
+  // Pre-compile regular expressions and pre-compute replacement values for each variable once
+  const preparedVars = template.variables.map((varName) => ({
+    regex: new RegExp(`\\{\\{${varName}\\}\\}`, 'g'),
+    pathVal: sanitizePathSegment(variables[varName] ?? ''),
+    contentVal: variables[varName] ?? '',
   }));
+
+  const varCount = preparedVars.length;
+  const files = template.files;
+  const fileCount = files.length;
+  const result: TemplateFile[] = new Array(fileCount);
+
+  for (let i = 0; i < fileCount; i++) {
+    const file = files[i];
+    let path = file.path;
+    let content = file.content;
+
+    for (let j = 0; j < varCount; j++) {
+      const v = preparedVars[j];
+      if (path.includes('{{')) {
+        path = path.replace(v.regex, v.pathVal);
+      }
+      if (content.includes('{{')) {
+        content = content.replace(v.regex, v.contentVal);
+      }
+    }
+
+    result[i] = { path, content };
+  }
+
+  return result;
 }
 
 function sanitizePathSegment(value: string): string {
