@@ -1,0 +1,3 @@
+## 2025-02-18 - Pre-tokenizing Memory Search Engine Index
+**Learning:** Re-tokenizing document content and tags inside per-query comparison loops creates heavy $O(Q \times N \times T)$ string split, lowercase array allocation, and GC overhead during memory search operations. Pre-tokenizing and storing `Set` indices at `index()` time enables $O(1)$ exact token lookups with zero allocation on the critical search path.
+**Action:** When building search engines or query matchers in this codebase, pre-compute token arrays and Sets during insertion/indexing and tokenize query strings only once per query invocation.
