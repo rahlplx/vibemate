@@ -1,23 +1,29 @@
+// Pre-compiled non-global regex patterns for secret matching (stateless test)
 const SECRET_PATTERNS_FOR_REDACT = [
-  /sk-[a-zA-Z0-9]{20,}/g,
-  /ghp_[a-zA-Z0-9]{36,}/g,
-  /AKIA[0-9A-Z]{16}/g,
-  /sk-ant-[a-zA-Z0-9-]{20,}/g,
-  /xox[baprs]-[a-zA-Z0-9-]+/g,
-  /npm_[a-zA-Z0-9]{36}/g,
-  /AIza[0-9A-Za-z_-]{35}/g,
+  /sk-[a-zA-Z0-9]{20,}/,
+  /ghp_[a-zA-Z0-9]{36,}/,
+  /AKIA[0-9A-Z]{16}/,
+  /sk-ant-[a-zA-Z0-9-]{20,}/,
+  /xox[baprs]-[a-zA-Z0-9-]+/,
+  /npm_[a-zA-Z0-9]{36}/,
+  /AIza[0-9A-Za-z_-]{35}/,
 ]
 
+// Fast-path secret detection: strings under 6 chars cannot match any secret pattern (shortest is xox[baprs]-)
 function containsSecret(value: string): boolean {
-  return SECRET_PATTERNS_FOR_REDACT.some(p => {
-    p.lastIndex = 0
-    return p.test(value)
-  })
+  if (value.length < 6) return false
+  for (let i = 0; i < SECRET_PATTERNS_FOR_REDACT.length; i++) {
+    if (SECRET_PATTERNS_FOR_REDACT[i].test(value)) return true
+  }
+  return false
 }
 
+// Fast field name check with pre-check before expensive string replaces
 function isSensitiveFieldName(key: string): boolean {
-  const normalized = key.toLowerCase().replace(/[-_\s]/g, "")
-  return SENSITIVE_FIELD_NAMES.has(normalized) || SENSITIVE_FIELD_NAMES.has(key.toLowerCase())
+  const lower = key.toLowerCase()
+  if (SENSITIVE_FIELD_NAMES.has(lower)) return true
+  if (!lower.includes("-") && !lower.includes("_") && !lower.includes(" ")) return false
+  return SENSITIVE_FIELD_NAMES.has(lower.replace(/[-_\s]/g, ""))
 }
 
 function redactStringPartial(value: string): string {
@@ -49,11 +55,20 @@ export function redactForLog(obj: unknown, seen = new WeakSet()): unknown {
     seen.add(obj as object)
 
     if (Array.isArray(obj)) {
-      return obj.map(item => redactForLog(item, seen))
+      const len = obj.length
+      const res = new Array(len)
+      for (let i = 0; i < len; i++) {
+        res[i] = redactForLog(obj[i], seen)
+      }
+      return res
     }
 
+    const keys = Object.keys(obj as Record<string, unknown>)
+    const len = keys.length
     const result: Record<string, unknown> = {}
-    for (const [key, value] of Object.entries(obj)) {
+    for (let i = 0; i < len; i++) {
+      const key = keys[i]
+      const value = (obj as Record<string, unknown>)[key]
       if (typeof value === "string" && isSensitiveFieldName(key)) {
         result[key] = "[REDACTED]"
       } else {
@@ -68,5 +83,5 @@ export function redactForLog(obj: unknown, seen = new WeakSet()): unknown {
 
 const SENSITIVE_FIELD_NAMES = new Set([
   "apikey", "api_key", "token", "secret", "password",
-  "authorization", "private_key", "client_secret",
+  "authorization", "private_key", "privatekey", "client_secret", "clientsecret",
 ])

@@ -1,0 +1,3 @@
+## 2025-05-10 - Fast-Path Minimum Length Bounds for Regex Matching
+**Learning:** When adding string length fast-paths before running regex pattern matches, always audit all regexes for their theoretical minimum match length. For example, while API keys like `sk-` or `ghp_` are 20-40 characters long, patterns like `xox[baprs]-[a-zA-Z0-9-]+` can match tokens as short as 6 characters (`xoxb-1`). Setting a length threshold higher than 6 will bypass valid matches.
+**Action:** Always derive length fast-path bounds directly from the shortest matchable pattern in the regex set (`Math.min(...patterns.map(minLen))`).
