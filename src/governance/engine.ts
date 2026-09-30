@@ -169,9 +169,11 @@ export class GovernanceEngine {
     }
     this.auditLog.push(entry);
 
-    // Trim if exceeding max entries
-    if (this.auditLog.length > (this.config.maxAuditEntries || 10000)) {
-      this.auditLog = this.auditLog.slice(-Math.floor((this.config.maxAuditEntries || 10000) * 0.8));
+    // Trim in-place if exceeding max entries to avoid array re-allocation
+    const maxEntries = this.config.maxAuditEntries || 10000;
+    if (this.auditLog.length > maxEntries) {
+      const keepCount = Math.floor(maxEntries * 0.8);
+      this.auditLog.splice(0, this.auditLog.length - keepCount);
     }
   }
 
@@ -260,24 +262,26 @@ export class GovernanceEngine {
     endDate?: Date;
     success?: boolean;
   }): AuditEntry[] {
-    let log = [...this.auditLog];
-
-    if (filters) {
-      if (filters.userId) {
-        log = log.filter(entry => entry.userId === filters.userId);
-      }
-      if (filters.startDate) {
-        log = log.filter(entry => entry.timestamp >= filters.startDate!);
-      }
-      if (filters.endDate) {
-        log = log.filter(entry => entry.timestamp <= filters.endDate!);
-      }
-      if (filters.success !== undefined) {
-        log = log.filter(entry => entry.success === filters.success);
-      }
+    if (!filters) {
+      return [...this.auditLog];
     }
 
-    return log;
+    const { userId, startDate, endDate, success } = filters;
+    const log = this.auditLog;
+    const len = log.length;
+    const result: AuditEntry[] = [];
+
+    // Single-pass filtering to avoid intermediate array allocations and chained .filter() calls
+    for (let i = 0; i < len; i++) {
+      const entry = log[i];
+      if (userId !== undefined && entry.userId !== userId) continue;
+      if (startDate !== undefined && entry.timestamp < startDate) continue;
+      if (endDate !== undefined && entry.timestamp > endDate) continue;
+      if (success !== undefined && entry.success !== success) continue;
+      result.push(entry);
+    }
+
+    return result;
   }
 
   getAuditStats(): {
@@ -286,12 +290,29 @@ export class GovernanceEngine {
     failed: number;
     uniqueUsers: number;
   } {
-    const entries = [...this.auditLog];
+    let successful = 0;
+    let failed = 0;
+    const uniqueUsers = new Set<string>();
+
+    const log = this.auditLog;
+    const totalEntries = log.length;
+
+    // Single-pass computation avoiding array copying [...this.auditLog] and chained filter/map calls
+    for (let i = 0; i < totalEntries; i++) {
+      const entry = log[i];
+      if (entry.success) {
+        successful++;
+      } else {
+        failed++;
+      }
+      uniqueUsers.add(entry.userId);
+    }
+
     return {
-      totalEntries: entries.length,
-      successful: entries.filter(e => e.success).length,
-      failed: entries.filter(e => !e.success).length,
-      uniqueUsers: new Set(entries.map(e => e.userId)).size,
+      totalEntries,
+      successful,
+      failed,
+      uniqueUsers: uniqueUsers.size,
     };
   }
 }
