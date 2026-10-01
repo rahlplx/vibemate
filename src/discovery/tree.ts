@@ -49,8 +49,13 @@ function buildBranches(
 
   if (question.followUp && question.options) {
     const children: TreeNode[] = [];
-    for (const option of question.options) {
-      const childNodes = buildBranches(questions, startIndex + 1, [...path, { questionId: question.id, value: option.value }]);
+    const options = question.options;
+    for (let i = 0; i < options.length; i++) {
+      const option = options[i];
+      // Avoid spread operator in recursion path array
+      const nextPath = path.slice();
+      nextPath.push({ questionId: question.id, value: option.value });
+      const childNodes = buildBranches(questions, startIndex + 1, nextPath);
       if (childNodes.length > 0) {
         children.push({
           id: `node-${startIndex}-${option.value}`,
@@ -76,16 +81,24 @@ export function getNextQuestion(
   tree: QuestionTree,
   answers: TreeAnswer[]
 ): { nodeId: string; question: Question } | null {
-  const answerMap = new Map(answers.map((a) => [a.questionId, a.value]));
-  let current = tree.root;
+  // Populate answer Map directly with indexed loop to avoid intermediate 2D array allocations from answers.map(...)
+  const answerMap = new Map<string, string>();
+  for (let i = 0; i < answers.length; i++) {
+    const a = answers[i];
+    answerMap.set(a.questionId, a.value);
+  }
+
+  let current: TreeNode | null = tree.root;
 
   while (current) {
     const question = tree.questionMap.get(current.questionId);
     if (!question) return null;
 
     const answer = answerMap.get(current.questionId);
+    const children = current.children;
+    const len = children.length;
 
-    if (current.children.length === 0) {
+    if (len === 0) {
       if (answer === undefined) {
         return { nodeId: current.id, question };
       }
@@ -96,12 +109,18 @@ export function getNextQuestion(
       return { nodeId: current.id, question };
     }
 
-    const matchingChild = current.children.find(
-      (child) => child.condition?.value === answer
-    );
+    // Single-pass indexed loop to find matching child node without closure creation
+    let matchingChild: TreeNode | null = null;
+    for (let i = 0; i < len; i++) {
+      const child = children[i];
+      if (child.condition?.value === answer) {
+        matchingChild = child;
+        break;
+      }
+    }
 
     if (!matchingChild) {
-      const fallback = current.children[0];
+      const fallback = children[0];
       if (fallback) {
         current = fallback;
         continue;
@@ -118,19 +137,22 @@ export function getNextQuestion(
 export function getAllQuestions(tree: QuestionTree): Question[] {
   const visited = new Set<string>();
   const result: Question[] = [];
+  const stack: TreeNode[] = [tree.root];
 
-  function traverse(node: TreeNode) {
-    if (visited.has(node.id)) return;
+  // Iterative stack traversal to avoid recursive function call overhead
+  while (stack.length > 0) {
+    const node = stack.pop()!;
+    if (visited.has(node.id)) continue;
     visited.add(node.id);
 
     const question = tree.questionMap.get(node.questionId);
     if (question) result.push(question);
 
-    for (const child of node.children) {
-      traverse(child);
+    const children = node.children;
+    for (let i = children.length - 1; i >= 0; i--) {
+      stack.push(children[i]);
     }
   }
 
-  traverse(tree.root);
   return result;
 }
