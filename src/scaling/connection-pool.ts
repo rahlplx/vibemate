@@ -93,9 +93,13 @@ export class ConnectionPool<T> {
     // Wait for a connection to become available
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
-        const idx = this.waiting.findIndex(w => w.resolve === resolve);
-        if (idx !== -1) {
-          this.waiting.splice(idx, 1);
+        // Performance: Use indexed loop instead of findIndex closure allocation
+        const len = this.waiting.length;
+        for (let i = 0; i < len; i++) {
+          if (this.waiting[i].resolve === resolve) {
+            this.waiting.splice(i, 1);
+            break;
+          }
         }
         this.updateStats();
         reject(new Error('Acquire timeout'));
@@ -125,23 +129,30 @@ export class ConnectionPool<T> {
   }
 
   async destroy(): Promise<void> {
-    for (const conn of this.available) {
-      await this.destroyer(conn);
-      this.stats.destroyed++;
-    }
+    // Teardown available connections
+    const availableConns = this.available;
     this.available = [];
-
-    for (const conn of this.active) {
-      await this.destroyer(conn);
+    for (let i = 0; i < availableConns.length; i++) {
+      await this.destroyer(availableConns[i]);
       this.stats.destroyed++;
     }
-    this.active.clear();
 
-    for (const waiter of this.waiting) {
+    // Teardown active connections
+    const activeConns = Array.from(this.active);
+    this.active.clear();
+    for (let i = 0; i < activeConns.length; i++) {
+      await this.destroyer(activeConns[i]);
+      this.stats.destroyed++;
+    }
+
+    // Reject all waiters and clear timeouts
+    const waiters = this.waiting;
+    this.waiting = [];
+    for (let i = 0; i < waiters.length; i++) {
+      const waiter = waiters[i];
       clearTimeout(waiter.timeout);
       waiter.reject(new Error('Pool destroyed'));
     }
-    this.waiting = [];
 
     this.stats.total = 0;
     this.updateStats();
