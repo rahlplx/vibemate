@@ -85,4 +85,20 @@ describe('ConnectionPool', () => {
     await expect(tinyPool.acquire()).rejects.toThrow('Acquire timeout');
     await tinyPool.destroy();
   }, 2000);
+
+  it('should perform high-throughput acquire and release cycles efficiently', async () => {
+    await pool.initialize();
+    const start = performance.now();
+    const iterations = 10000;
+
+    for (let i = 0; i < iterations; i++) {
+      const conn = await pool.acquire();
+      await pool.release(conn);
+    }
+
+    const elapsed = performance.now() - start;
+    expect(elapsed).toBeGreaterThan(0);
+    expect(pool.getActive()).toBe(0);
+    expect(pool.getAvailable()).toBe(2);
+  });
 });
