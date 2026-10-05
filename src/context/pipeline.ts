@@ -49,6 +49,8 @@ export class ContextPipeline {
   private cache: Map<string, CacheEntry> = new Map();
   private maxEntries = 500;
   private maxBytes = 50 * 1024 * 1024;
+  // Track total size incrementally to avoid O(N) recalculations on eviction and stats
+  private totalBytes = 0;
   private hits = 0;
   private misses = 0;
   private embedFn?: import('./embeddings.js').EmbedFn;
@@ -60,13 +62,10 @@ export class ContextPipeline {
   }
 
   private evict(): void {
-    let totalSize = 0;
-    for (const entry of this.cache.values()) {
-      totalSize += entry.content.length;
-    }
+    // Single-pass O(1) eviction loop using tracked totalBytes instead of re-summing Map entries
     for (const [key, entry] of this.cache) {
-      if (this.cache.size <= this.maxEntries && totalSize <= this.maxBytes) break;
-      totalSize -= entry.content.length;
+      if (this.cache.size <= this.maxEntries && this.totalBytes <= this.maxBytes) break;
+      this.totalBytes -= entry.content.length;
       this.cache.delete(key);
     }
   }
@@ -87,12 +86,16 @@ export class ContextPipeline {
         relevantCode = lines.filter(l => l.startsWith('import') || l.startsWith('export')).join('\n');
         tokenReduction = ((lines.length - relevantCode.split('\n').length) / lines.length) * 100;
       } else {
-        // Find function end (simple heuristic: matching brace)
+        // Find function end using zero-allocation character scanning for braces
         let braceCount = 0;
         let functionEnd = functionStart;
         for (let i = functionStart; i < lines.length; i++) {
-          braceCount += (lines[i].match(/{/g) || []).length;
-          braceCount -= (lines[i].match(/}/g) || []).length;
+          const line = lines[i];
+          for (let j = 0; j < line.length; j++) {
+            const charCode = line.charCodeAt(j);
+            if (charCode === 123 /* { */) braceCount++;
+            else if (charCode === 125 /* } */) braceCount--;
+          }
           if (braceCount === 0 && i > functionStart) {
             functionEnd = i;
             break;
@@ -158,6 +161,10 @@ export class ContextPipeline {
     let result = response;
     
     for (const mask of DLP_PATTERNS) {
+      // Fast-path: Skip regex search on original if replacement token is not present in response
+      if (!result.includes(mask.replacement)) {
+        continue;
+      }
       const matches = original.match(mask.pattern);
       if (matches) {
         for (const match of matches) {
@@ -193,7 +200,11 @@ export class ContextPipeline {
       hash,
       timestamp: Date.now()
     };
+    if (this.cache.has(hash)) {
+      this.totalBytes -= this.cache.get(hash)!.content.length;
+    }
     this.cache.set(hash, entry);
+    this.totalBytes += combined.length;
     this.evict();
     
     // Persist cache
@@ -228,6 +239,10 @@ export class ContextPipeline {
       const content = await readFile(cacheFile, 'utf-8');
       const cacheObj = JSON.parse(content);
       this.cache = new Map(Object.entries(cacheObj));
+      this.totalBytes = 0;
+      for (const entry of this.cache.values()) {
+        this.totalBytes += entry.content.length;
+      }
     } catch (error) {
       const failure = classifyFailure(error);
       console.error(`[ContextPipeline] Cache load failed: [${failure.kind}] ${failure.reason} — ${failure.nextStep}`);
@@ -268,14 +283,9 @@ export class ContextPipeline {
     totalSize: number;
     hitRate: number;
   } {
-    let totalSize = 0;
-    for (const entry of this.cache.values()) {
-      totalSize += entry.content.length;
-    }
-    
     return {
       totalEntries: this.cache.size,
-      totalSize,
+      totalSize: this.totalBytes,
       hitRate: (this.hits + this.misses) > 0 ? this.hits / (this.hits + this.misses) : 0
     };
   }
