@@ -50,6 +50,8 @@ export class RetroAgent {
   private okfGenerator: OKFGenerator;
   private learnings: RetroLearning[] = [];
   private persistence?: PersistenceManager;
+  // Cache token sets for RetroLearning instances to eliminate repeated string splitting and lowercasing in search loops
+  private learningWordCache = new WeakMap<RetroLearning, Set<string>>();
 
   constructor(okfGenerator: OKFGenerator, persistence?: PersistenceManager) {
     this.okfGenerator = okfGenerator;
@@ -168,21 +170,51 @@ export class RetroAgent {
 
   // SimUtil-UCB strategy for lesson retrieval
   async retrieveLessons(query: string, memoryBuffer: RetroLearning[]): Promise<RetroLearning[]> {
-    // Semantic similarity + utility scoring
-    const scored = memoryBuffer.map(learning => ({
-      learning,
-      score: this.calculateRelevance(query, learning) * learning.utilityScore
-    }));
+    if (memoryBuffer.length === 0) return [];
+
+    // Pre-split query words once outside the memoryBuffer loop to avoid O(N) re-allocations
+    const queryWords = query.toLowerCase().split(' ');
+    if (queryWords.length === 0) return [];
+
+    // Score learnings using fast cached token Set matching
+    const scored = new Array<{ learning: RetroLearning; score: number }>(memoryBuffer.length);
+    for (let i = 0; i < memoryBuffer.length; i++) {
+      const learning = memoryBuffer[i];
+      const score = this.calculateRelevanceWithTokens(queryWords, learning) * learning.utilityScore;
+      scored[i] = { learning, score };
+    }
 
     // Sort by score and return top-k
     scored.sort((a, b) => b.score - a.score);
-    return scored.slice(0, 5).map(s => s.learning);
+    const result: RetroLearning[] = [];
+    const limit = Math.min(5, scored.length);
+    for (let i = 0; i < limit; i++) {
+      result.push(scored[i].learning);
+    }
+    return result;
   }
 
   private calculateRelevance(query: string, learning: RetroLearning): number {
     const queryWords = query.toLowerCase().split(' ');
-    const learningWords = `${learning.description} ${learning.lesson}`.toLowerCase().split(' ');
-    const overlap = queryWords.filter(w => learningWords.includes(w)).length;
+    return this.calculateRelevanceWithTokens(queryWords, learning);
+  }
+
+  private calculateRelevanceWithTokens(queryWords: string[], learning: RetroLearning): number {
+    if (queryWords.length === 0) return 0;
+
+    let learningSet = this.learningWordCache.get(learning);
+    if (!learningSet) {
+      const learningWords = `${learning.description} ${learning.lesson}`.toLowerCase().split(' ');
+      learningSet = new Set(learningWords);
+      this.learningWordCache.set(learning, learningSet);
+    }
+
+    let overlap = 0;
+    for (let i = 0; i < queryWords.length; i++) {
+      if (learningSet.has(queryWords[i])) {
+        overlap++;
+      }
+    }
     return overlap / queryWords.length;
   }
 
@@ -248,9 +280,13 @@ export class EvolveAgent {
       };
     }
 
-    // Exploit: select best performing rule and track usage
-    const sortedRules = [...this.rules].sort((a, b) => b.qualityScore - a.qualityScore);
-    const selected = sortedRules[0];
+    // Exploit: select best performing rule using a single-pass O(R) scan (avoids array copying and O(R log R) sort)
+    let selected = this.rules[0];
+    for (let i = 1; i < this.rules.length; i++) {
+      if (this.rules[i].qualityScore > selected.qualityScore) {
+        selected = this.rules[i];
+      }
+    }
     selected.useCount++;
     selected.lastUsed = new Date().toISOString();
 
@@ -472,13 +508,18 @@ export class LearnAgent {
 
   // AgentEvolver-style self-navigating
   async selfNavigate(experience: ExperiencePrinciple[]): Promise<string> {
-    // Select best principle for current context
+    // Select best principle for current context using a single-pass O(E) scan (avoids array copying and O(E log E) sort)
     if (experience.length === 0) {
       return 'No experience available - use standard approach';
     }
     
-    const sorted = [...experience].sort((a, b) => b.effectiveness - a.effectiveness);
-    return sorted[0].principle;
+    let best = experience[0];
+    for (let i = 1; i < experience.length; i++) {
+      if (experience[i].effectiveness > best.effectiveness) {
+        best = experience[i];
+      }
+    }
+    return best.principle;
   }
 
   // AgentEvolver-style self-attributing

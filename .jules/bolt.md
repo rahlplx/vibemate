@@ -1,0 +1,5 @@
+## 2026-03-30 - Self-Improvement Loop Search and Selection Optimization
+
+**Learning:** In agentic self-improvement loops (`src/evolve/index.ts`), repeating `query.toLowerCase().split(' ')` and lowercasing/splitting document strings (`${learning.description} ${learning.lesson}`) inside linear $O(N)$ item iteration loops creates heavy allocation overhead and quadratic string comparisons ($O(Q \times L)$). Using a `WeakMap<RetroLearning, Set<string>>` lazy cache enables $O(1)$ set lookups during relevance scoring. Additionally, using array sorting (`[...items].sort()`) to pick the top-performing item (e.g. `selectSkill`, `selfNavigate`) adds unnecessary array cloning and $O(N \log N)$ quicksort overhead when a single-pass $O(N)$ linear scan suffices.
+
+**Action:** When querying or retrieving top-ranked items from memory buffers, tokenize query strings once per search call, cache word Sets on item references via `WeakMap`, and replace array copying + sorting with single-pass max-seeking `for` loops when only the top item is needed.
