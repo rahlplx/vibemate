@@ -21,91 +21,109 @@ export interface GovernanceResult {
 
 export function enforceRules(context: Record<string, unknown>): GovernanceResult {
   const violations: Violation[] = [];
+  const warnings: Violation[] = [];
+  const errors: Violation[] = [];
+  const criticals: Violation[] = [];
   
+  // Optimization: Single-pass rule evaluation categorizes violations into severity buckets directly,
+  // avoiding triple Array.prototype.filter() passes over the violations list.
+  const timestamp = Date.now();
+
   // Rule: Intent Confidence Threshold
   if (typeof context.confidence === 'number' && context.confidence < 50) {
-    violations.push({
+    const v: Violation = {
       ruleId: 'rule-intent-001',
       severity: 'warning',
       message: `Intent confidence ${context.confidence}% is below 50% threshold`,
-      timestamp: Date.now(),
-    });
+      timestamp,
+    };
+    violations.push(v);
+    warnings.push(v);
   }
   
   // Rule: Audience Required
   if (context.audience === 'general users') {
-    violations.push({
+    const v: Violation = {
       ruleId: 'rule-intent-002',
       severity: 'error',
       message: 'Audience is generic "general users" — must define specific audience',
-      timestamp: Date.now(),
-    });
+      timestamp,
+    };
+    violations.push(v);
+    errors.push(v);
   }
   
   // Rule: Success Metric Required
   if (context.successMetric === 'successful completion') {
-    violations.push({
+    const v: Violation = {
       ruleId: 'rule-intent-003',
       severity: 'error',
       message: 'Success metric is generic — must define measurable criteria',
-      timestamp: Date.now(),
-    });
+      timestamp,
+    };
+    violations.push(v);
+    errors.push(v);
   }
   
   // Rule: Quality Threshold
   if (typeof context.qualityScore === 'number' && context.qualityScore < 70) {
-    violations.push({
+    const v: Violation = {
       ruleId: 'rule-quality-001',
       severity: 'warning',
       message: `Quality score ${context.qualityScore} is below 70 threshold`,
-      timestamp: Date.now(),
-    });
+      timestamp,
+    };
+    violations.push(v);
+    warnings.push(v);
   }
   
   // Rule: Readability Floor
   if (typeof context.readability === 'number' && context.readability < 60) {
-    violations.push({
+    const v: Violation = {
       ruleId: 'rule-quality-002',
       severity: 'error',
       message: `Readability ${context.readability} is below 60 floor`,
-      timestamp: Date.now(),
-    });
+      timestamp,
+    };
+    violations.push(v);
+    errors.push(v);
   }
   
   // Rule: Intent Match Threshold
   if (typeof context.matchScore === 'number' && context.matchScore < 70) {
-    violations.push({
+    const v: Violation = {
       ruleId: 'rule-match-001',
       severity: 'warning',
       message: `Intent match ${context.matchScore}% is below 70% threshold`,
-      timestamp: Date.now(),
-    });
+      timestamp,
+    };
+    violations.push(v);
+    warnings.push(v);
   }
   
   // Rule: Core Element Match
   if (context.problemMatched === false || context.audienceMatched === false) {
-    violations.push({
+    const v: Violation = {
       ruleId: 'rule-match-002',
       severity: 'critical',
       message: 'Core elements (problem/audience) not matched — cannot ship',
-      timestamp: Date.now(),
-    });
+      timestamp,
+    };
+    violations.push(v);
+    criticals.push(v);
   }
   
   // Rule: Circuit Breaker
   if (typeof context.consecutiveFailures === 'number' && context.consecutiveFailures >= 3) {
-    violations.push({
+    const v: Violation = {
       ruleId: 'rule-pipeline-002',
       severity: 'critical',
       message: `${context.consecutiveFailures} consecutive failures — circuit breaker triggered`,
-      timestamp: Date.now(),
-    });
+      timestamp,
+    };
+    violations.push(v);
+    criticals.push(v);
   }
-  
-  // Categorize violations
-  const warnings = violations.filter(v => v.severity === 'warning');
-  const errors = violations.filter(v => v.severity === 'error');
-  const criticals = violations.filter(v => v.severity === 'critical');
   
   const blocked = criticals.length > 0 || errors.length > 0;
   const passed = violations.length === 0;
