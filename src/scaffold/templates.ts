@@ -301,22 +301,69 @@ export function getTemplate(name: string): ScaffoldTemplate | undefined {
   return TEMPLATES[name];
 }
 
+/**
+ * Renders a scaffold template by performing variable substitution on file paths and contents.
+ *
+ * Performance optimization:
+ * - Pre-computes variable placeholders, raw values, and sanitized values outside the file loop
+ * - Uses `.includes('{{')` guard checks to skip variable scanning on files without template placeholders
+ * - Uses `String.prototype.replaceAll` literal string substitution to eliminate dynamic RegExp compilation
+ */
 export function renderTemplate(
   template: ScaffoldTemplate,
   variables: Record<string, string>
 ): TemplateFile[] {
-  return template.files.map((file) => ({
-    path: template.variables.reduce(
-      (p, varName) =>
-        p.replace(new RegExp(`\\{\\{${varName}\\}\\}`, 'g'), sanitizePathSegment(variables[varName] ?? '')),
-      file.path
-    ),
-    content: template.variables.reduce(
-      (content, varName) =>
-        content.replace(new RegExp(`\\{\\{${varName}\\}\\}`, 'g'), variables[varName] ?? ''),
-      file.content
-    ),
-  }));
+  const varKeys = template.variables;
+  const numVars = varKeys.length;
+  if (numVars === 0) {
+    return template.files.map((f) => ({ path: f.path, content: f.content }));
+  }
+
+  // Pre-compute variable placeholders and values once per template render call
+  const preparedVars = new Array<{ placeholder: string; val: string; sanitizedVal: string }>(numVars);
+  for (let i = 0; i < numVars; i++) {
+    const varName = varKeys[i];
+    const rawVal = variables[varName] ?? '';
+    preparedVars[i] = {
+      placeholder: `{{${varName}}}`,
+      val: rawVal,
+      sanitizedVal: sanitizePathSegment(rawVal),
+    };
+  }
+
+  const files = template.files;
+  const fileCount = files.length;
+  const result: TemplateFile[] = new Array(fileCount);
+
+  for (let i = 0; i < fileCount; i++) {
+    const file = files[i];
+    let path = file.path;
+    let content = file.content;
+
+    // Fast-path: check if path contains template syntax before processing replacements
+    if (path.includes('{{')) {
+      for (let j = 0; j < numVars; j++) {
+        const v = preparedVars[j];
+        if (path.includes(v.placeholder)) {
+          path = path.replaceAll(v.placeholder, v.sanitizedVal);
+        }
+      }
+    }
+
+    // Fast-path: check if content contains template syntax before processing replacements
+    if (content.includes('{{')) {
+      for (let j = 0; j < numVars; j++) {
+        const v = preparedVars[j];
+        if (content.includes(v.placeholder)) {
+          content = content.replaceAll(v.placeholder, v.val);
+        }
+      }
+    }
+
+    result[i] = { path, content };
+  }
+
+  return result;
 }
 
 function sanitizePathSegment(value: string): string {
