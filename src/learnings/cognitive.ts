@@ -169,37 +169,55 @@ export function ensembleVote(votes: DetectorVote[], config: CognitiveConfig = DE
   const grouped = new Map<string, DetectorVote[]>()
   for (const v of votes) {
     const key = v.finding.toLowerCase()
-    const existing = grouped.get(key) || []
-    existing.push(v)
-    grouped.set(key, existing)
+    let group = grouped.get(key)
+    if (!group) {
+      group = []
+      grouped.set(key, group)
+    }
+    group.push(v)
   }
 
   const confirmed: EnsembleFinding[] = []
   const rejected: DetectorVote[] = []
+  let totalConfirmedConf = 0
 
-  for (const [, group] of grouped) {
-    const totalConf = group.reduce((s, v) => s + v.confidence, 0) / group.length
-    const avgSeverity = worstSeverity(group.map(v => v.severity))
-    const allEvidence = [...new Set(group.flatMap(v => v.evidence))]
+  for (const group of grouped.values()) {
+    let groupConfSum = 0
+    // Single-pass optimization: accumulate confidence sum, track worst severity, and build unique evidence Set in one loop
+    let worstSev: AuditFinding["severity"] = group[0].severity
+    const evidenceSet = new Set<string>()
+
+    for (const v of group) {
+      groupConfSum += v.confidence
+      if (severityWeight(v.severity) > severityWeight(worstSev)) {
+        worstSev = v.severity
+      }
+      for (const ev of v.evidence) {
+        evidenceSet.add(ev)
+      }
+    }
+
+    const totalConf = groupConfSum / group.length
 
     if (totalConf >= config.ensembleThreshold && group.length >= 1) {
       confirmed.push({
         finding: group[0].finding,
-        severity: avgSeverity,
+        severity: worstSev,
         votes: group,
         confidence: totalConf,
-        evidence: allEvidence,
+        evidence: Array.from(evidenceSet),
       })
+      totalConfirmedConf += totalConf
     } else {
-      rejected.push(...group)
+      for (const v of group) {
+        rejected.push(v)
+      }
     }
   }
 
   confirmed.sort((a, b) => severityWeight(b.severity) - severityWeight(a.severity))
 
-  const avgConf = confirmed.length > 0
-    ? confirmed.reduce((s, f) => s + f.confidence, 0) / confirmed.length
-    : 0
+  const avgConf = confirmed.length > 0 ? totalConfirmedConf / confirmed.length : 0
 
   return { confirmed, rejected, confidence: avgConf }
 }
@@ -278,7 +296,11 @@ export function reflectOnAnalysis(
   const reflections: Reflection[] = []
 
   const totalFindings = audit.length
-  const criticalCount = audit.filter(f => f.severity === "critical").length
+  // Single-pass count loop to avoid intermediate array allocation from .filter()
+  let criticalCount = 0
+  for (const f of audit) {
+    if (f.severity === "critical") criticalCount++
+  }
 
   if (totalFindings === 0) {
     reflections.push({
@@ -300,11 +322,16 @@ export function reflectOnAnalysis(
     })
   }
 
-  const negativeRl = rl.filter(r => r.reward < 0)
-  if (negativeRl.length > rl.length * 0.5) {
+  // Single-pass count loop to avoid intermediate array allocation from .filter()
+  let negativeRlCount = 0
+  for (const r of rl) {
+    if (r.reward < 0) negativeRlCount++
+  }
+
+  if (negativeRlCount > rl.length * 0.5) {
     reflections.push({
       aspect: "quality-trend",
-      observation: `${negativeRl.length}/${rl.length} negative RL signals`,
+      observation: `${negativeRlCount}/${rl.length} negative RL signals`,
       insight: "Majority negative signals indicate codebase needs significant improvement",
       action: "Prioritize high-impact fixes; consider phased approach",
       confidence: 0.7,
@@ -321,10 +348,12 @@ export function reflectOnAnalysis(
     })
   }
 
-  const prevAspects = new Set(prevReflections.map(r => r.aspect))
-  for (const r of reflections) {
-    if (prevAspects.has(r.aspect)) {
-      r.confidence = Math.min(1, r.confidence + 0.1)
+  if (prevReflections.length > 0) {
+    const prevAspects = new Set(prevReflections.map(r => r.aspect))
+    for (const r of reflections) {
+      if (prevAspects.has(r.aspect)) {
+        r.confidence = Math.min(1, r.confidence + 0.1)
+      }
     }
   }
 

@@ -1,0 +1,3 @@
+## 2025-05-15 - Optimize cognitive analysis ensemble voting and reflection loops
+**Learning:** In multi-detector cognitive evaluation modules, grouping findings and reflecting on analysis quality using intermediate array allocations (`.flatMap()`, `.map()`, `.filter()`) and spread operators (`[...new Set()]`) creates overhead during continuous feedback loops. Consolidating array transformation steps into single-pass `for...of` loops and inline `Set` aggregations eliminates temporary array creation while keeping high readability.
+**Action:** Replace multi-pass higher-order array chains with single-pass loops that accumulate counts, track maximum weights, and collect unique items in `Set` instances directly.
