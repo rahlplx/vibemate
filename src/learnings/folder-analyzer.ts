@@ -33,14 +33,17 @@ const CONFIG_FILES = [
 ];
 
 const SKIP = new Set(['node_modules', '.git', 'dist', '.vibe']);
+const TEST_DIR_NAMES = new Set(['tests', 'test', '__tests__', 'spec']);
 
 export function analyzeFolder(repoPath: string): FolderAnalysis {
   const languages: Record<string, number> = {};
-  const tree = buildTree(repoPath, repoPath, languages, 0);
-  const entries = safeReaddir(repoPath);
-  const detectedPatterns = detectPatterns(repoPath, entries);
-  const configFiles = CONFIG_FILES.filter(f => entries.includes(f));
-  const testCoverage = determineTestCoverage(repoPath, entries);
+  const rootEntries: string[] = [];
+  const tree = buildTree(repoPath, repoPath, languages, 0, rootEntries);
+  const entrySet = new Set(rootEntries);
+  const detectedPatterns = detectPatterns(repoPath, rootEntries, entrySet);
+  // O(1) set lookups per config file instead of O(N) array scans
+  const configFiles = CONFIG_FILES.filter(f => entrySet.has(f));
+  const testCoverage = determineTestCoverage(repoPath, rootEntries);
   return { tree, languages, detectedPatterns, testCoverage, configFiles };
 }
 
@@ -48,7 +51,8 @@ function buildTree(
   rootPath: string,
   currentPath: string,
   langs: Record<string, number>,
-  depth: number
+  depth: number,
+  rootEntries?: string[]
 ): FolderNode {
   const name = currentPath === rootPath ? '.' : basename(currentPath);
 
@@ -58,13 +62,19 @@ function buildTree(
   if (rawEntries === null) return { name, type: 'dir' };
 
   const children: FolderNode[] = [];
-  for (const entry of rawEntries) {
+  for (let i = 0; i < rawEntries.length; i++) {
+    const entry = rawEntries[i];
+    if (depth === 0 && rootEntries) {
+      rootEntries.push(entry.name);
+    }
     if (SKIP.has(entry.name)) continue;
     const fullPath = join(currentPath, entry.name);
     if (entry.isDirectory()) {
       children.push(buildTree(rootPath, fullPath, langs, depth + 1));
     } else {
-      const ext = '.' + entry.name.split('.').pop()?.toLowerCase();
+      // Use lastIndexOf to extract extension without array allocations from string splitting
+      const dotIdx = entry.name.lastIndexOf('.');
+      const ext = dotIdx !== -1 ? entry.name.slice(dotIdx).toLowerCase() : '';
       const language = EXT_MAP[ext];
       if (language) langs[language] = (langs[language] || 0) + 1;
       let size: number | undefined;
@@ -75,21 +85,33 @@ function buildTree(
   return { name, type: 'dir', children };
 }
 
-function detectPatterns(repoPath: string, entries: string[]): string[] {
+function detectPatterns(repoPath: string, entries: string[], entrySet: Set<string>): string[] {
   const patterns: string[] = [];
-  const combined = entries.includes('src')
-    ? [...entries, ...safeReaddir(join(repoPath, 'src'))]
-    : entries;
-  if (combined.includes('packages') || combined.includes('apps')) patterns.push('monorepo');
-  if (combined.some(e => ['controllers', 'models', 'views'].includes(e))) patterns.push('mvc');
-  if (combined.some(e => ['domain', 'application', 'infrastructure'].includes(e))) patterns.push('hexagonal');
-  if (combined.some(e => ['features', 'modules'].includes(e))) patterns.push('feature-sliced');
-  if (entries.includes('src') && entries.includes('tests')) patterns.push('src-tests-separation');
+  let combinedSet = entrySet;
+
+  if (entrySet.has('src')) {
+    const srcEntries = safeReaddir(join(repoPath, 'src'));
+    combinedSet = new Set([...entries, ...srcEntries]);
+  }
+
+  // O(1) set checks instead of intermediate array allocations and O(N) scans
+  if (combinedSet.has('packages') || combinedSet.has('apps')) patterns.push('monorepo');
+  if (combinedSet.has('controllers') || combinedSet.has('models') || combinedSet.has('views')) patterns.push('mvc');
+  if (combinedSet.has('domain') || combinedSet.has('application') || combinedSet.has('infrastructure')) patterns.push('hexagonal');
+  if (combinedSet.has('features') || combinedSet.has('modules')) patterns.push('feature-sliced');
+  if (entrySet.has('src') && entrySet.has('tests')) patterns.push('src-tests-separation');
+
   return patterns;
 }
 
 function determineTestCoverage(dir: string, entries: string[]): 'present' | 'absent' | 'partial' {
-  const testDirName = entries.find(e => ['tests', 'test', '__tests__', 'spec'].includes(e));
+  let testDirName: string | undefined;
+  for (let i = 0; i < entries.length; i++) {
+    if (TEST_DIR_NAMES.has(entries[i])) {
+      testDirName = entries[i];
+      break;
+    }
+  }
   if (!testDirName) return 'absent';
   const testFiles = safeReaddir(join(dir, testDirName));
   return testFiles.length > 0 ? 'present' : 'partial';
