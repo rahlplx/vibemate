@@ -28,6 +28,7 @@ export function createRuleEngine(options: RuleEngineOptions = {}) {
   const { minScore = 0 } = options
   const rules = new Map<string, RuleChange>()
   const proposals = new Map<string, RuleChange>()
+  const rejectedProposals = new Map<string, RuleChange>()
 
   function generateId(): string {
     return `rule-${++ruleIdCounter}`
@@ -60,7 +61,7 @@ export function createRuleEngine(options: RuleEngineOptions = {}) {
 
     approve(id: string): boolean {
       const proposal = proposals.get(id)
-      if (!proposal || proposal.status !== "pending") return false
+      if (!proposal) return false
 
       proposal.status = "approved"
       proposal.resolvedAt = new Date().toISOString()
@@ -71,10 +72,11 @@ export function createRuleEngine(options: RuleEngineOptions = {}) {
 
     reject(id: string): boolean {
       const proposal = proposals.get(id)
-      if (!proposal || proposal.status !== "pending") return false
+      if (!proposal) return false
 
       proposal.status = "rejected"
       proposal.resolvedAt = new Date().toISOString()
+      rejectedProposals.set(id, proposal)
       proposals.delete(id)
       return true
     },
@@ -83,22 +85,31 @@ export function createRuleEngine(options: RuleEngineOptions = {}) {
       return [...rules.values()]
     },
 
+    // Fast-path: proposals Map only contains pending items, avoiding redundant .filter() calls
     getPending(): RuleChange[] {
-      return [...proposals.values()].filter(p => p.status === "pending")
+      return [...proposals.values()]
     },
 
+    // Optimized history: uses ISO 8601 string comparisons to avoid new Date() allocations during sorting
     getHistory(): RuleChange[] {
-      const all = [...rules.values(), ...proposals.values()]
-      return all.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      const all: RuleChange[] = [
+        ...rules.values(),
+        ...proposals.values(),
+        ...rejectedProposals.values(),
+      ]
+      return all.sort((a, b) => (b.createdAt > a.createdAt ? 1 : b.createdAt < a.createdAt ? -1 : 0))
     },
 
+    // Fast-path O(1) summary using Map sizes instead of full history sorting and multi-pass filtering
     getSummary() {
-      const all = this.getHistory()
+      const pending = proposals.size
+      const approved = rules.size
+      const rejected = rejectedProposals.size
       return {
-        total: all.length,
-        pending: all.filter(r => r.status === "pending").length,
-        approved: all.filter(r => r.status === "approved").length,
-        rejected: all.filter(r => r.status === "rejected").length,
+        total: pending + approved + rejected,
+        pending,
+        approved,
+        rejected,
       }
     },
   }
