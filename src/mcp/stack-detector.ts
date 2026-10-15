@@ -1,5 +1,5 @@
 import { glob } from 'glob';
-import { readFile } from 'fs/promises';
+import { readFile, stat } from 'fs/promises';
 import { join } from 'path';
 import type { StackProfile } from './types.js';
 
@@ -45,6 +45,23 @@ const FRAMEWORK_MARKERS: FrameworkMarker[] = [
 ];
 
 const LOCK_FILES = ['bun.lock', 'pnpm-lock.yaml', 'yarn.lock', 'package-lock.json'];
+const IS_GLOB_PATTERN = /[*?{}]/;
+
+/**
+ * Fast-path file existence check using direct `stat` call for plain filenames,
+ * falling back to `glob` only if wildcard pattern characters are present.
+ */
+async function checkFileExists(root: string, file: string): Promise<string[]> {
+  try {
+    if (IS_GLOB_PATTERN.test(file)) {
+      return await glob(file, { cwd: root, absolute: false });
+    }
+    await stat(join(root, file));
+    return [file];
+  } catch {
+    return [];
+  }
+}
 
 export class StackDetector {
   private projectRoot: string;
@@ -70,75 +87,69 @@ export class StackDetector {
     composerJson?: Record<string, unknown>;
     lockFiles: string[];
   }> {
-    const foundFiles: string[] = [];
-    let packageJson: Record<string, unknown> | undefined;
-    let pyprojectToml: string | undefined;
-    let composerJson: Record<string, unknown> | undefined;
-    const lockFiles: string[] = [];
+    // Collect all unique specific files from framework markers
+    const specificFileSet = new Set<string>();
+    for (let i = 0; i < FRAMEWORK_MARKERS.length; i++) {
+      const files = FRAMEWORK_MARKERS[i].specificFiles;
+      for (let j = 0; j < files.length; j++) {
+        specificFileSet.add(files[j]);
+      }
+    }
 
-    // Scan for framework-specific files
-    for (const marker of FRAMEWORK_MARKERS) {
-      for (const file of marker.specificFiles) {
+    // Perform specific file checks, lock file checks, and config reads concurrently via Promise.all
+    const [specificResults, lockResults, packageJson, pyprojectToml, composerJson] = await Promise.all([
+      Promise.all(Array.from(specificFileSet, file => checkFileExists(this.projectRoot, file))),
+      Promise.all(LOCK_FILES.map(file => checkFileExists(this.projectRoot, file))),
+      readFile(join(this.projectRoot, 'package.json'), 'utf-8').then(content => {
         try {
-          const files = await glob(file, { cwd: this.projectRoot, absolute: false });
-          for (const f of files) {
-            if (!foundFiles.includes(f)) {
-              foundFiles.push(f);
-            }
-          }
-        } catch (error) {
-          console.error(`[StackDetector] Failed to scan for ${file}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+          return JSON.parse(content) as Record<string, unknown>;
+        } catch {
+          return undefined;
         }
-      }
-    }
-
-    // Check for lock files
-    for (const lockFile of LOCK_FILES) {
-      try {
-        const files = await glob(lockFile, { cwd: this.projectRoot, absolute: false });
-        for (const f of files) {
-          if (!lockFiles.includes(f)) {
-            lockFiles.push(f);
-          }
+      }).catch(() => undefined),
+      readFile(join(this.projectRoot, 'pyproject.toml'), 'utf-8').catch(() => undefined),
+      readFile(join(this.projectRoot, 'composer.json'), 'utf-8').then(content => {
+        try {
+          return JSON.parse(content) as Record<string, unknown>;
+        } catch {
+          return undefined;
         }
-      } catch (error) {
-        console.error(`[StackDetector] Failed to scan for lock file ${lockFile}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      }).catch(() => undefined)
+    ]);
+
+    const foundSet = new Set<string>();
+    for (let i = 0; i < specificResults.length; i++) {
+      const res = specificResults[i];
+      for (let j = 0; j < res.length; j++) {
+        foundSet.add(res[j]);
       }
     }
 
-    // Read package.json
-    try {
-      const content = await readFile(join(this.projectRoot, 'package.json'), 'utf-8');
-      packageJson = JSON.parse(content);
-      if (!foundFiles.includes('package.json')) {
-        foundFiles.push('package.json');
+    const lockFiles: string[] = [];
+    for (let i = 0; i < lockResults.length; i++) {
+      const res = lockResults[i];
+      for (let j = 0; j < res.length; j++) {
+        lockFiles.push(res[j]);
       }
-    } catch (error) {
-      console.error(`[StackDetector] Failed to read package.json: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
 
-    // Read pyproject.toml
-    try {
-      pyprojectToml = await readFile(join(this.projectRoot, 'pyproject.toml'), 'utf-8');
-      if (!foundFiles.includes('pyproject.toml')) {
-        foundFiles.push('pyproject.toml');
-      }
-    } catch (error) {
-      console.error(`[StackDetector] Failed to read pyproject.toml: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    if (packageJson && !foundSet.has('package.json')) {
+      foundSet.add('package.json');
+    }
+    if (pyprojectToml && !foundSet.has('pyproject.toml')) {
+      foundSet.add('pyproject.toml');
+    }
+    if (composerJson && !foundSet.has('composer.json')) {
+      foundSet.add('composer.json');
     }
 
-    // Read composer.json
-    try {
-      const content = await readFile(join(this.projectRoot, 'composer.json'), 'utf-8');
-      composerJson = JSON.parse(content);
-      if (!foundFiles.includes('composer.json')) {
-        foundFiles.push('composer.json');
-      }
-    } catch (error) {
-      console.error(`[StackDetector] Failed to read composer.json: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
-
-    return { foundFiles, packageJson, pyprojectToml, composerJson, lockFiles };
+    return {
+      foundFiles: Array.from(foundSet),
+      packageJson,
+      pyprojectToml,
+      composerJson,
+      lockFiles
+    };
   }
 
   private analyzeMarkers(markers: {
@@ -150,25 +161,30 @@ export class StackDetector {
   }): StackProfile {
     let bestMatch: { marker: FrameworkMarker; score: number } | null = null;
 
-    for (const marker of FRAMEWORK_MARKERS) {
+    // Pre-merge package.json dependencies once to eliminate redundant object allocations across loops
+    const pkgDeps: Record<string, string> | undefined = markers.packageJson
+      ? {
+          ...(markers.packageJson.dependencies as Record<string, string> || {}),
+          ...(markers.packageJson.devDependencies as Record<string, string> || {})
+        }
+      : undefined;
+
+    for (let i = 0; i < FRAMEWORK_MARKERS.length; i++) {
+      const marker = FRAMEWORK_MARKERS[i];
       let score = 0;
-      const deps = marker.packageJsonDeps || [];
 
       // Check for framework-specific files (high value)
-      for (const file of marker.specificFiles) {
-        if (markers.foundFiles.includes(file)) {
+      for (let j = 0; j < marker.specificFiles.length; j++) {
+        if (markers.foundFiles.includes(marker.specificFiles[j])) {
           score += 25;
         }
       }
 
       // Check package.json dependencies (high value)
-      if (marker.packageJsonDeps && markers.packageJson) {
-        const pkgDeps = {
-          ...(markers.packageJson.dependencies as Record<string, string> || {}),
-          ...(markers.packageJson.devDependencies as Record<string, string> || {})
-        };
-        for (const dep of deps) {
-          if (pkgDeps[dep]) {
+      if (marker.packageJsonDeps && pkgDeps) {
+        const deps = marker.packageJsonDeps;
+        for (let j = 0; j < deps.length; j++) {
+          if (pkgDeps[deps[j]]) {
             score += 30;
           }
         }
@@ -205,9 +221,9 @@ export class StackDetector {
         language: marker.language,
         packageManager: this.detectPackageManager(marker.packageManager, markers.lockFiles),
         hasTypeScript: markers.foundFiles.includes('tsconfig.json'),
-        hasTailwind: this.checkTailwind(markers.packageJson),
-        hasDatabase: this.checkDatabase(markers.packageJson, markers.pyprojectToml, markers.composerJson),
-        database: this.detectDatabase(markers.packageJson, markers.pyprojectToml, markers.composerJson),
+        hasTailwind: this.checkTailwind(pkgDeps),
+        hasDatabase: this.checkDatabase(pkgDeps, markers.pyprojectToml, markers.composerJson),
+        database: this.detectDatabase(pkgDeps, markers.pyprojectToml, markers.composerJson),
         confidence: score >= 60 ? 'high' : score >= 40 ? 'medium' : 'low',
         rawMarkers: markers.foundFiles
       };
@@ -219,9 +235,9 @@ export class StackDetector {
       language: markers.foundFiles.includes('tsconfig.json') ? 'typescript' : 'javascript',
       packageManager: this.detectPackageManager('npm', markers.lockFiles),
       hasTypeScript: markers.foundFiles.includes('tsconfig.json'),
-      hasTailwind: this.checkTailwind(markers.packageJson),
-      hasDatabase: this.checkDatabase(markers.packageJson, markers.pyprojectToml, markers.composerJson),
-      database: this.detectDatabase(markers.packageJson, markers.pyprojectToml, markers.composerJson),
+      hasTailwind: this.checkTailwind(pkgDeps),
+      hasDatabase: this.checkDatabase(pkgDeps, markers.pyprojectToml, markers.composerJson),
+      database: this.detectDatabase(pkgDeps, markers.pyprojectToml, markers.composerJson),
       confidence: 'low',
       rawMarkers: markers.foundFiles
     };
@@ -235,27 +251,23 @@ export class StackDetector {
     return defaultPm;
   }
 
-  private checkTailwind(packageJson?: Record<string, unknown>): boolean {
-    if (!packageJson) return false;
-    const deps = {
-      ...(packageJson.dependencies as Record<string, string> || {}),
-      ...(packageJson.devDependencies as Record<string, string> || {})
-    };
-    return !!deps['tailwindcss'] || !!deps['@tailwindcss/vite'] || !!deps['@tailwindcss/postcss'];
+  private checkTailwind(pkgDeps?: Record<string, string>): boolean {
+    if (!pkgDeps) return false;
+    return !!pkgDeps['tailwindcss'] || !!pkgDeps['@tailwindcss/vite'] || !!pkgDeps['@tailwindcss/postcss'];
   }
 
-  private checkDatabase(packageJson?: Record<string, unknown>, pyprojectToml?: string, composerJson?: Record<string, unknown>): boolean {
-    if (packageJson) {
-      const deps = {
-        ...(packageJson.dependencies as Record<string, string> || {}),
-        ...(packageJson.devDependencies as Record<string, string> || {})
-      };
+  private checkDatabase(pkgDeps?: Record<string, string>, pyprojectToml?: string, composerJson?: Record<string, unknown>): boolean {
+    if (pkgDeps) {
       const dbDeps = ['pg', 'postgres', 'mysql', 'mysql2', 'sqlite3', 'better-sqlite3', 'mongoose', 'prisma', 'drizzle-orm', 'typeorm', 'sequelize'];
-      if (dbDeps.some(d => deps[d])) return true;
+      for (let i = 0; i < dbDeps.length; i++) {
+        if (pkgDeps[dbDeps[i]]) return true;
+      }
     }
     if (pyprojectToml) {
       const dbDeps = ['sqlalchemy', 'psycopg2', 'asyncpg', 'pymysql', 'sqlite3', 'prisma', 'tortoise-orm'];
-      if (dbDeps.some(d => pyprojectToml.includes(d))) return true;
+      for (let i = 0; i < dbDeps.length; i++) {
+        if (pyprojectToml.includes(dbDeps[i])) return true;
+      }
     }
     if (composerJson) {
       const req = {
@@ -268,16 +280,12 @@ export class StackDetector {
     return false;
   }
 
-  private detectDatabase(packageJson?: Record<string, unknown>, pyprojectToml?: string, _composerJson?: Record<string, unknown>): StackProfile['database'] {
-    if (packageJson) {
-      const deps = {
-        ...(packageJson.dependencies as Record<string, string> || {}),
-        ...(packageJson.devDependencies as Record<string, string> || {})
-      };
-      if (deps['pg'] || deps['postgres'] || deps['@neondatabase/serverless']) return 'postgres';
-      if (deps['mysql'] || deps['mysql2']) return 'mysql';
-      if (deps['better-sqlite3'] || deps['sqlite3']) return 'sqlite';
-      if (deps['mongoose']) return 'mongodb';
+  private detectDatabase(pkgDeps?: Record<string, string>, pyprojectToml?: string, _composerJson?: Record<string, unknown>): StackProfile['database'] {
+    if (pkgDeps) {
+      if (pkgDeps['pg'] || pkgDeps['postgres'] || pkgDeps['@neondatabase/serverless']) return 'postgres';
+      if (pkgDeps['mysql'] || pkgDeps['mysql2']) return 'mysql';
+      if (pkgDeps['better-sqlite3'] || pkgDeps['sqlite3']) return 'sqlite';
+      if (pkgDeps['mongoose']) return 'mongodb';
     }
     if (pyprojectToml) {
       if (pyprojectToml.includes('postgresql') || pyprojectToml.includes('psycopg2') || pyprojectToml.includes('asyncpg')) return 'postgres';
