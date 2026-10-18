@@ -209,23 +209,37 @@ const QUESTIONS_BY_TYPE: Record<string, Question[]> = {
   ],
 };
 
+// Pre-index static questions into a Map for O(1) lookups instead of scanning Object.values with .find()
+const QUESTION_BY_ID_MAP = new Map<string, Question>();
+for (const questions of Object.values(QUESTIONS_BY_TYPE)) {
+  for (const q of questions) {
+    QUESTION_BY_ID_MAP.set(q.id, q);
+  }
+}
+
 export function getQuestionsForType(type: string): Question[] {
   return QUESTIONS_BY_TYPE[type] ?? [];
 }
 
 export function getQuestionById(id: string): Question | undefined {
-  for (const questions of Object.values(QUESTIONS_BY_TYPE)) {
-    const found = questions.find((q) => q.id === id);
-    if (found) return found;
-  }
-  return undefined;
+  return QUESTION_BY_ID_MAP.get(id);
 }
 
 export class QuestionBank {
   private questionsByType: Record<string, Question[]>;
+  private questionMap: Map<string, Question>;
 
   constructor() {
-    this.questionsByType = { ...QUESTIONS_BY_TYPE };
+    // Copy arrays to prevent instance custom additions from mutating module state
+    this.questionsByType = {};
+    this.questionMap = new Map<string, Question>();
+
+    for (const [type, questions] of Object.entries(QUESTIONS_BY_TYPE)) {
+      this.questionsByType[type] = [...questions];
+      for (const q of questions) {
+        this.questionMap.set(q.id, q);
+      }
+    }
   }
 
   getQuestions(type: string): Question[] {
@@ -233,7 +247,7 @@ export class QuestionBank {
   }
 
   getQuestion(id: string): Question | undefined {
-    return getQuestionById(id);
+    return this.questionMap.get(id);
   }
 
   addCustomQuestion(type: string, question: Question): void {
@@ -241,5 +255,6 @@ export class QuestionBank {
       this.questionsByType[type] = [];
     }
     this.questionsByType[type].push(question);
+    this.questionMap.set(question.id, question);
   }
 }

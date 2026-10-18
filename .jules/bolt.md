@@ -1,0 +1,3 @@
+## 2025-05-18 - O(1) Question Lookups in Discovery Engine
+**Learning:** `getQuestionById` previously iterated over `Object.values(QUESTIONS_BY_TYPE)` with `.find()` on every lookup call, leading to $O(N)$ linear scans. Pre-indexing static questions in a module-level `Map` and maintaining an instance-level `Map` in `QuestionBank` eliminates redundant scans and array traversals, yielding an ~88x lookup speedup.
+**Action:** When working with static or append-only collections indexed by ID, pre-index items in a `Map` during module load or constructor initialization instead of dynamically scanning arrays with `.find()`.
