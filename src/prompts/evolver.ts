@@ -53,10 +53,19 @@ export class PromptEvolver {
   /** Returns true when this template has enough data and low enough success rate to evolve. */
   shouldEvolve(template: PromptTemplate, outcomes: PromptOutcome[]): boolean {
     if (template.source === 'evolved' && template.confidence >= 0.85) return false; // already good
-    const relevant = outcomes.filter(o => o.templateId === template.id);
-    if (relevant.length < MIN_SAMPLES_TO_EVOLVE) return false;
-    const successCount = relevant.filter(o => o.outcome === 'success').length;
-    return successCount / relevant.length < SUCCESS_RATE_THRESHOLD;
+    // Performance Optimization: Single pass indexed loop over outcomes avoid intermediate .filter() array allocations
+    let total = 0;
+    let successCount = 0;
+    for (let i = 0; i < outcomes.length; i++) {
+      if (outcomes[i].templateId === template.id) {
+        total++;
+        if (outcomes[i].outcome === 'success') {
+          successCount++;
+        }
+      }
+    }
+    if (total < MIN_SAMPLES_TO_EVOLVE) return false;
+    return successCount / total < SUCCESS_RATE_THRESHOLD;
   }
 
   /** Generate an evolved variant of the template. Uses LLM if provided, else heuristic. */
@@ -64,9 +73,15 @@ export class PromptEvolver {
     let evolvedContent: string;
 
     if (this.llmFn) {
-      const failedPhases = [...new Set(
-        outcomes.filter(o => o.templateId === template.id && o.outcome === 'failure').map(o => o.phase)
-      )];
+      // Performance Optimization: Collect unique failed phases using a Set in a single pass without array allocations
+      const failedPhasesSet = new Set<string>();
+      for (let i = 0; i < outcomes.length; i++) {
+        const o = outcomes[i];
+        if (o.templateId === template.id && o.outcome === 'failure') {
+          failedPhasesSet.add(o.phase);
+        }
+      }
+      const failedPhases = Array.from(failedPhasesSet);
       const llmPrompt = [
         'You are a prompt engineer. Improve the following system prompt to increase success rate.',
         `The prompt has failed in phases: ${failedPhases.join(', ')}.`,
@@ -108,7 +123,30 @@ export class PromptEvolver {
   async run(registry: PromptRegistry, options: { autoApply?: boolean } = {}): Promise<number> {
     const { autoApply = false } = options;
     const outcomes = registry.getOutcomes();
-    const candidates = registry.list().filter(t => this.shouldEvolve(t, outcomes));
+
+    // Performance Optimization: Pre-aggregate outcome stats across all templates in O(M) time.
+    // Reduces candidate template lookup complexity from O(N * M) to O(N + M) and eliminates array allocations.
+    const statsMap = new Map<string, { total: number; success: number }>();
+    for (let i = 0; i < outcomes.length; i++) {
+      const o = outcomes[i];
+      let stat = statsMap.get(o.templateId);
+      if (!stat) {
+        stat = { total: 0, success: 0 };
+        statsMap.set(o.templateId, stat);
+      }
+      stat.total++;
+      if (o.outcome === 'success') {
+        stat.success++;
+      }
+    }
+
+    const candidates = registry.list().filter(t => {
+      if (t.source === 'evolved' && t.confidence >= 0.85) return false;
+      const stat = statsMap.get(t.id);
+      if (!stat || stat.total < MIN_SAMPLES_TO_EVOLVE) return false;
+      return stat.success / stat.total < SUCCESS_RATE_THRESHOLD;
+    });
+
     let evolved = 0;
 
     for (const template of candidates) {

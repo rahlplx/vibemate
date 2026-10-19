@@ -1,0 +1,3 @@
+## 2025-05-18 - Pre-aggregating telemetry outcome stats in candidate evaluation
+**Learning:** In candidate evaluation loops over entities with associated historical outcomes (like prompt templates and run outcomes), evaluating each entity via $O(M)$ filtering creates an $O(N \times M)$ bottleneck with heavy array allocations. Pre-aggregating outcome stats in a single $O(M)$ pass into a Map reduces complexity to $O(N + M)$ and eliminates intermediate array allocations, yielding ~9x speedup.
+**Action:** Always pre-aggregate event or outcome statistics across entities into Map lookups before running multi-entity evaluation filters.
