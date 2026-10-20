@@ -108,20 +108,51 @@ export type EmbedFn = (text: string) => number[] | Promise<number[]>;
 const EMBED_DIM = 256;
 
 /** FNV-1a hash-based bag-of-words, 256-dim L2-normalized.
- *  Zero dependencies. Use BM25Store for better local relevance. */
+ *  Zero dependencies. Use BM25Store for better local relevance.
+ *  Optimized using single-pass charCodeAt tokenization & FNV-1a hashing to avoid regex/array allocations. */
 export function localEmbedFn(text: string): number[] {
-  const vec = new Array<number>(EMBED_DIM).fill(0);
-  const tokens = text.toLowerCase().split(/\W+/).filter(Boolean);
-  for (const token of tokens) {
-    let h = 2166136261;
-    for (let i = 0; i < token.length; i++) {
-      h ^= token.charCodeAt(i);
-      h = Math.imul(h, 16777619) >>> 0;
+  const vec = new Float64Array(EMBED_DIM);
+  const len = text.length;
+  let inToken = false;
+  let h = 2166136261;
+
+  // Single-pass character scan for word tokenization & FNV-1a hash calculation
+  for (let i = 0; i < len; i++) {
+    let code = text.charCodeAt(i);
+    // Fast lowercase ASCII conversion (A-Z -> a-z)
+    if (code >= 65 && code <= 90) {
+      code += 32;
     }
+    // Check for alphanumeric or underscore (\w equivalent)
+    const isWordChar = (code >= 97 && code <= 122) || (code >= 48 && code <= 57) || code === 95;
+
+    if (isWordChar) {
+      inToken = true;
+      h ^= code;
+      h = Math.imul(h, 16777619) >>> 0;
+    } else if (inToken) {
+      vec[h % EMBED_DIM] += 1;
+      inToken = false;
+      h = 2166136261;
+    }
+  }
+  if (inToken) {
     vec[h % EMBED_DIM] += 1;
   }
-  const norm = Math.sqrt(vec.reduce((s, x) => s + x * x, 0)) || 1;
-  return vec.map(x => x / norm);
+
+  // Calculate L2 norm in a single loop without intermediate array allocations
+  let sumSq = 0;
+  for (let i = 0; i < EMBED_DIM; i++) {
+    const val = vec[i];
+    sumSq += val * val;
+  }
+  const norm = Math.sqrt(sumSq) || 1;
+
+  const result = new Array<number>(EMBED_DIM);
+  for (let i = 0; i < EMBED_DIM; i++) {
+    result[i] = vec[i] / norm;
+  }
+  return result;
 }
 
 export function cosineSimilarity(a: number[], b: number[]): number {
