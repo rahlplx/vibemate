@@ -148,56 +148,99 @@ function spanToEntry(span: RawSpan): AuditEntry | null {
 export class AuditExporter {
   constructor(private vibeDir: string) {}
 
+  /**
+   * Loads audit entries concurrently from telemetry files and state observations.
+   * Optimized with concurrent file I/O (Promise.all) and early timestamp filtering.
+   */
   async loadEntries(since?: Date): Promise<AuditEntry[]> {
-    const entries: AuditEntry[] = [];
+    const sinceMs = since?.getTime();
+    const sinceIso = since?.toISOString();
 
-    // 1. Read telemetry JSON files
-    try {
-      const files = await readdir(this.vibeDir);
-      const telemetryFiles = files.filter(f => f.startsWith('telemetry-') && f.endsWith('.json'));
-      for (const file of telemetryFiles) {
-        try {
-          const raw = await readFile(join(this.vibeDir, file), 'utf-8');
-          const data = JSON.parse(raw) as TelemetryFile;
-          if (!Array.isArray(data.spans)) continue;
-          for (const span of data.spans) {
-            const entry = spanToEntry(span);
-            if (entry) entries.push(entry);
+    // 1. Concurrently read and parse telemetry JSON files
+    const fetchTelemetry = async (): Promise<AuditEntry[]> => {
+      try {
+        const files = await readdir(this.vibeDir);
+        const telemetryFiles: string[] = [];
+        for (let i = 0; i < files.length; i++) {
+          const f = files[i];
+          if (f.startsWith('telemetry-') && f.endsWith('.json')) {
+            telemetryFiles.push(f);
           }
-        } catch { /* skip malformed file */ }
+        }
+
+        const fileResults = await Promise.all(
+          telemetryFiles.map(async file => {
+            try {
+              const raw = await readFile(join(this.vibeDir, file), 'utf-8');
+              const data = JSON.parse(raw) as TelemetryFile;
+              if (!Array.isArray(data.spans)) return [];
+              const fileEntries: AuditEntry[] = [];
+              const spans = data.spans;
+              for (let i = 0; i < spans.length; i++) {
+                const span = spans[i];
+                // Fast integer cutoff before Date object instantiation
+                if (sinceMs !== undefined && span.startTime < sinceMs) continue;
+                const entry = spanToEntry(span);
+                if (entry) fileEntries.push(entry);
+              }
+              return fileEntries;
+            } catch {
+              return [];
+            }
+          })
+        );
+
+        const telemetryEntries: AuditEntry[] = [];
+        for (let i = 0; i < fileResults.length; i++) {
+          const fileEntries = fileResults[i];
+          for (let j = 0; j < fileEntries.length; j++) {
+            telemetryEntries.push(fileEntries[j]);
+          }
+        }
+        return telemetryEntries;
+      } catch {
+        return [];
       }
-    } catch { /* dir missing */ }
+    };
 
     // 2. Read phase observations from state.json
-    try {
-      const raw = await readFile(join(this.vibeDir, 'state.json'), 'utf-8');
-      const state = JSON.parse(raw) as StateFile;
-      for (const obs of state.observations ?? []) {
-        entries.push({
-          id: uid('pt'),
-          timestamp: obs.timestamp,
-          type: 'phase_transition',
-          phase: obs.phase,
-          durationMs: obs.durationMs,
-          cost: obs.circuitBreakerState?.totalCost,
-          success: obs.errorCount === 0,
-          metadata: {
-            observationId: obs.observationId,
-            observationScore: obs.observationScore,
-            errorCount: obs.errorCount,
-          },
-        });
+    const fetchState = async (): Promise<AuditEntry[]> => {
+      try {
+        const raw = await readFile(join(this.vibeDir, 'state.json'), 'utf-8');
+        const state = JSON.parse(raw) as StateFile;
+        const stateEntries: AuditEntry[] = [];
+        const obsList = state.observations ?? [];
+        for (let i = 0; i < obsList.length; i++) {
+          const obs = obsList[i];
+          if (sinceIso && obs.timestamp < sinceIso) continue;
+          stateEntries.push({
+            id: uid('pt'),
+            timestamp: obs.timestamp,
+            type: 'phase_transition',
+            phase: obs.phase,
+            durationMs: obs.durationMs,
+            cost: obs.circuitBreakerState?.totalCost,
+            success: obs.errorCount === 0,
+            metadata: {
+              observationId: obs.observationId,
+              observationScore: obs.observationScore,
+              errorCount: obs.errorCount,
+            },
+          });
+        }
+        return stateEntries;
+      } catch {
+        return [];
       }
-    } catch { /* state.json missing or malformed */ }
+    };
 
-    // 3. Filter by since, sort by timestamp ascending (ISO 8601 is lexicographically sortable)
-    const sinceIso = since?.toISOString();
-    const filtered = sinceIso
-      ? entries.filter(e => e.timestamp >= sinceIso)
-      : entries;
+    // Concurrently fetch telemetry and state entries
+    const [telemetryEntries, stateEntries] = await Promise.all([fetchTelemetry(), fetchState()]);
+    const entries = telemetryEntries.concat(stateEntries);
 
-    filtered.sort((a, b) => a.timestamp < b.timestamp ? -1 : a.timestamp > b.timestamp ? 1 : 0);
-    return filtered;
+    // Sort by timestamp ascending (ISO 8601 string ordering)
+    entries.sort((a, b) => (a.timestamp < b.timestamp ? -1 : a.timestamp > b.timestamp ? 1 : 0));
+    return entries;
   }
 
   toJSONL(entries: AuditEntry[]): string {
