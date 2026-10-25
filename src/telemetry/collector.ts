@@ -174,12 +174,15 @@ export class TelemetryCollector {
       });
     }
 
-    const spansArray = Array.from(this.spanMap.values());
-    const kept = this.retentionPolicy.evictIfNeeded(spansArray, this.traces);
-    if (kept.length < spansArray.length) {
-      const keptIds = new Set(kept.map(s => s.spanId));
-      for (const id of this.spanMap.keys()) {
-        if (!keptIds.has(id)) this.spanMap.delete(id);
+    // Fast path: Only convert spanMap to array for eviction when capacity is exceeded
+    if (this.spanMap.size > this.retentionPolicy.getMaxSpanCount()) {
+      const spansArray = Array.from(this.spanMap.values());
+      const kept = this.retentionPolicy.evictIfNeeded(spansArray, this.traces);
+      if (kept.length < spansArray.length) {
+        const keptIds = new Set(kept.map(s => s.spanId));
+        for (const id of this.spanMap.keys()) {
+          if (!keptIds.has(id)) this.spanMap.delete(id);
+        }
       }
     }
     this.spansSinceExport.push(span);
@@ -602,29 +605,46 @@ export class TelemetryCollector {
 
   // Detect loops using sliding-window cycle detection on tool call sequences
   detectLoop(traceId?: string): LoopReport {
-    const sourceSpans = traceId
-      ? (this.traces.get(traceId) || [])
-      : Array.from(this.spanMap.values());
-
-    const toolCalls = sourceSpans
-      .filter(s => s.name === 'tool.call')
-      .sort((a, b) => a.startTime - b.startTime);
+    // Collect tool.call spans directly without intermediate Array.from conversion
+    const toolCalls: TelemetrySpan[] = [];
+    if (traceId) {
+      const traceSpans = this.traces.get(traceId) || [];
+      for (let i = 0; i < traceSpans.length; i++) {
+        if (traceSpans[i].name === 'tool.call') toolCalls.push(traceSpans[i]);
+      }
+    } else {
+      for (const span of this.spanMap.values()) {
+        if (span.name === 'tool.call') toolCalls.push(span);
+      }
+    }
 
     if (toolCalls.length < 2) {
       return { detected: false, cycle: [], frequency: 0, severity: 'normal' };
     }
 
-    const sequence = toolCalls.map(s => `tool.call:${s.attributes['tool.name'] as string || 'unknown'}`);
+    toolCalls.sort((a, b) => a.startTime - b.startTime);
 
-    // Sliding window: check if the last patLen elements match the patLen elements before them
-    const maxPatLen = Math.floor(sequence.length / 2);
+    // Bounded window: check recent tool calls (up to 50) to detect recent cycles efficiently
+    const recent = toolCalls.length > 50 ? toolCalls.slice(-50) : toolCalls;
+    const sequence = recent.map(s => `tool.call:${s.attributes['tool.name'] as string || 'unknown'}`);
+
+    // Sliding window: compare element-by-element without string join allocations
+    const seqLen = sequence.length;
+    const maxPatLen = Math.floor(seqLen / 2);
     let detectedCycle: string[] = [];
 
     for (let patLen = 1; patLen <= maxPatLen; patLen++) {
-      const tail = sequence.slice(sequence.length - patLen);
-      const prev = sequence.slice(sequence.length - 2 * patLen, sequence.length - patLen);
-      if (prev.length === patLen && tail.join(',') === prev.join(',')) {
-        detectedCycle = tail;
+      let isMatch = true;
+      const tailStart = seqLen - patLen;
+      const prevStart = seqLen - 2 * patLen;
+      for (let j = 0; j < patLen; j++) {
+        if (sequence[prevStart + j] !== sequence[tailStart + j]) {
+          isMatch = false;
+          break;
+        }
+      }
+      if (isMatch) {
+        detectedCycle = sequence.slice(tailStart);
         break;
       }
     }
@@ -654,32 +674,52 @@ export class TelemetryCollector {
 
   // Deprecated — use detectLoop() instead
   detectStuckLoop(toolName: string, threshold: number = 5): boolean {
-    const recentCalls = Array.from(this.spanMap.values())
-      .filter(s => s.name === 'tool.call' && s.attributes['tool.name'] === toolName)
-      .slice(-threshold);
+    // Count matching tool calls directly in a single pass over spanMap
+    let recentCount = 0;
+    for (const span of this.spanMap.values()) {
+      if (span.name === 'tool.call' && span.attributes['tool.name'] === toolName) {
+        recentCount++;
+      }
+    }
 
-    if (recentCalls.length >= threshold) return true;
+    if (recentCount >= threshold) return true;
     return this.detectLoop().detected;
   }
 
-  // Get metrics
+  // Get metrics — single-pass O(N) aggregation over spanMap without intermediate array allocations
   getMetrics(): TelemetryMetrics {
-    const allSpans = Array.from(this.spanMap.values());
-    const agentTurns = allSpans.filter(s => s.name === 'agent.turn') as AgentTurn[];
-    const toolCalls = allSpans.filter(s => s.name === 'tool.call') as ToolCall[];
+    let totalTokens = 0;
+    let totalCost = 0;
+    let totalLatency = 0;
+    let turnCount = 0;
+    let totalSpans = 0;
+    let errorSpans = 0;
+    let toolCallCount = 0;
+    let toolFailures = 0;
 
-    const totalTokens = agentTurns.reduce((sum, t) => sum + t.inputTokens + t.outputTokens, 0);
-    const totalCost = agentTurns.reduce((sum, t) => sum + t.cost, 0);
+    for (const span of this.spanMap.values()) {
+      totalSpans++;
+      if (span.status === 'error') {
+        errorSpans++;
+      }
 
-    const latencies = agentTurns.map(t => (t.endTime || t.startTime) - t.startTime);
-    const averageLatency = latencies.length > 0 ? latencies.reduce((a, b) => a + b, 0) / latencies.length : 0;
+      if (span.name === 'agent.turn') {
+        const turn = span as AgentTurn;
+        turnCount++;
+        totalTokens += turn.inputTokens + turn.outputTokens;
+        totalCost += turn.cost;
+        totalLatency += (turn.endTime || turn.startTime) - turn.startTime;
+      } else if (span.name === 'tool.call') {
+        toolCallCount++;
+        if (span.status === 'error') {
+          toolFailures++;
+        }
+      }
+    }
 
-    const errors = allSpans.filter(s => s.status === 'error').length;
-    const errorRate = allSpans.length > 0 ? errors / allSpans.length : 0;
-
-    const toolFailures = toolCalls.filter(t => t.status === 'error').length;
-    const toolFailureRate = toolCalls.length > 0 ? toolFailures / toolCalls.length : 0;
-
+    const averageLatency = turnCount > 0 ? totalLatency / turnCount : 0;
+    const errorRate = totalSpans > 0 ? errorSpans / totalSpans : 0;
+    const toolFailureRate = toolCallCount > 0 ? toolFailures / toolCallCount : 0;
     const stuckDetections = this.detectStuckLoop('tool.call') ? 1 : 0;
 
     return {
