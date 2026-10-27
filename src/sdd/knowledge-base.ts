@@ -347,28 +347,89 @@ export const GOVERNANCE_POLICIES: GovernancePolicy[] = [
   },
 ];
 
+// ===== PRE-INDEXED / PRE-PROCESSED LOOKUPS FOR O(1) & FAST SCANNING =====
+
+// Optimization: Pre-process RULES to pre-lower categories and pre-slice/lower evidence snippets
+// to avoid repeated string lowercasing, substring allocations, and inner .some() closures on every query.
+interface ProcessedRule {
+  rule: Rule;
+  category: string | undefined;
+  evidenceSnippets: string[];
+}
+
+const PROCESSED_RULES: ProcessedRule[] = RULES.map(r => ({
+  rule: r,
+  category: r.category ? r.category.toLowerCase() : undefined,
+  evidenceSnippets: r.evidence.map(e => e.toLowerCase().substring(0, 20)),
+}));
+
+// Optimization: Pre-index RULES by severity for O(1) lookup
+const RULES_BY_SEVERITY: Record<Rule['severity'], Rule[]> = {
+  info: [],
+  warning: [],
+  error: [],
+  critical: [],
+};
+for (let i = 0; i < RULES.length; i++) {
+  const r = RULES[i];
+  RULES_BY_SEVERITY[r.severity].push(r);
+}
+
+// Optimization: Pre-group GOVERNANCE_POLICIES by enforcement for O(1) lookup
+const GOVERNANCE_BY_ENFORCEMENT: Record<GovernancePolicy['enforcement'], GovernancePolicy[]> = {
+  soft: [],
+  hard: [],
+};
+for (let i = 0; i < GOVERNANCE_POLICIES.length; i++) {
+  const p = GOVERNANCE_POLICIES[i];
+  GOVERNANCE_BY_ENFORCEMENT[p.enforcement].push(p);
+}
+
 // ===== KNOWLEDGE QUERIES =====
 
 export function getBenchmark(category: string, metric?: string): Benchmark[] {
-  return BENCHMARKS.filter(b => 
-    b.category === category && 
-    (!metric || b.metric === metric) &&
-    b.verified
-  );
+  // Single-pass indexed loop filtering verified benchmarks
+  const results: Benchmark[] = [];
+  for (let i = 0; i < BENCHMARKS.length; i++) {
+    const b = BENCHMARKS[i];
+    if (b.verified && b.category === category && (!metric || b.metric === metric)) {
+      results.push(b);
+    }
+  }
+  return results;
 }
 
 export function getRulesBySeverity(severity: Rule['severity']): Rule[] {
-  return RULES.filter(r => r.severity === severity);
+  // Optimization: O(1) pre-indexed lookup instead of Array.prototype.filter scanning
+  return RULES_BY_SEVERITY[severity] || [];
 }
 
 export function getRelevantRules(context: string): Rule[] {
+  // Optimization: Single-pass indexed for-loop using pre-processed rule metadata.
+  // Avoids repeated lowercasing, substring allocations, and inline closure allocations per call.
   const lower = context.toLowerCase();
-  return RULES.filter(r => 
-    (r.category != null && lower.includes(r.category)) ||
-    r.evidence.some(e => lower.includes(e.toLowerCase().substring(0, 20)))
-  );
+  const matchedRules: Rule[] = [];
+
+  for (let i = 0; i < PROCESSED_RULES.length; i++) {
+    const pr = PROCESSED_RULES[i];
+    if (pr.category && lower.includes(pr.category)) {
+      matchedRules.push(pr.rule);
+      continue;
+    }
+    const snippets = pr.evidenceSnippets;
+    for (let j = 0; j < snippets.length; j++) {
+      if (lower.includes(snippets[j])) {
+        matchedRules.push(pr.rule);
+        break; // Matched this rule, move to next
+      }
+    }
+  }
+
+  return matchedRules;
 }
 
 export function getGovernancePolicies(enforcement?: GovernancePolicy['enforcement']): GovernancePolicy[] {
-  return GOVERNANCE_POLICIES.filter(p => !enforcement || p.enforcement === enforcement);
+  // Optimization: Pre-indexed O(1) lookup when enforcement filter is specified
+  if (!enforcement) return GOVERNANCE_POLICIES;
+  return GOVERNANCE_BY_ENFORCEMENT[enforcement] || [];
 }
