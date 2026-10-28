@@ -49,27 +49,38 @@ export class PerformanceMonitor {
       tags,
     };
 
-    if (!this.metrics.has(name)) {
-      this.metrics.set(name, []);
+    let values = this.metrics.get(name);
+    if (!values) {
+      values = [];
+      this.metrics.set(name, values);
     }
-
-    const values = this.metrics.get(name)!;
     values.push(metric);
 
-    // Cleanup old metrics
+    // O(1) amortized sliding window cleanup of expired head metrics instead of O(N) array allocation/filtering
     const cutoff = Date.now() - this.config.retentionPeriod;
-    this.metrics.set(
-      name,
-      values.filter(m => m.timestamp.getTime() >= cutoff)
-    );
+    if (values.length > 0 && values[0].timestamp.getTime() < cutoff) {
+      let firstValid = 0;
+      while (firstValid < values.length && values[firstValid].timestamp.getTime() < cutoff) {
+        firstValid++;
+      }
+      values.splice(0, firstValid);
+    }
   }
 
   getMetric(name: string, duration?: number): MetricValue[] {
-    const values = this.metrics.get(name) || [];
+    const values = this.metrics.get(name);
+    if (!values || values.length === 0) return [];
     if (!duration) return values;
 
     const cutoff = Date.now() - duration;
-    return values.filter(m => m.timestamp.getTime() >= cutoff);
+    // Single-pass indexed loop to collect matching metrics
+    const result: MetricValue[] = [];
+    for (let i = 0; i < values.length; i++) {
+      if (values[i].timestamp.getTime() >= cutoff) {
+        result.push(values[i]);
+      }
+    }
+    return result;
   }
 
   getMetricStats(name: string): {
@@ -81,25 +92,42 @@ export class PerformanceMonitor {
     p95: number;
     p99: number;
   } {
-    const values = (this.metrics.get(name) || []).map(m => m.value);
-    if (values.length === 0) {
+    const values = this.metrics.get(name);
+    if (!values || values.length === 0) {
       return { count: 0, min: 0, max: 0, avg: 0, p50: 0, p95: 0, p99: 0 };
     }
 
-    const sorted = [...values].sort((a, b) => a - b);
-    const percentile = (arr: number[], p: number): number => {
-      if (arr.length === 0) return 0;
-      const index = Math.ceil(arr.length * p) - 1;
-      return arr[Math.max(0, index)];
+    const count = values.length;
+    // Single-pass scan to copy values into Float64Array while computing min, max, sum
+    const typedVals = new Float64Array(count);
+    let sum = 0;
+    let min = Infinity;
+    let max = -Infinity;
+
+    for (let i = 0; i < count; i++) {
+      const v = values[i].value;
+      typedVals[i] = v;
+      sum += v;
+      if (v < min) min = v;
+      if (v > max) max = v;
+    }
+
+    // Fast native typed array sorting for percentile calculation
+    typedVals.sort();
+
+    const percentile = (p: number): number => {
+      const index = Math.ceil(count * p) - 1;
+      return typedVals[Math.max(0, index)];
     };
+
     return {
-      count: sorted.length,
-      min: sorted[0],
-      max: sorted[sorted.length - 1],
-      avg: sorted.reduce((a, b) => a + b, 0) / sorted.length,
-      p50: percentile(sorted, 0.5),
-      p95: percentile(sorted, 0.95),
-      p99: percentile(sorted, 0.99),
+      count,
+      min,
+      max,
+      avg: sum / count,
+      p50: percentile(0.5),
+      p95: percentile(0.95),
+      p99: percentile(0.99),
     };
   }
 
@@ -141,7 +169,7 @@ export class PerformanceMonitor {
 
     this.alerts.push(alert);
     if (this.alerts.length > 1000) {
-      this.alerts = this.alerts.slice(-1000);
+      this.alerts.splice(0, this.alerts.length - 1000);
     }
   }
 
@@ -150,21 +178,24 @@ export class PerformanceMonitor {
     startDate?: Date;
     endDate?: Date;
   }): Alert[] {
-    let alerts = [...this.alerts];
-
-    if (filters) {
-      if (filters.severity) {
-        alerts = alerts.filter(a => a.severity === filters.severity);
-      }
-      if (filters.startDate) {
-        alerts = alerts.filter(a => a.timestamp >= filters.startDate!);
-      }
-      if (filters.endDate) {
-        alerts = alerts.filter(a => a.timestamp <= filters.endDate!);
-      }
+    if (!filters || (!filters.severity && !filters.startDate && !filters.endDate)) {
+      return [...this.alerts];
     }
 
-    return alerts;
+    const result: Alert[] = [];
+    const { severity, startDate, endDate } = filters;
+    const startMs = startDate ? startDate.getTime() : -Infinity;
+    const endMs = endDate ? endDate.getTime() : Infinity;
+
+    for (let i = 0; i < this.alerts.length; i++) {
+      const a = this.alerts[i];
+      if (severity && a.severity !== severity) continue;
+      const ts = a.timestamp.getTime();
+      if (ts < startMs || ts > endMs) continue;
+      result.push(a);
+    }
+
+    return result;
   }
 
   getAlertStats(): {
@@ -173,22 +204,39 @@ export class PerformanceMonitor {
     critical: number;
     resolved: number;
   } {
+    let warnings = 0;
+    let critical = 0;
+    const total = this.alerts.length;
+
+    for (let i = 0; i < total; i++) {
+      if (this.alerts[i].severity === 'warning') {
+        warnings++;
+      } else if (this.alerts[i].severity === 'critical') {
+        critical++;
+      }
+    }
+
     return {
-      total: this.alerts.length,
-      warnings: this.alerts.filter(a => a.severity === 'warning').length,
-      critical: this.alerts.filter(a => a.severity === 'critical').length,
-      resolved: 0, // Would need to track resolution
+      total,
+      warnings,
+      critical,
+      resolved: 0,
     };
   }
 
   clearOldMetrics(): void {
     const cutoff = Date.now() - this.config.retentionPeriod;
     for (const [name, values] of this.metrics.entries()) {
-      const filtered = values.filter(m => m.timestamp.getTime() >= cutoff);
-      if (filtered.length === 0) {
-        this.metrics.delete(name);
-      } else {
-        this.metrics.set(name, filtered);
+      if (values.length > 0 && values[0].timestamp.getTime() < cutoff) {
+        let firstValid = 0;
+        while (firstValid < values.length && values[firstValid].timestamp.getTime() < cutoff) {
+          firstValid++;
+        }
+        if (firstValid === values.length) {
+          this.metrics.delete(name);
+        } else {
+          values.splice(0, firstValid);
+        }
       }
     }
   }
