@@ -136,13 +136,23 @@ function calculateRecencyComponent(ageDays: number, halfLifeDays: number): numbe
 function calculateConsolidationComponent(recallDays: string[]): number {
   if (recallDays.length === 0) return 0
   if (recallDays.length === 1) return 0.2
-  const parsed = recallDays
-    .map(d => Date.parse(d + "T00:00:00.000Z"))
-    .filter(v => Number.isFinite(v))
-    .sort((a, b) => a - b)
-  if (parsed.length < 2) return 0.2
-  const spanDays = (parsed[parsed.length - 1] - parsed[0]) / (24 * 60 * 60 * 1000)
-  const spacing = clampScore(Math.log1p(parsed.length - 1) / Math.log1p(4))
+
+  // Standard ISO date strings ("YYYY-MM-DD") sort lexicographically.
+  // Find min and max dates in a single pass without intermediate string allocations.
+  let minDateStr = recallDays[0]
+  let maxDateStr = recallDays[0]
+  for (let i = 1; i < recallDays.length; i++) {
+    const day = recallDays[i]
+    if (day < minDateStr) minDateStr = day
+    if (day > maxDateStr) maxDateStr = day
+  }
+
+  const startMs = Date.parse(minDateStr)
+  const endMs = Date.parse(maxDateStr)
+  if (!Number.isFinite(startMs) || !Number.isFinite(endMs)) return 0.2
+
+  const spanDays = (endMs - startMs) / (24 * 60 * 60 * 1000)
+  const spacing = clampScore(Math.log1p(recallDays.length - 1) / Math.log1p(4))
   const span = clampScore(spanDays / 7)
   return clampScore(0.55 * spacing + 0.45 * span)
 }
@@ -232,8 +242,10 @@ export function runLightDreaming(
   entries: ShortTermRecallEntry[],
   options: { limit: number; dedupeSimilarity: number },
 ): DreamingPhaseResult {
-  const sorted = [...entries].sort(
-    (a, b) => Date.parse(b.lastRecalledAt) - Date.parse(a.lastRecalledAt),
+  // ISO 8601 strings in UTC sort in exact chronological order lexicographically.
+  // Using string comparison eliminates O(N log N) Date.parse() overhead during sort.
+  const sorted = [...entries].sort((a, b) =>
+    b.lastRecalledAt > a.lastRecalledAt ? 1 : b.lastRecalledAt < a.lastRecalledAt ? -1 : 0,
   )
   const staged = sorted.slice(0, options.limit)
 
@@ -324,10 +336,21 @@ export interface MemoryManager {
 
 export function createMemoryManager(): MemoryManager {
   const store = new Map<string, MemoryEntry>()
+  // Dedicated per-layer maps for O(1) layer indexing to eliminate O(N) full-store scans in getByLayer
+  const layerStores = new Map<MemoryLayer, Map<string, MemoryEntry>>([
+    ["working", new Map()],
+    ["episodic", new Map()],
+    ["semantic", new Map()],
+    ["dreams", new Map()],
+  ])
 
   return {
     add(entry: MemoryEntry) {
       store.set(entry.id, entry)
+      const layerMap = layerStores.get(entry.layer)
+      if (layerMap) {
+        layerMap.set(entry.id, entry)
+      }
     },
 
     get(id: string) {
@@ -335,22 +358,33 @@ export function createMemoryManager(): MemoryManager {
     },
 
     getByLayer(layer: MemoryLayer) {
-      return [...store.values()].filter(e => e.layer === layer)
+      const layerMap = layerStores.get(layer)
+      return layerMap ? Array.from(layerMap.values()) : []
     },
 
     remove(id: string) {
-      store.delete(id)
+      const entry = store.get(id)
+      if (entry) {
+        store.delete(id)
+        layerStores.get(entry.layer)?.delete(id)
+      }
     },
 
     promote(id: string, toLayer: MemoryLayer) {
       const entry = store.get(id)
       if (entry) {
-        store.set(id, { ...entry, layer: toLayer })
+        layerStores.get(entry.layer)?.delete(id)
+        const updated = { ...entry, layer: toLayer }
+        store.set(id, updated)
+        const targetMap = layerStores.get(toLayer)
+        if (targetMap) {
+          targetMap.set(id, updated)
+        }
       }
     },
 
     list() {
-      return [...store.values()]
+      return Array.from(store.values())
     },
   }
 }
