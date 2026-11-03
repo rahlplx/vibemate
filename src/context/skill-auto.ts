@@ -66,28 +66,35 @@ const SKILL_BUDGETS: Record<string, number> = {
   'default': 4000
 };
 
+const IRRELEVANT_SKILLS = new Set([
+  'remotion',
+  'stitch',
+  'shadcn-ui',
+  'react:components',
+]);
+
+// Pre-filter and pre-lowercase triggers at module scope to eliminate per-call Object.entries(),
+// inline filter arrays, repeated trigger.toLowerCase() calls, and Set deduplication allocations.
+const ACTIVE_SKILL_ENTRIES: readonly (readonly [string, readonly string[]])[] = Object.entries(SKILL_TRIGGERS)
+  .filter(([skill]) => !IRRELEVANT_SKILLS.has(skill))
+  .map(([skill, triggers]) => [skill, triggers.map(t => t.toLowerCase())] as const);
+
 export class SkillAutoActivator {
   activate(taskDescription: string): string[] {
     const taskLower = taskDescription.toLowerCase();
     const activated: string[] = [];
     
-    for (const [skill, triggers] of Object.entries(SKILL_TRIGGERS)) {
-      // Check if any trigger matches
-      const isRelevant = triggers.some(trigger => 
-        taskLower.includes(trigger.toLowerCase())
-      );
-      
-      if (isRelevant) {
-        activated.push(skill);
+    for (let i = 0; i < ACTIVE_SKILL_ENTRIES.length; i++) {
+      const [skill, triggers] = ACTIVE_SKILL_ENTRIES[i];
+      for (let j = 0; j < triggers.length; j++) {
+        if (taskLower.includes(triggers[j])) {
+          activated.push(skill);
+          break; // Short-circuit on first matching trigger
+        }
       }
     }
     
-    // Remove duplicates and irrelevant skills
-    const relevant = activated.filter(skill => 
-      !['remotion', 'stitch', 'shadcn-ui', 'react:components'].includes(skill)
-    );
-    
-    return [...new Set(relevant)];
+    return activated;
   }
 
   getBudgets(skills: string[]): SkillBudget {
