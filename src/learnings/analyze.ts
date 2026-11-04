@@ -155,9 +155,39 @@ export function audit(data: ExtractedData): AuditFinding[] {
   return findings
 }
 
+// Hoisted lookup tables to eliminate per-call and per-iteration allocations
+const SEVERITY_SCORES: Record<string, number> = {
+  critical: 10,
+  high: 7,
+  medium: 4,
+  low: 2,
+  info: 1,
+}
+
+const EFFORT_HOURS: Record<string, number> = {
+  trivial: 0.5,
+  easy: 2,
+  medium: 8,
+  hard: 24,
+  epic: 80,
+}
+
 export function assessValue(data: ExtractedData, findings: AuditFinding[]): ValueAssessment {
-  const severityScores = { critical: 10, high: 7, medium: 4, low: 2, info: 1 }
-  const totalSeverity = findings.reduce((sum, f) => sum + severityScores[f.severity], 0)
+  // Single-pass aggregation of total severity, critical count, and development hours
+  // avoids 3 separate iterations (reduce + filter + reduce) and intermediate array allocations
+  let totalSeverity = 0
+  let criticalCount = 0
+  let developmentHours = 0
+
+  for (let i = 0; i < findings.length; i++) {
+    const f = findings[i]
+    totalSeverity += SEVERITY_SCORES[f.severity] ?? 0
+    if (f.severity === "critical") {
+      criticalCount++
+    }
+    developmentHours += EFFORT_HOURS[f.effort] ?? 4
+  }
+
   const maxPossible = findings.length * 10
   const overallScore = maxPossible > 0 ? Math.round(((maxPossible - totalSeverity) / maxPossible) * 100) : 50
 
@@ -193,14 +223,11 @@ export function assessValue(data: ExtractedData, findings: AuditFinding[]): Valu
       "Add CI/CD pipeline",
     ],
     threats: [
-      `${findings.filter(f => f.severity === "critical").length} critical findings`,
+      `${criticalCount} critical findings`,
       `${data.architecture.circularDependencies.length} circular dependencies`,
     ],
     roiEstimate: {
-      developmentHours: findings.reduce((sum, f) => {
-        const effortMap = { trivial: 0.5, easy: 2, medium: 8, hard: 24, epic: 80 }
-        return sum + (effortMap[f.effort] || 4)
-      }, 0),
+      developmentHours,
       maintenanceMultiplier: 1.5,
       reusePotential: Math.min(10, Math.round(data.architecture.entryPoints.length * 2 + data.patterns.designPatterns.length)),
     },
