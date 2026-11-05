@@ -1,0 +1,3 @@
+## 2026-11-05 - Hoisting RegExp Compilation and Line Splitting in Secret Scanning
+**Learning:** Re-instantiating `new RegExp()` inside nested line-by-line loops and repeatedly invoking `text.split("\n")` per regex pattern creates massive garbage collection pressure ($O(P \times L)$ RegExp object allocations) and multi-fold overhead. Creating each pattern's RegExp instance once per scan operation and resetting `lastIndex = 0` between lines eliminates $O(P \times L)$ allocations while preserving full isolation and state safety against regex `lastIndex` carry-over.
+**Action:** In pattern matching pipelines operating over multiline content, split lines once and instantiate regular expressions outside line loops, resetting `lastIndex = 0` before each line test.
